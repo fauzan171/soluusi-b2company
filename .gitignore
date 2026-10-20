@@ -18,3 +18,5 @@ yarn-error.log
 /.vscode
 /database/*.sqlite
 /database/*.sqlite-journal
+/error_log
+/storage/framework/views/*.php
