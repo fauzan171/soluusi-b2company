@@ -1,0 +1,15 @@
+<?php $__env->startSection('title', 'Dashboard BK — '.$sekolah->brand); ?>
+<?php $__env->startSection('content'); ?>
+<h1 class="text-xl font-bold">Dashboard BK <?php echo e($month); ?></h1>
+<form method="GET"><label>Bulan <input type="month" name="month" value="<?php echo e($month); ?>" required></label><button>Tampilkan</button></form>
+<a href="<?php echo e(route('sekolah.students')); ?>">Kelola roster siswa dan izin wali</a>
+<p>Data agregat berdasarkan orang unik. Breakdown dan data pelengkap disembunyikan jika contributor nonzero kurang dari lima; bukan jaminan anonimitas absolut.</p>
+<dl><dt>Siswa terdaftar</dt><dd><?php echo e($registered); ?></dd><dt>Sesi selesai</dt><dd><?php echo e($done ?? '—'); ?></dd><dt>Peserta unik</dt><dd><?php echo e($participants ?? '—'); ?></dd><dt>Partisipasi</dt><dd><?php echo e($participation === null ? '—' : $participation.'%'); ?></dd><dt>No-show</dt><dd><?php echo e($noShow ?? '—'); ?></dd><dt>Rating rata-rata</dt><dd><?php echo e($avgRating ?? '—'); ?></dd></dl>
+<?php if($suppressed): ?><p>Data sesi tidak tersedia untuk perlindungan privasi.</p><?php endif; ?>
+<h2>Kelas</h2><ul><?php $__currentLoopData = $groups; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $group): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($group['name']); ?>: <?php echo e($group['participants']); ?> peserta / <?php echo e($group['registered']); ?> siswa</li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul>
+<h2>Topik</h2><ul><?php $__currentLoopData = $topics; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $topic => $count): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($topic); ?>: <?php echo e($count); ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul>
+<h2>WHO-5</h2><?php if($riskDist === null): ?><p>— Data asesmen tidak tersedia.</p><?php else: ?><ul><?php $__currentLoopData = $riskDist; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $band => $count): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($band); ?>: <?php echo e($count); ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul><?php endif; ?>
+<h2>Tindakan</h2><?php $__empty_1 = true; $__currentLoopData = $insights; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $insight): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><p><?php echo e($insight['topic']); ?>: <?php echo e($insight['action']); ?></p><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><p>Rekomendasi berbasis sesi tidak tersedia.</p><?php endif; ?>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /home/hermes/workspace/projects/soluusi-b2b-klinik/resources/views/sekolah/dashboard.blade.php ENDPATH**/ ?>

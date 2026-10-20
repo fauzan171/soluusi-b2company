@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Soluusi brand — selaras soluusi.com & logo */
+    --color-pine-50: #eef7f2;
+    --color-pine-100: #d7ecdf;
+    --color-pine-200: #b0d9c3;
+    --color-pine-300: #7fc1a0;
+    --color-pine-400: #4aa37c;
+    --color-pine-500: #1e8a5e;
+    --color-pine-600: #0d7a5f;
+    --color-pine-700: #007648;
+    --color-pine-800: #0c5b3e;
+    --color-pine-900: #0c3b2e;
+    --color-pine-950: #062a20;
+
+    --color-terra-50: #fdf1ea;
+    --color-terra-100: #fadfd0;
+    --color-terra-200: #f4bd9e;
+    --color-terra-300: #ec9668;
+    --color-terra-400: #e2703a;
+    --color-terra-500: #c2540a;
+    --color-terra-600: #f15a23;
+    --color-terra-700: #b84a10;
+    --color-terra-800: #933c12;
+    --color-terra-900: #783313;
+
+    --color-paper: #f7f4ee;
+    --color-ink: #1a2420;
+}
+
+body {
+    background-color: var(--color-paper);
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* Sidebar portal */
+.portal-sidebar {
+    background: linear-gradient(180deg, var(--color-pine-900), var(--color-pine-800) 60%, var(--color-pine-700));
+}
+.portal-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    border-radius: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    border: 1px solid transparent;
+    transition: 0.18s ease;
+}
+.portal-nav-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+.portal-nav-link.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Kartu standar portal */
+.portal-card {
+    border: 1px solid #e7e2d9;
+    background: #fff;
+    border-radius: 1.25rem;
+    box-shadow: 0 1px 2px rgba(12, 59, 46, 0.04), 0 12px 28px rgba(12, 59, 46, 0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.portal-card:hover {
+    border-color: var(--color-pine-300);
+    box-shadow: 0 2px 4px rgba(12, 59, 46, 0.05), 0 16px 36px rgba(12, 59, 46, 0.07);
+}
