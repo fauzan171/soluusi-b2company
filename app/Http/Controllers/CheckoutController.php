@@ -127,7 +127,8 @@ class CheckoutController extends Controller
             'final_price' => $final,
             'created_by' => null,
             'expires_at' => now()->addHour(),
-            'used_at' => now(),
+            // Tidak set used_at: link langsung dikonsumsi startPayment() → claimLink()
+            // yang menandainya. Menandai di sini membuat claimLink selalu gagal.
         ]);
 
         return $this->startPayment($data, $link);
