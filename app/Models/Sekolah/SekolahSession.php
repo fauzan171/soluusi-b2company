@@ -15,6 +15,7 @@ class SekolahSession extends Model
     protected $casts = [
         'completed_at' => 'datetime',
         'scheduled_at' => 'datetime',
+        'ended_at' => 'datetime',
     ];
 
     public function sekolah()
