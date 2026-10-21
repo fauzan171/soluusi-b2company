@@ -66,6 +66,7 @@ Route::post('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::cla
 Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(function () {
     Route::middleware('role:bk,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Sekolah\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/export', [\App\Http\Controllers\Sekolah\DashboardController::class, 'export'])->name('dashboard.export');
         Route::get('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'index'])->name('students');
         Route::post('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'store'])->name('students.store');
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
@@ -79,6 +80,7 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::get('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingForm'])->name('booking');
         Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->name('booking.store');
         Route::post('/siswa/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingCancel'])->name('booking.cancel');
+        Route::post('/siswa/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingReschedule'])->name('booking.reschedule');
     });
 });
 

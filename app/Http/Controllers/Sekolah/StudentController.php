@@ -177,4 +177,17 @@ class StudentController extends Controller
 
         return back()->with('success', $restored ? 'Sesi dibatalkan. Kuota kamu kembali.' : 'Sesi dibatalkan. Kuota tetap terpakai karena melewati batas pembatalan.');
     }
+
+    /** Reschedule = cancel + pilih slot baru (paritas dengan portal karyawan). */
+    public function bookingReschedule(Request $r, SekolahSession $session)
+    {
+        $student = $this->resolveStudent();
+        abort_unless($session->student_id === $student->id, 403);
+        abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa diubah.');
+
+        $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
+        \App\Services\BookingService::reschedule('sekolah', $student, $session, $r->integer('schedule_id'));
+
+        return redirect()->route('sekolah.student')->with('success', 'Jadwal sesi berhasil diubah.');
+    }
 }
