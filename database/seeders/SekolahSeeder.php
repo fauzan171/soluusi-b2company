@@ -87,7 +87,8 @@ class SekolahSeeder extends Seeder
             // Satu siswa user untuk demo portal siswa.
             $stuUser = SekolahStudent::where('sekolah_id', $sekolah->id)->whereNull('user_id')->first();
             if ($stuUser) {
-                $email = Str::slug($stuUser->name, '.') . $sekolah->id . '-login@demo-siswa.test';
+                // Email akun = email roster, supaya yang tampil di tabel BK bisa langsung dipakai login.
+                $email = $stuUser->email;
                 $u = User::firstOrCreate(
                     ['email' => $email],
                     [

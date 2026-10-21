@@ -91,7 +91,8 @@ class PerusahaanSeeder extends Seeder
             // Satu employee user untuk demo dashboard karyawan (karyawan pertama).
             $empUser = PerusahaanEmployee::where('perusahaan_id', $p->id)->whereNull('user_id')->first();
             if ($empUser) {
-                $email = Str::slug($empUser->name, '.') . $p->id . '-login@demo-karyawan.test';
+                // Email akun = email roster, supaya yang tampil di tabel HR bisa langsung dipakai login.
+                $email = $empUser->email;
                 $u = User::firstOrCreate(
                     ['email' => $email],
                     [
