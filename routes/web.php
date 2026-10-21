@@ -34,13 +34,13 @@ Route::get('/', [\App\Http\Controllers\LandingController::class, 'index'])->name
 Route::get('/klinik', fn () => view('verticals.klinik'))->name('landing.klinik');
 Route::get('/sekolah', fn () => view('verticals.sekolah'))->name('landing.sekolah');
 Route::get('/perusahaan', fn () => view('verticals.perusahaan'))->name('landing.perusahaan');
-Route::post('/lead', [\App\Http\Controllers\LandingController::class, 'storeLead'])->name('landing.lead');
+Route::post('/lead', [\App\Http\Controllers\LandingController::class, 'storeLead'])->middleware('throttle:5,1')->name('landing.lead');
 
 Route::get('/portal', fn () => redirect()->route('loginIndex'));
 
 // --- Registrasi partner (publik, approval oleh ops) ---
 Route::get('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'create'])->name('partner.register');
-Route::post('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'store'])->name('partner.register.store');
+Route::post('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'store'])->middleware('throttle:5,1')->name('partner.register.store');
 
 // --- Klinik portal (Partner Admin/Staff) — Build-NEW #5/#6 ---
 Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,admin'])->group(function () {
