@@ -43,4 +43,23 @@ class SplitSettlementService
             'status' => 'pending',
         ]);
     }
+
+    /**
+     * Batalkan hutang split saat uang dikembalikan ke pasien.
+     *
+     * Skema sudah punya status 'reversed' sejak migrasi pertama tapi tidak pernah
+     * ditulis, sehingga refund membuat margin klinik dan net Soluusi tetap diakui.
+     * Barisnya tidak dihapus: jejaknya dibutuhkan untuk rekonsiliasi ops.
+     */
+    public static function reverse(ConsultationSession $session): ?SplitSettlement
+    {
+        $existing = SplitSettlement::where('session_id', $session->id)->first();
+        if (!$existing || $existing->status === 'reversed') {
+            return $existing;
+        }
+
+        $existing->update(['status' => 'reversed', 'settled_at' => null]);
+
+        return $existing;
+    }
 }

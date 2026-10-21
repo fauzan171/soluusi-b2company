@@ -467,13 +467,18 @@ class CheckoutController extends Controller
             ];
         }
 
-        if (in_array($session->payment_status, [ConsultationSession::PAYMENT_STATUS_CANCELED, ConsultationSession::PAYMENT_STATUS_FAILED], true)
-            || $session->status === ConsultationSession::STATUS_CANCELED) {
+        if (in_array($session->payment_status, [
+            ConsultationSession::PAYMENT_STATUS_CANCELED,
+            ConsultationSession::PAYMENT_STATUS_FAILED,
+            ConsultationSession::PAYMENT_STATUS_REFUNDED,
+        ], true) || $session->status === ConsultationSession::STATUS_CANCELED) {
+            $refunded = $session->payment_status === ConsultationSession::PAYMENT_STATUS_REFUNDED;
+            $failed = $session->payment_status === ConsultationSession::PAYMENT_STATUS_FAILED;
             return [
-                'title' => $session->payment_status === ConsultationSession::PAYMENT_STATUS_FAILED ? 'Pembayaran gagal' : 'Sesi dibatalkan',
-                'subtitle' => 'Sesi ini tidak aktif untuk konsultasi.',
+                'title' => $refunded ? 'Pembayaran dikembalikan' : ($failed ? 'Pembayaran gagal' : 'Sesi dibatalkan'),
+                'subtitle' => $refunded ? 'Dana sudah dikembalikan ke metode pembayaranmu.' : 'Sesi ini tidak aktif untuk konsultasi.',
                 'tone' => 'red',
-                'paymentLabel' => $session->payment_status === ConsultationSession::PAYMENT_STATUS_FAILED ? 'Gagal' : 'Dibatalkan',
+                'paymentLabel' => $refunded ? 'Dana dikembalikan' : ($failed ? 'Gagal' : 'Dibatalkan'),
                 'sessionLabel' => 'Tidak aktif',
                 'nextAction' => 'Hubungi klinik untuk membuat jadwal atau link baru.',
                 'progress' => 1,

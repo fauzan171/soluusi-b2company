@@ -21,6 +21,7 @@ class ConsultationSession extends Model
     const PAYMENT_STATUS_VERIFIED = 'verified';
     const PAYMENT_STATUS_CANCELED = 'canceled';
     const PAYMENT_STATUS_FAILED = 'failed';
+    const PAYMENT_STATUS_REFUNDED = 'refunded';
 
     protected $guarded = ['id'];
 

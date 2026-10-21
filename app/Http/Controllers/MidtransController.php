@@ -45,10 +45,32 @@ class MidtransController extends Controller
         }
 
         abort_unless((int) $request->gross_amount === (int) $session->amount, 422, 'Gross amount does not match order.');
-        if ($session->payment_status === 'verified' && !in_array($request->transaction_status, ['settlement', 'capture'], true)) {
+
+        // Sesi yang sudah dibatalkan/kedaluwarsa tidak boleh dihidupkan kembali oleh
+        // notifikasi susulan: slotnya sudah dilepas dan bisa dipesan pasien lain.
+        $terminal = [
+            ConsultationSession::PAYMENT_STATUS_CANCELED,
+            ConsultationSession::PAYMENT_STATUS_FAILED,
+            ConsultationSession::PAYMENT_STATUS_REFUNDED,
+        ];
+        if (in_array($session->payment_status, $terminal, true)
+            && in_array($request->transaction_status, ['settlement', 'capture', 'pending'], true)) {
+            $session->needs_ops_review = true;
+            $session->save();
+            Log::warning('Midtrans callback: pembayaran masuk untuk sesi terminal, perlu review ops', [
+                'order_id' => $request->order_id,
+                'payment_status' => $session->payment_status,
+                'transaction_status' => $request->transaction_status,
+            ]);
+
+            return response()->json(['message' => 'Session already closed; flagged for ops review']);
+        }
+
+        if ($session->payment_status === ConsultationSession::PAYMENT_STATUS_VERIFIED
+            && !in_array($request->transaction_status, ['settlement', 'capture', 'refund'], true)) {
             return response()->json(['message' => 'Already paid; stale notification ignored']);
         }
-        abort_unless(in_array($request->transaction_status, ['settlement', 'capture', 'pending', 'expire', 'deny', 'cancel', 'failure'], true), 422, 'Unknown transaction status.');
+        abort_unless(in_array($request->transaction_status, ['settlement', 'capture', 'pending', 'expire', 'deny', 'cancel', 'failure', 'refund'], true), 422, 'Unknown transaction status.');
 
         // Idempotent: settlement berulang tetap memastikan split ledger ada.
         // Percobaan pertama bisa sudah menyimpan payment namun gagal menulis
@@ -131,6 +153,13 @@ class MidtransController extends Controller
                 $session->payment_status = 'canceled';
                 $session->status = 'canceled';
                 $session->payment = 0;
+                break;
+            case 'refund':
+                // Uang kembali ke pasien: hutang split dibatalkan, bukan dihapus.
+                $session->payment_status = ConsultationSession::PAYMENT_STATUS_REFUNDED;
+                $session->status = 'canceled';
+                $session->payment = 0;
+                SplitSettlementService::reverse($session);
                 break;
             case 'deny':
             case 'failure':
