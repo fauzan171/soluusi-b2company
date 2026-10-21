@@ -34,7 +34,10 @@ class DashboardController extends Controller
 
             $base = ConsultationSession::where('klinik_id', $klinik->id)
                 ->whereNotNull('completion_verified_at')
-                ->where('completion_verified_at', '>=', $mouAt);
+                ->where('completion_verified_at', '>=', $mouAt)
+                // Sama dengan HapPervormaService: sesi yang direfund tidak
+                // dihitung, supaya angka dashboard tidak berbeda dari payout.
+                ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED);
             $completedSinceMou = (clone $base)->count();
             $completedInWindow = (clone $base)
                 ->where('completion_verified_at', '<=', $windowEnd)->count();

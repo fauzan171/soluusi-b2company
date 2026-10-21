@@ -30,9 +30,13 @@ class HapPervormaService
         // dievaluasi membuat hitungan kembali ke 1 pada setiap sesi baru.
         $windowStart = $mouAt ?? $klinik->created_at ?? $session->created_at ?? Carbon::now();
 
+        // Sesi yang uangnya sudah dikembalikan tidak boleh menghitung komisi HAP.
+        // completion_verified_at tidak pernah direset saat refund, jadi tanpa
+        // filter ini klinik tetap membayar pervorma atas transaksi yang batal.
         $base = ConsultationSession::where('klinik_id', $klinik->id)
             ->whereNotNull('completion_verified_at')
-            ->where('completion_verified_at', '>=', $windowStart);
+            ->where('completion_verified_at', '>=', $windowStart)
+            ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED);
 
         // Stage 2/3: semua sesi sejak MoU, tidak hangus.
         $completedSinceMou = (clone $base)->count();
@@ -58,6 +62,7 @@ class HapPervormaService
         $sessionOrdinal = ConsultationSession::where('klinik_id', $klinik->id)
             ->whereNotNull('completion_verified_at')
             ->where('completion_verified_at', '>=', $windowStart)
+            ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED)
             ->where(function ($query) use ($session) {
                 $query->where('completion_verified_at', '<', $session->completion_verified_at)
                     ->orWhere(function ($sameTime) use ($session) {

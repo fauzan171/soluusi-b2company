@@ -97,4 +97,37 @@ class KlinikMoneyFlowTest extends TestCase
         HapPervormaService::evaluate($session);
         $this->assertEquals(1, HapPervorma::where('klinik_id', $klinik->id)->count());
     }
+
+    public function test_sesi_refund_tidak_menghitung_komisi_hap()
+    {
+        // completion_verified_at tidak pernah direset saat refund, jadi tanpa
+        // filter payment_status klinik tetap membayar pervorma atas transaksi
+        // yang uangnya sudah dikembalikan.
+        $klinik = Klinik::create(['name' => 'Klinik RF', 'brand' => 'Klinik RF', 'total_rate' => 1_000_000]);
+
+        $sessions = [];
+        foreach (range(1, 5) as $i) {
+            $s = $this->makeSession($klinik, 250_000, 50_000);
+            $s->konsultan_done_at = now();
+            $s->customer_confirmed_at = now();
+            $s->completion_verified_at = now();
+            $s->status = 'done';
+            $s->save();
+            $sessions[] = $s;
+        }
+
+        // 4 sesi sah + 1 direfund → tidak mencapai trigger 5, stage 1 batal cair.
+        $sessions[4]->payment_status = ConsultationSession::PAYMENT_STATUS_REFUNDED;
+        $sessions[4]->save();
+
+        $created = HapPervormaService::evaluate($sessions[0]);
+
+        $this->assertSame([], $created);
+        $this->assertDatabaseMissing('hap_pervormas', ['klinik_id' => $klinik->id]);
+        // Sesi yang direfund juga tidak di-tag ke stage mana pun.
+        $this->assertNull($sessions[4]->fresh()->hap_pervorma_stage);
+
+        // Sesi sah tetap dihitung (4 < 5 → belum cair, tapi ordinal tetap benar).
+        $this->assertSame(1, $sessions[0]->fresh()->hap_pervorma_stage);
+    }
 }
