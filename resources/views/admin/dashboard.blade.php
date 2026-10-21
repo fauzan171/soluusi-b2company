@@ -157,18 +157,25 @@
 </table>
 
 <h2 class="font-semibold mb-2">Sesi perlu review ops</h2>
-<p class="text-sm text-gray-500 mb-6">Dual-confirm fallback &gt; {{ config('klinik.confirm_window_hours') }} jam tanpa konfirmasi customer — possible fake.</p>
+<p class="text-sm text-gray-500 mb-6">Dua sumber flag: (a) konsultan mark-done &gt; {{ config('klinik.confirm_window_hours') }} jam tanpa konfirmasi customer — possible fake; (b) pembayaran masuk setelah sesi ditutup (expired/batal/refund) — dana perlu dikembalikan atau sesi dijadwalkan ulang.</p>
 <table class="w-full bg-white border rounded-lg text-sm mb-8">
     <thead><tr class="border-b text-left text-gray-500">
-        <th class="p-3">Sesi</th><th class="p-3">Konsultan</th><th class="p-3">Klinik</th><th class="p-3">Mark-done</th><th class="p-3">Aksi</th>
+        <th class="p-3">Sesi</th><th class="p-3">Alasan</th><th class="p-3">Konsultan</th><th class="p-3">Klinik</th><th class="p-3">Mark-done</th><th class="p-3">Aksi</th>
     </tr></thead>
     <tbody>
         @forelse($flagged as $s)
         <tr class="border-b">
             <td class="p-3">#{{ $s->id }} · {{ $s->order_number }}</td>
+            <td class="p-3">
+                @if(in_array($s->payment_status, [\App\Models\ConsultationSession::PAYMENT_STATUS_CANCELED, \App\Models\ConsultationSession::PAYMENT_STATUS_FAILED, \App\Models\ConsultationSession::PAYMENT_STATUS_REFUNDED], true))
+                    <span class="text-xs bg-red-100 text-red-800 rounded px-2 py-1">Pembayaran masuk setelah sesi ditutup</span>
+                @else
+                    <span class="text-xs bg-amber-100 text-amber-800 rounded px-2 py-1">Menunggu konfirmasi &gt; {{ config('klinik.confirm_window_hours') }} jam</span>
+                @endif
+            </td>
             <td class="p-3">{{ trim(($s->consultant->user->firstname ?? '') . ' ' . ($s->consultant->user->lastname ?? '')) }}</td>
             <td class="p-3">{{ $s->klinik->brand_name ?? '-' }}</td>
-            <td class="p-3">{{ optional($s->konsultan_done_at)->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ optional($s->konsultan_done_at)->format('d M Y H:i') ?: '-' }}</td>
             <td class="p-3">
                 <form method="POST" action="{{ route('admin.sessions.verify', $s) }}">@csrf
                     <button class="text-xs bg-emerald-700 text-white rounded px-2 py-1">Verifikasi Manual</button>
@@ -176,7 +183,7 @@
             </td>
         </tr>
         @empty
-        <tr><td colspan="5" class="p-3 text-gray-400">Tidak ada sesi yang perlu review.</td></tr>
+        <tr><td colspan="6" class="p-3 text-gray-400">Tidak ada sesi yang perlu review.</td></tr>
         @endforelse
     </tbody>
 </table>
