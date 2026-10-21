@@ -62,6 +62,9 @@ Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,a
 Route::get('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::class, 'form'])->middleware(['signed', 'throttle:10,1'])->name('selfregister.form');
 Route::post('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::class, 'store'])->middleware(['signed', 'throttle:10,1'])->name('selfregister.store');
 
+// Status pengembangan — untuk presentasi. Hapus saat tidak dipakai.
+Route::get('/progress', [\App\Http\Controllers\ProgressController::class, 'index'])->name('progress');
+
 // --- Sekolah portal (BK coordinator + siswa) ---
 Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(function () {
     Route::middleware('role:bk,admin')->group(function () {
