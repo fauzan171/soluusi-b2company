@@ -67,6 +67,27 @@ Tidak ada.
 - `/` 200, `/klinik` 200, `/login` 200, `/checkout/demo-klinik-token` 200 (server `:8099`).
 - `git status` bersih terhadap `6496d3f` (kecuali `storage/framework/views/` artefak kompilasi blade + `error_log`).
 
+## Audit lanjutan: webhook Midtrans (uji langsung, bukan pembacaan kode)
+
+Diuji pada server kedua `:8098` dengan `MIDTRANS_SERVER_KEY=uji-signature-lokal-123`
+via env proses saja — `.env` repo tidak disentuh. Signature dihitung sendiri
+`sha512(order_id + status_code + gross_amount + server_key)`.
+
+| Kasus | Harapan | Hasil |
+|---|---|---|
+| Signature palsu | 403 | **403** `Invalid signature` |
+| `order_id` tidak dikenal | 404 | **404** `Session not found` |
+| `gross_amount` ≠ `amount` sesi | 422 | **422** `Gross amount does not match order.` |
+| `server_key` kosong | fail-closed | **503** `Payment verification is not configured.` |
+| Settlement pertama (sesi `waiting`) | verified + ledger | **200**, sesi → `verified`/`scheduled`, ledger 1 baris net 250000 margin 50000 |
+| Settlement diulang 3× | idempotent | **200** `Already processed` ×3, ledger **tetap 1 baris** |
+| Cancel pada sesi sudah lunas | status tidak turun | **200**, sesi tetap `verified`/`scheduled` |
+| Cancel dengan signature palsu | 403 | **403** |
+
+Catatan: notifikasi `settlement` yang datang setelah sesi lunas mengembalikan
+200 `Already paid; stale notification ignored` (guard `:48`), bukan 422 —
+urutan guard benar, hanya pesan yang menyiratkan penolakan.
+
 ## Catatan proses
 Dua agen Claude Code ditugaskan audit ini (`cc3-admin`, `cc4-pasien`), keduanya
 berhenti `error_max_turns` (60 turn) tanpa menulis satu file pun, biaya

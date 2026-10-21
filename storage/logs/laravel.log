@@ -1222,3 +1222,8 @@
 #81 /home/hermes/workspace/projects/soluusi-b2b-klinik/vendor/phpunit/phpunit/phpunit(107): PHPUnit\\TextUI\\Command::main()
 #82 {main}
 "} 
+[2026-10-21 00:05:29] local.WARNING: Midtrans callback: signature mismatch {"order_id":"KB-1-20261020171503"} 
+[2026-10-21 00:07:12] local.ERROR: GoogleCalendar: GOOGLE_CALENDAR_REFRESH_TOKEN is not set in .env  
+[2026-10-21 00:07:12] local.ERROR: Google Calendar event creation failed (non-fatal): Google Calendar refresh token is not configured.  
+[2026-10-21 00:07:12] local.ERROR: Mail SudahBayar gagal (non-fatal): Attempt to read property "firstname" on null (View: /home/hermes/workspace/projects/soluusi-b2b-klinik/resources/views/emails/klinik/consultant/sudahbayar.blade.php)  
+[2026-10-21 00:07:31] local.WARNING: Midtrans cancel callback: signature mismatch {"order_id":"UJI-SIG-991"} 
