@@ -21,7 +21,7 @@
                         <td align="left" style="font-size: 16px; color: #000; padding: 0 20px;">
                             Hai <strong>{{ $consultationSession->consultant->user->firstname . ' ' . $consultationSession->consultant->user->lastname }}</strong>,<br>
 
-                            Terima kasih sudah menyelesaikan sesi konsultasi dengan <strong>{{ $consultationSession->user->firstname . ' ' . $consultationSession->user->lastname }}</strong>! Kami harap sesi tadi berjalan lancar dan memberikan solusi terbaik. 😊
+                            Terima kasih sudah menyelesaikan sesi konsultasi dengan <strong>{{ $consultationSession->customer_display_name }}</strong>! Kami harap sesi tadi berjalan lancar dan memberikan solusi terbaik. 😊
 
                         </td>
                     </tr>

@@ -23,7 +23,7 @@
 
                             <br><br>
 
-                            <strong>Nama Klien:</strong> {{ $session->user->firstname . ' ' . $session->user->lastname }}
+                            <strong>Nama Klien:</strong> {{ $session->customer_display_name }}
                         </td>
                     </tr>
                     <tr>
@@ -37,7 +37,7 @@
                                     </tr>
                                     <tr>
                                         <td style="font-size: 16px; padding: 5px 20px;">
-                                            <strong>Nama Klien:</strong> {{ $session->user->firstname . ' ' . $session->user->lastname }}
+                                            <strong>Nama Klien:</strong> {{ $session->customer_display_name }}
                                         </td>
                                     </tr>
                                     <tr>

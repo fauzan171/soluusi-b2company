@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Soluusi - Jadwal Konsultasi bersama {{ $consultationSession->user->firstname . ' ' . $consultationSession->user->lastname }}</title>
+        <title>Soluusi - Jadwal Konsultasi bersama {{ $consultationSession->customer_display_name }}</title>
     </head>
     <body>
         <div style="background-color: #ffffff; margin: 0; padding: 0; font-family: 'Poppins', Arial, Helvetica, sans-serif;">
@@ -14,12 +14,12 @@
                     </tr>
                     <tr>
                         <td align="left" style="font-size: 24px; font-weight: bold; color: #000; padding: 30px 20px;">
-                            Jadwal Konsultasi dengan <strong>{{ $consultationSession->user->firstname . ' ' . $consultationSession->user->lastname }}</strong> Sudah Siap! 📅
+                            Jadwal Konsultasi dengan <strong>{{ $consultationSession->customer_display_name }}</strong> Sudah Siap! 📅
                         </td>
                     </tr>
                     <tr>
                         <td align="left" style="font-size: 16px; color: #000; padding: 0 20px;">
-                            Hai <strong>{{ $consultationSession->consultant->user->firstname . ' ' . $consultationSession->consultant->user->lastname }}</strong>, jadwal konsultasimu bersama <strong>{{ $consultationSession->user->firstname . ' ' . $consultationSession->user->lastname }}</strong> telah terkonfirmasi! Berikut detail sesi konsultasimu:
+                            Hai <strong>{{ $consultationSession->consultant->user->firstname . ' ' . $consultationSession->consultant->user->lastname }}</strong>, jadwal konsultasimu bersama <strong>{{ $consultationSession->customer_display_name }}</strong> telah terkonfirmasi! Berikut detail sesi konsultasimu:
                         </td>
                     </tr>
                     <tr>
