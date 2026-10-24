@@ -23,7 +23,8 @@ Route::post('/checkout/{token}/confirm-done', [\App\Http\Controllers\CheckoutCon
 // --- Auth (admin klinik, konsultan, associate, super admin) ---
 Route::controller(\App\Http\Controllers\AuthController::class)->group(function () {
     Route::get('/login', 'index')->name('loginIndex');
-    Route::post('/login', 'postLogin')->middleware('throttle:5,1')->name('login');
+    // 10/menit per IP: cukup untuk demo login multi-role, tetap menahan brute-force.
+    Route::post('/login', 'postLogin')->middleware('throttle:10,1')->name('login');
     Route::get('/auth/{provider}', 'redirectToProvider')->name('login.google');
     Route::get('/auth/{provider}/callback', 'handleProvideCallback');
     Route::post('/logout', 'logout')->name('logout')->middleware('auth');
