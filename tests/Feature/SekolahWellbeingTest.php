@@ -195,9 +195,9 @@ class SekolahWellbeingTest extends TestCase
         $url = \App\Services\RosterInvitation::issue('siswa', $student);
         $this->get($url)->assertOk();
         $this->assertNull(DB::table('roster_invitations')->first()->consumed_at);
-        $this->post($url, ['password' => 'password123'])->assertRedirect(route('sekolah.student'));
+        $this->post($url, ['name' => 'Siswa Test', 'password' => 'password123'])->assertRedirect(route('sekolah.student'));
         $this->assertEquals($student->fresh()->user_id, auth()->id());
-        $this->post($url, ['password' => 'changed123'])->assertForbidden();
+        $this->post($url, ['name' => 'Siswa Test', 'password' => 'changed123'])->assertForbidden();
     }
 
     public function test_self_register_rejects_unknown_email_and_name_mismatch()
@@ -214,6 +214,29 @@ class SekolahWellbeingTest extends TestCase
         $res->assertForbidden();
     }
 
+    /** Invitation valid + nama salah → ditolak DAN undangan tidak terpakai (bisa dipakai ulang oleh pemilik roster). */
+    public function test_self_register_name_mismatch_keeps_invitation_usable(): void
+    {
+        [, $student, $user] = $this->makeStudent();
+        $user->delete();
+        $student->user_id = null;
+        $student->save();
+
+        $url = \App\Services\RosterInvitation::issue('siswa', $student);
+
+        $this->post($url, ['name' => 'Nama Orang Lain', 'password' => 'password123'])
+            ->assertForbidden();
+
+        // Rollback transaksi menjaga undangan tetap belum dikonsumsi.
+        $this->assertNull(DB::table('roster_invitations')->first()->consumed_at);
+        $this->assertNull($student->fresh()->user_id);
+
+        // Nama yang benar bisa langsung lanjut pakai undangan yang sama.
+        $this->post($url, ['name' => 'Siswa Test', 'password' => 'password123'])
+            ->assertRedirect(route('sekolah.student'));
+        $this->assertNotNull($student->fresh()->user_id);
+    }
+
     public function test_invitation_tamper_expiry_revocation_and_existing_owner(): void
     {
         [, $student, $user] = $this->makeStudent();
@@ -223,7 +246,7 @@ class SekolahWellbeingTest extends TestCase
         $this->get($second.'&roster_id=999')->assertForbidden();
         $this->post($second)->assertForbidden();
         $password = $user->password;
-        $this->actingAs($user)->post($second)->assertRedirect(route('sekolah.student'));
+        $this->actingAs($user)->post($second, ['name' => 'Siswa Test'])->assertRedirect(route('sekolah.student'));
         $this->assertSame($password, $user->fresh()->password);
         $third = \App\Services\RosterInvitation::issue('siswa', $student);
         $this->travel(8)->days();

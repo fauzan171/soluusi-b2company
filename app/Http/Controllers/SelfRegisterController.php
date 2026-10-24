@@ -47,6 +47,14 @@ class SelfRegisterController extends Controller
             $tenantKey = $type === 'karyawan' ? 'perusahaan_id' : 'sekolah_id';
             $row = $model::whereKey($invitation->roster_id)->lockForUpdate()->firstOrFail();
             abort_unless($row->$tenantKey == $invitation->tenant_id && $row->email === $invitation->email, 403);
+            // Verifikasi nama pengisi = nama roster. Email dijamin invitation,
+            // nama ini satu-satunya kesesuaian identitas yang tersisa. Di dalam
+            // transaksi: mismatch → rollback, undangan tidak terpakai.
+            abort_unless(
+                strcasecmp(trim((string) $request->input('name')), trim((string) $row->name)) === 0,
+                403,
+                'Nama tidak sesuai data roster. Hubungi HR/BK.'
+            );
             $tenant = $type === 'karyawan' ? $row->perusahaan : $row->sekolah;
             abort_unless($tenant && $tenant->is_active, 403, 'Program belum aktif. Hubungi HR/BK.');
             $role = Role::where('name', $type === 'karyawan' ? 'employee' : 'student')->firstOrFail();

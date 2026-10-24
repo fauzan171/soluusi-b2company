@@ -4,6 +4,7 @@ namespace App\Services\Klinik;
 
 use App\Models\ConsultationSession;
 use App\Models\Klinik\HapPervorma;
+use App\Models\Klinik\Klinik;
 use Carbon\Carbon;
 
 /**
@@ -24,26 +25,7 @@ class HapPervormaService
         }
 
         $cfg = config('klinik.hap');
-        $mouAt = $klinik->mou_at ? Carbon::parse($klinik->mou_at) : null;
-        // Data lama/demo bisa belum punya mou_at. Gunakan tanggal klinik dibuat
-        // sebagai fallback yang stabil; memakai created_at sesi yang sedang
-        // dievaluasi membuat hitungan kembali ke 1 pada setiap sesi baru.
-        $windowStart = $mouAt ?? $klinik->created_at ?? $session->created_at ?? Carbon::now();
-
-        // Sesi yang uangnya sudah dikembalikan tidak boleh menghitung komisi HAP.
-        // completion_verified_at tidak pernah direset saat refund, jadi tanpa
-        // filter ini klinik tetap membayar pervorma atas transaksi yang batal.
-        $base = ConsultationSession::where('klinik_id', $klinik->id)
-            ->whereNotNull('completion_verified_at')
-            ->where('completion_verified_at', '>=', $windowStart)
-            ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED);
-
-        // Stage 2/3: semua sesi sejak MoU, tidak hangus.
-        $completedSinceMou = (clone $base)->count();
-        // Stage 1: hanya sesi dalam 90 hari sejak MoU (anti-fraud activation).
-        $completedInWindow = $mouAt
-            ? (clone $base)->where('completion_verified_at', '<=', $mouAt->copy()->addDays($cfg['window_days']))->count()
-            : $completedSinceMou;
+        $counts = self::completedCounts($klinik);
 
         $rate = $klinik->total_rate ?: $cfg['total_rate'];
         $stages = [
@@ -61,7 +43,7 @@ class HapPervormaService
         // stage terakhir (atau null setelah sesi ke-40).
         $sessionOrdinal = ConsultationSession::where('klinik_id', $klinik->id)
             ->whereNotNull('completion_verified_at')
-            ->where('completion_verified_at', '>=', $windowStart)
+            ->where('completion_verified_at', '>=', $counts['windowStart'])
             ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED)
             ->where(function ($query) use ($session) {
                 $query->where('completion_verified_at', '<', $session->completion_verified_at)
@@ -77,7 +59,7 @@ class HapPervormaService
 
         $created = [];
         foreach ($stages as $stage => $def) {
-            $count = $stage === 1 ? $completedInWindow : $completedSinceMou;
+            $count = $stage === 1 ? $counts['inWindow'] : $counts['sinceMou'];
             if ($count < $def['trigger']) {
                 continue;
             }
@@ -97,6 +79,38 @@ class HapPervormaService
         }
 
         return $created;
+    }
+
+    /**
+     * Hitungan sesi completed-verified per klinik — SATU definisi untuk payout
+     * engine, dashboard HAP, dan progress dashboard klinik (sebelumnya tiga
+     * salinan yang bisa saling berbeda setelah edit).
+     *
+     * Refund dikecualikan (completion_verified_at tidak direset saat refund),
+     * sesi pra-MoU tidak dihitung, fallback window = created_at klinik.
+     */
+    public static function completedCounts(Klinik $klinik): array
+    {
+        $cfg = config('klinik.hap');
+        $mouAt = $klinik->mou_at ? Carbon::parse($klinik->mou_at) : null;
+        // Data lama/demo bisa belum punya mou_at. created_at klinik stabil;
+        // created_at sesi yang dievaluasi bikin hitungan reset tiap sesi baru.
+        $windowStart = $mouAt ?? $klinik->created_at ?? Carbon::now();
+
+        $base = ConsultationSession::where('klinik_id', $klinik->id)
+            ->whereNotNull('completion_verified_at')
+            ->where('completion_verified_at', '>=', $windowStart)
+            ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED);
+
+        return [
+            'windowStart' => $windowStart,
+            // Stage 2/3: semua sesi sejak MoU, tidak hangus.
+            'sinceMou' => (clone $base)->count(),
+            // Stage 1: hanya sesi dalam 90 hari sejak MoU (anti-fraud activation).
+            'inWindow' => $mouAt
+                ? (clone $base)->where('completion_verified_at', '<=', $mouAt->copy()->addDays($cfg['window_days']))->count()
+                : (clone $base)->count(),
+        ];
     }
 
     /**

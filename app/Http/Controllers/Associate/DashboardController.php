@@ -29,31 +29,23 @@ class DashboardController extends Controller
         $klinikStats = [];
 
         foreach ($kliniks as $klinik) {
-            $mouAt = $klinik->mou_at ? \Carbon\Carbon::parse($klinik->mou_at) : $klinik->created_at;
-            $windowEnd = $mouAt->copy()->addDays(config('klinik.hap.window_days', 90));
-
-            $base = ConsultationSession::where('klinik_id', $klinik->id)
-                ->whereNotNull('completion_verified_at')
-                ->where('completion_verified_at', '>=', $mouAt)
-                // Sama dengan HapPervormaService: sesi yang direfund tidak
-                // dihitung, supaya angka dashboard tidak berbeda dari payout.
-                ->where('payment_status', '!=', ConsultationSession::PAYMENT_STATUS_REFUNDED);
-            $completedSinceMou = (clone $base)->count();
-            $completedInWindow = (clone $base)
-                ->where('completion_verified_at', '<=', $windowEnd)->count();
+            // SATU definisi hitungan dengan payout engine (HapPervormaService)
+            // — sebelumnya salinan query terpisah yang bisa berbeda setelah edit.
+            $counts = \App\Services\Klinik\HapPervormaService::completedCounts($klinik);
+            $cfg = config('klinik.hap');
 
             // Pervorma stages for this clinic
             $pervormas = $klinik->hapPervormas()->orderBy('stage')->get();
             $totalDue = $pervormas->where('status', 'due')->sum('amount');
             $totalPaid = $pervormas->where('status', 'paid')->sum('amount');
 
-            // Stage progress (5/25/40)
-            $stage1Reached = $completedInWindow >= 5;
-            $stage2Reached = $completedSinceMou >= 25;
-            $stage3Reached = $completedSinceMou >= 40;
+            // Stage progress (5/25/40) — angka yang sama dengan trigger payout.
+            $stage1Reached = $counts['inWindow'] >= $cfg['stage1_trigger'];
+            $stage2Reached = $counts['sinceMou'] >= $cfg['stage2_trigger'];
+            $stage3Reached = $counts['sinceMou'] >= $cfg['stage3_trigger'];
 
             $klinikStats[$klinik->id] = [
-                'completed' => $completedSinceMou,
+                'completed' => $counts['sinceMou'],
                 'stage1' => $stage1Reached,
                 'stage2' => $stage2Reached,
                 'stage3' => $stage3Reached,
