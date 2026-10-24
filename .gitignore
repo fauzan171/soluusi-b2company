@@ -19,5 +19,6 @@ yarn-error.log
 /database/*.sqlite
 /database/*.sqlite-journal
 /error_log
+/storage/logs/*.log
 /storage/framework/views/*.php
 .env.bak*
