@@ -305,7 +305,58 @@
             </div>
         </div>
 
-        <div class="fade-up dash-card p-5">
+        <section id="ai-insight" class="fade-up dash-card p-5" x-data="aiInsight()">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="dash-section-title">Insight AI &amp; usulan tindakan</h3>
+                <p class="dash-section-subtitle">Analisis AI atas data agregat (topik anonim, risiko WHO-5, utilisasi). Tanpa nama individu. Tinjau bersama tim sebelum diterapkan.</p>
+            </div>
+            <button type="button" @click="generate()" :disabled="processing"
+                class="rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 disabled:opacity-60"
+                x-text="processing ? 'Sedang menganalisis…' : (state?.stale && state?.insight ? 'Perbarui insight AI' : 'Analisis dengan AI')"></button>
+        </div>
+
+        <template x-if="error"><p class="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" x-text="error"></p></template>
+        <template x-if="state && state.error && !processing"><p class="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800" x-text="state.error"></p></template>
+
+        <div x-show="processing" class="mt-5 flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-6 text-sm text-gray-500">
+            <svg class="h-4 w-4 animate-spin text-pine-700" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            AI membaca agregat sesi, topik anonim, dan asesmen. Proses ± 1 menit.
+        </div>
+
+        <div x-show="!processing && insight" class="mt-5 space-y-4">
+            <div class="panel-surface">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Ringkasan kondisi</p>
+                <p class="mt-2 text-sm leading-6 text-gray-700" x-text="insight?.summary"></p>
+            </div>
+            <template x-for="(f, i) in (insight?.findings || [])" :key="i">
+                <div class="rounded-2xl border border-[#e7e2d9] p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-sm font-semibold text-gray-900" x-text="f.title"></p>
+                        <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                            :class="f.priority === 'prioritas' ? 'bg-red-100 text-red-700' : (f.priority === 'terencana' ? 'bg-terra-100 text-terra-800' : 'bg-gray-100 text-gray-600')"
+                            x-text="f.priority === 'prioritas' ? 'Prioritas tindak lanjut' : (f.priority === 'terencana' ? 'Tindak lanjut terencana' : 'Pemantauan')"></span>
+                    </div>
+                    <p class="mt-2 text-xs leading-6 text-gray-600" x-text="f.detail"></p>
+                    <p class="mt-2 text-xs leading-6 text-gray-700"><span class="font-semibold">Usulan tindakan HR:</span> <span x-text="f.hrAction"></span></p>
+                    <p class="mt-1 text-xs leading-6 text-gray-500"><span class="font-semibold">Rekomendasi ahli pada sumber:</span> <span x-text="f.expertRecommendation"></span></p>
+                </div>
+            </template>
+            <template x-if="insight && insight.dataGaps && insight.dataGaps.length">
+                <div class="rounded-2xl bg-amber-50 px-4 py-3">
+                    <p class="text-xs font-semibold text-amber-800">Keterbatasan data</p>
+                    <ul class="mt-1 list-disc pl-5 text-xs text-amber-700"><template x-for="(g, i) in insight.dataGaps" :key="i"><li x-text="g"></li></template></ul>
+                </div>
+            </template>
+            <p class="text-[11px] text-gray-400">Dibuat <span x-text="generatedAt || '—'"></span> · model <span x-text="modelName || '—'"></span> · usulan AI, bukan diagnosis. Kutipan divalidasi sistem; tema tetap perlu ditinjau.</p>
+        </div>
+
+        <div x-show="!processing && !insight && !error" class="mt-4 rounded-3xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
+            Belum ada analisis AI untuk periode ini. Klik "Analisis dengan AI" untuk membuat.
+        </div>
+    </section>
+
+    <div class="fade-up dash-card p-5">
             <div class="flex items-center justify-between gap-3">
                 <h3 class="dash-section-title">Action board</h3>
                 <span class="rounded-full bg-pine-50 px-3 py-1 text-[11px] font-semibold text-pine-700">Data-driven</span>
@@ -655,6 +706,47 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script>
+function aiInsight() {
+    return {
+        state: null, error: '', processing: false, timer: null,
+        async init() { await this.load(); },
+        async load() {
+            try {
+                const res = await fetch('{{ route('perusahaan.dashboard.ai-insight') }}', { headers: { 'Accept': 'application/json' } });
+                if (res.ok) this.state = await res.json();
+            } catch (e) { /* biarkan tombol yang memicu error */ }
+            this.pollIfRunning();
+        },
+        pollIfRunning() {
+            if (this.state?.status !== 'running') return;
+            this.processing = true;
+            clearInterval(this.timer);
+            this.timer = setInterval(async () => {
+                try {
+                    const res = await fetch('{{ route('perusahaan.dashboard.ai-insight') }}', { headers: { 'Accept': 'application/json' } });
+                    if (res.ok) { this.state = await res.json(); if (this.state.status !== 'running') { this.processing = false; clearInterval(this.timer); } }
+                } catch (e) {}
+            }, 5000);
+        },
+        async generate() {
+            this.error = ''; this.processing = true;
+            try {
+                const res = await fetch('{{ route('perusahaan.dashboard.ai-insight') }}?generate=1', { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}' } });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Analisis AI belum dapat dibuat.');
+                this.state = json;
+                this.pollIfRunning();
+            } catch (e) {
+                this.error = e.message;
+            } finally { if (this.state?.status !== 'running') this.processing = false; }
+        },
+        get insight() { return this.state && !this.state.stale && this.state.status === 'completed' ? this.state.insight : null; },
+        get generatedAt() { return this.state && !this.state.stale ? (this.state.generated_at || null) : null; },
+        get modelName() { return this.state?.model || null; },
+    };
+}
+</script>
 <script>
 function pillToggle(btnSel, panelPrefix, key) {
     document.querySelectorAll(btnSel).forEach((btn) => {

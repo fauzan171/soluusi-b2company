@@ -659,6 +659,46 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <script>
+function aiInsight() {
+    return {
+        state: null, error: '', processing: false, timer: null,
+        async init() { await this.load(); },
+        async load() {
+            try {
+                const res = await fetch('{{ route('sekolah.dashboard.ai-insight') }}', { headers: { 'Accept': 'application/json' } });
+                if (res.ok) this.state = await res.json();
+            } catch (e) { /* biarkan tombol yang memicu error */ }
+            this.pollIfRunning();
+        },
+        pollIfRunning() {
+            if (this.state?.status !== 'running') return;
+            this.processing = true;
+            clearInterval(this.timer);
+            this.timer = setInterval(async () => {
+                try {
+                    const res = await fetch('{{ route('sekolah.dashboard.ai-insight') }}', { headers: { 'Accept': 'application/json' } });
+                    if (res.ok) { this.state = await res.json(); if (this.state.status !== 'running') { this.processing = false; clearInterval(this.timer); } }
+                } catch (e) {}
+            }, 5000);
+        },
+        async generate() {
+            this.error = ''; this.processing = true;
+            try {
+                const res = await fetch('{{ route('sekolah.dashboard.ai-insight') }}?generate=1', { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}' } });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Analisis AI belum dapat dibuat.');
+                this.state = json;
+                this.pollIfRunning();
+            } catch (e) {
+                this.error = e.message;
+            } finally { if (this.state?.status !== 'running') this.processing = false; }
+        },
+        get insight() { return this.state && !this.state.stale && this.state.status === 'completed' ? this.state.insight : null; },
+        get generatedAt() { return this.state && !this.state.stale ? (this.state.generated_at || null) : null; },
+        get modelName() { return this.state?.model || null; },
+    };
+}
+
 function pillToggle(btnSel, panelPrefix, key) {
     document.querySelectorAll(btnSel).forEach((btn) => {
         btn.addEventListener('click', () => {

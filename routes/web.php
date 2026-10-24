@@ -71,6 +71,8 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
     Route::middleware('role:bk,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Sekolah\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Sekolah\DashboardController::class, 'export'])->name('dashboard.export');
+        Route::get('/dashboard/ai-insight', [\App\Http\Controllers\Sekolah\DashboardController::class, 'aiInsight'])->name('dashboard.ai-insight');
+        Route::post('/dashboard/ai-insight', [\App\Http\Controllers\Sekolah\DashboardController::class, 'aiInsight']);
         Route::get('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'index'])->name('students');
         Route::post('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'store'])->name('students.store');
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
@@ -93,6 +95,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
     Route::middleware('role:hr_admin,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'export'])->name('dashboard.export');
+        Route::get('/dashboard/ai-insight', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'aiInsight'])->name('dashboard.ai-insight');
+        Route::post('/dashboard/ai-insight', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'aiInsight']);
         Route::get('/report', [\App\Http\Controllers\Perusahaan\ReportController::class, 'index'])->name('report');
         Route::get('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'index'])->name('employees');
         Route::post('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'store'])->name('employees.store');

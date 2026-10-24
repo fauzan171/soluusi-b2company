@@ -62,6 +62,18 @@ class DashboardController extends Controller
         return view('sekolah.dashboard', ['sekolah' => $sekolah] + $monthly + $metrics);
     }
 
+    /** Generate / baca insight AI untuk tenant ini (agregat, tanpa identitas). */
+    public function aiInsight()
+    {
+        $sekolah = SekolahContext::current();
+        abort_unless($sekolah && $sekolah->is_active, 403);
+
+        $context = \App\Services\AiInsightService::buildContext($sekolah, 'sekolah');
+        $state = \App\Services\AiInsightService::get($sekolah, 'sekolah', $context, request()->boolean('generate'));
+
+        return response()->json($state);
+    }
+
     /** Paritas dengan perusahaan.dashboard.export — agregat yang sama, istilah sekolah. */
     public function export()
     {

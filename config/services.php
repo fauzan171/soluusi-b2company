@@ -30,4 +30,12 @@ return [
         'service_account_subject' => env('GOOGLE_CALENDAR_SERVICE_ACCOUNT_SUBJECT'),
     ],
 
+    // AI Insight (HR/BK) — gateway OpenAI-compatible, model fixed glm-5.3-flash
+    // (paritas TVS kiosk). Key kosong = panel menampilkan fallback rule-based.
+    'ai_insight' => [
+        'base_url' => env('AI_INSIGHT_BASE_URL', 'http://127.0.0.1:20128/v1'),
+        'key' => env('AI_INSIGHT_API_KEY'),
+        'model' => env('AI_INSIGHT_MODEL', 'tg/glm-5.3-flash'),
+    ],
+
 ];

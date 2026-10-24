@@ -64,6 +64,18 @@ class DashboardController extends Controller
         return view('perusahaan.dashboard', ['perusahaan' => $perusahaan] + ProgramAggregate::monthly($perusahaan, 'perusahaan') + $metrics);
     }
 
+    /** Generate / baca insight AI untuk tenant ini (agregat, tanpa identitas). */
+    public function aiInsight()
+    {
+        $perusahaan = PerusahaanContext::current();
+        abort_unless($perusahaan && $perusahaan->is_active, 403);
+
+        $context = \App\Services\AiInsightService::buildContext($perusahaan, 'perusahaan');
+        $state = \App\Services\AiInsightService::get($perusahaan, 'perusahaan', $context, request()->boolean('generate'));
+
+        return response()->json($state);
+    }
+
     public function export()
     {
         $perusahaan = PerusahaanContext::current();
