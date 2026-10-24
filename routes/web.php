@@ -23,7 +23,7 @@ Route::post('/checkout/{token}/confirm-done', [\App\Http\Controllers\CheckoutCon
 // --- Auth (admin klinik, konsultan, associate, super admin) ---
 Route::controller(\App\Http\Controllers\AuthController::class)->group(function () {
     Route::get('/login', 'index')->name('loginIndex');
-    Route::post('/login', 'postLogin')->name('login');
+    Route::post('/login', 'postLogin')->middleware('throttle:5,1')->name('login');
     Route::get('/auth/{provider}', 'redirectToProvider')->name('login.google');
     Route::get('/auth/{provider}/callback', 'handleProvideCallback');
     Route::post('/logout', 'logout')->name('logout')->middleware('auth');

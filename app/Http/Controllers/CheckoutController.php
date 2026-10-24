@@ -181,7 +181,10 @@ class CheckoutController extends Controller
                 return back()->with('error', $nominal)->withInput();
             }
             // §5.5: voucher menurunkan Soluusi net (Soluusi absorbs), margin klinik tetap.
-            $voucherAmount = min($nominal, $link->net_price);
+            // Cast + max-guards: kolom desimal B2C nullable/legacy; tanpa ini
+            // `min()` pada nominal > final menghasilkan gross negatif dan
+            // ledger split menolak menyeimbangkan (`net + margin !== amount`).
+            $voucherAmount = max(0, (int) min($nominal, $link->net_price, max(0, $gross - ($link->markup_amount ?? 0))));
             $gross -= $voucherAmount;
         }
 
@@ -236,18 +239,21 @@ class CheckoutController extends Controller
             return back()->with('error', 'Gagal membuat transaksi pembayaran: ' . $e->getMessage());
         }
 
-        if (!$this->claimLink($link)) {
-            return back()->with('error', 'Link sudah dipakai. Minta link baru ke klinik.');
+        if (!$session = $this->reserveSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $tokenUrl)) {
+            return back()->with('error', 'Jadwal sudah tidak tersedia atau link sudah dipakai. Hubungi klinik.');
         }
-
-        $session = $this->createWaitingSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $tokenUrl);
 
         if ($voucher) {
             $voucher->increment('usage');
         }
 
-        // White-label payment instruction mail (§17.5).
-        Mail::to($session->customer_email)->send(new \App\Mail\Klinik\Client\Bayar($session));
+        // White-label payment instruction mail (§17.5). Non-fatal — mailer sync
+        // gagal tidak boleh membatalkan sesi yang sudah dibuat + slot terkunci.
+        try {
+            Mail::to($session->customer_email)->send(new \App\Mail\Klinik\Client\Bayar($session));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Mail Bayar gagal session #' . $session->id . ': ' . $e->getMessage());
+        }
 
         return redirect($tokenUrl);
     }
@@ -263,17 +269,48 @@ class CheckoutController extends Controller
     ) {
         $dummyUrl = route('checkout.dummyPayment', $link->token);
 
-        if (!$this->claimLink($link)) {
-            return back()->with('error', 'Link sudah dipakai. Minta link baru ke klinik.');
+        $session = $this->reserveSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $dummyUrl, 'DUMMY-' . $link->id);
+        if (!$session) {
+            return back()->with('error', 'Jadwal sudah tidak tersedia atau link sudah dipakai. Hubungi klinik.');
         }
-
-        $this->createWaitingSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $dummyUrl, 'DUMMY-' . $link->id);
 
         if ($voucher) {
             $voucher->increment('usage');
         }
 
         return redirect($dummyUrl);
+    }
+
+    /**
+     * Klaim link + kunci slot + buat waiting-session dalam SATU transaksi.
+     * Dua request bersamaan: yang kalah gagal di claimLink/slot re-check dan
+     * tidak meninggalkan link terbakar tanpa sesi (race §17.7).
+     */
+    protected function reserveSession(
+        array $data,
+        CheckoutLink $link,
+        ConsultantPackage $package,
+        string $orderNumber,
+        int $gross,
+        ?Voucher $voucher,
+        int $voucherAmount,
+        string $paymentUrl,
+        ?string $snapToken = null
+    ): ?ConsultationSession {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $paymentUrl, $snapToken) {
+            Schedule::whereKey($link->schedule_id)->lockForUpdate()->firstOrFail();
+
+            // Cek slot SEBELUM klaim: tidak ada tulisan, jadi return null tidak
+            // membakar link. Lock dipegang sampai transaksi selesai.
+            if (ConsultationSession::where('schedule_id', $link->schedule_id)->blocking()->exists()) {
+                return null;
+            }
+            if (!$this->claimLink($link)) {
+                return null;
+            }
+
+            return $this->createWaitingSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $paymentUrl, $snapToken);
+        });
     }
 
     protected function createWaitingSession(

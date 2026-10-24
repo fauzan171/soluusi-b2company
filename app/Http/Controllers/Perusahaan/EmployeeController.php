@@ -128,23 +128,6 @@ class EmployeeController extends Controller
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
     }
 
-    /** Slot booking sederhana: 7 hari ke depan, jam kerja 09-16, skip weekend. */
-    public static function bookingSlots()
-    {
-        return (new static)->slots();
-    }
-
-    private function slots()
-    {
-        return collect(range(1, 7))->flatMap(function ($i) {
-            $day = now()->addDays($i);
-            if ($day->isWeekend()) {
-                return collect();
-            }
-            return collect(range(9, 16))->map(fn ($h) => $day->copy()->setTime($h, 0));
-        })->filter(fn ($s) => $s->isFuture())->groupBy(fn ($s) => $s->format('Y-m-d'));
-    }
-
     public function bookingForm()
     {
         $employee = $this->resolveEmployee();

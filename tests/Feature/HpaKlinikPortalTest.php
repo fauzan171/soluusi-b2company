@@ -626,4 +626,75 @@ class HpaKlinikPortalTest extends TestCase
             ->assertSee('Diproses finance')
             ->assertSee('Estimasi cair');
     }
+
+    /**
+     * Race §17.7: slot diisi request lain tepat sebelum bayar. Link TIDAK boleh
+     * terbakar (used_at) dan tidak boleh ada waiting-session kedua.
+     */
+    public function test_slot_terisi_tidak_membakar_checkout_link(): void
+    {
+        $this->app['env'] = 'local';
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+        config(['midtrans.server_key' => null]);
+
+        DB::table('provinces')->insert(['id' => '31', 'name' => 'DKI JAKARTA']);
+        DB::table('regencies')->insert(['id' => '3171', 'province_id' => '31', 'name' => 'KOTA JAKARTA SELATAN']);
+
+        $klinik = $this->activeKlinik();
+        $consultant = Consultant::factory()->create(['status' => Consultant::ACCEPT, 'is_active' => true]);
+        $package = ConsultantPackage::factory()->create([
+            'consultant_id' => $consultant->id,
+            'price' => 250_000,
+            'mode' => ConsultantPackage::MODE_ONLINE,
+        ]);
+        $schedule = Schedule::factory()->create([
+            'consultant_id' => $consultant->id,
+            'klinik_id' => $klinik->id,
+            'mode' => Schedule::MODE_ONLINE,
+            'status' => Schedule::STATUS_CONFIRMED,
+        ]);
+        MarkupRule::create([
+            'klinik_id' => $klinik->id,
+            'consultant_package_id' => $package->id,
+            'markup_amount' => 25_000,
+        ]);
+
+        // Link publik sudah ada (dibuat admin), lalu slot diisi sesi terverifikasi lain.
+        $link = \App\Models\Klinik\CheckoutLink::create([
+            'token' => \App\Models\Klinik\CheckoutLink::generateToken(),
+            'klinik_id' => $klinik->id,
+            'consultant_id' => $consultant->id,
+            'schedule_id' => $schedule->id,
+            'consultant_package_id' => $package->id,
+            'net_price' => 250_000,
+            'markup_amount' => 25_000,
+            'final_price' => 275_000,
+            'expires_at' => now()->addDay(),
+        ]);
+        ConsultationSession::create([
+            'schedule_id' => $schedule->id,
+            'consultant_id' => $consultant->id,
+            'consultant_package_id' => $package->id,
+            'klinik_id' => $klinik->id,
+            'order_number' => 'T-race',
+            'payment' => '275000',
+            'amount' => 275_000,
+            'order_at' => now(),
+            'payment_status' => ConsultationSession::PAYMENT_STATUS_VERIFIED,
+            'status' => ConsultationSession::STATUS_SCHEDULED,
+        ]);
+
+        $this->post(route('checkout.pay', $link->token), [
+            'customer_name' => 'Customer Demo',
+            'customer_email' => 'customer.demo@example.test',
+            'customer_phone' => '081234567890',
+            'customer_dob' => '1995-01-01',
+            'customer_regency_id' => '3171',
+            'customer_gender' => 'male',
+            'consent' => '1',
+        ])->assertRedirect()->assertSessionHas('error');
+
+        $this->assertNull($link->fresh()->used_at, 'link tidak boleh terbakar saat slot sudah terisi');
+        $this->assertSame(1, ConsultationSession::where('schedule_id', $schedule->id)->count());
+    }
 }

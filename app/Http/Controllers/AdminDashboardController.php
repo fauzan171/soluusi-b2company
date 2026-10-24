@@ -46,7 +46,7 @@ class AdminDashboardController extends Controller
         $activeKliniks = Klinik::where('is_active', true)->count();
         $totalSessions = ConsultationSession::count();
         $verifiedRevenue = ConsultationSession::where('payment_status', 'verified')
-            ->selectRaw('COALESCE(SUM(CAST(payment AS INTEGER)), 0) as rev')->value('rev');
+            ->selectRaw('COALESCE(SUM(payment + 0), 0) as rev')->value('rev');
 
         $recentSessions = ConsultationSession::with(['consultant.user', 'klinik', 'schedule'])
             ->orderByDesc('order_at')->limit(10)->get();
@@ -84,7 +84,7 @@ class AdminDashboardController extends Controller
                 COUNT(*) as total_sessions,
                 SUM(CASE WHEN completion_verified_at IS NOT NULL THEN 1 ELSE 0 END) as completed_total,
                 SUM(CASE WHEN completion_verified_at IS NOT NULL AND completion_verified_at >= ? THEN 1 ELSE 0 END) as completed_90,
-                SUM(CASE WHEN payment_status = 'verified' THEN CAST(payment AS INTEGER) ELSE 0 END) as revenue_verified,
+                SUM(CASE WHEN payment_status = 'verified' THEN payment + 0 ELSE 0 END) as revenue_verified,
                 MAX(order_at) as last_order_at
             ", [now()->subDays(90)])
             ->groupBy('klinik_id')
@@ -115,7 +115,7 @@ class AdminDashboardController extends Controller
                 COUNT(*) as total_sessions,
                 SUM(CASE WHEN completion_verified_at IS NOT NULL THEN 1 ELSE 0 END) as completed_sessions,
                 SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) as no_show_sessions,
-                SUM(CASE WHEN payment_status = 'verified' THEN CAST(payment AS INTEGER) ELSE 0 END) as verified_revenue,
+                SUM(CASE WHEN payment_status = 'verified' THEN payment + 0 ELSE 0 END) as verified_revenue,
                 MAX(order_at) as last_session_at
             ")
             ->groupBy('klinik_id', 'consultant_id')

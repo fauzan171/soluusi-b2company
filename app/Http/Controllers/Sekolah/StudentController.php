@@ -137,18 +137,6 @@ class StudentController extends Controller
         ]);
     }
 
-    /** Slot booking: 7 hari ke depan, jam sekolah 08-15, skip weekend. */
-    private function slots()
-    {
-        return collect(range(1, 7))->flatMap(function ($i) {
-            $day = now()->addDays($i);
-            if ($day->isWeekend()) {
-                return collect();
-            }
-            return collect(range(8, 15))->map(fn ($h) => $day->copy()->setTime($h, 0));
-        })->filter(fn ($s) => $s->isFuture())->groupBy(fn ($s) => $s->format('Y-m-d'));
-    }
-
     public function bookingStore(Request $r)
     {
         $student = $this->resolveStudent();

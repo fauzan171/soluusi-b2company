@@ -25,26 +25,19 @@ class DashboardController extends Controller
             ]);
         }
 
-        $mouAt = $klinik->mou_at ?? $klinik->created_at;
-
         $sessions = ConsultationSession::where('klinik_id', $klinik->id);
-        $completedCount = (clone $sessions)->whereNotNull('completion_verified_at')
-            ->where('completion_verified_at', '>=', $mouAt)->count();
+        // Progress HAP = definisi payout engine (refund dikecualikan) —
+        // sebelumnya query terpisah yang menghitung sesi refund juga.
+        $completedCount = \App\Services\Klinik\HapPervormaService::completedCounts($klinik)['sinceMou'];
         $grossSales = (clone $sessions)
             ->where('payment_status', ConsultationSession::PAYMENT_STATUS_VERIFIED)
-            ->selectRaw('COALESCE(SUM(CAST(amount AS INTEGER)), 0) as total')
+            ->selectRaw('COALESCE(SUM(amount + 0), 0) as total')
             ->value('total');
 
         $margin = SplitSettlement::where('klinik_id', $klinik->id)
             ->selectRaw("COALESCE(SUM(CASE WHEN status = 'settled' THEN klinik_margin END), 0) as settled")
             ->selectRaw("COALESCE(SUM(CASE WHEN status = 'pending' THEN klinik_margin END), 0) as pending")
             ->first();
-
-        // Topik kategori anonim (aggregate, no individual) — note/solution TIDAK pernah dikirim ke view.
-        $topics = (clone $sessions)->whereNotNull('completion_verified_at')
-            ->whereNotNull('note')
-            ->selectRaw("COUNT(*) as c")
-            ->count(); // ponytail: topik_kategori belum ada kolomnya — Phase 2 MBC. Count saja dulu.
 
         // Chart: sesi completed per minggu (12 minggu terakhir).
         $weekly = (clone $sessions)->whereNotNull('completion_verified_at')
