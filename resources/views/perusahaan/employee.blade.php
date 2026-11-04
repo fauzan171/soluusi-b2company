@@ -131,6 +131,7 @@
                         'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
                         'cancelUrl' => route('perusahaan.booking.cancel', $s),
                         'rescheduleUrl' => route('perusahaan.booking.reschedule', $s),
+                        'chatUrl' => $s->consultant_id && $s->status === 'scheduled' ? route('perusahaan.chat', $s) : null,
                     ]) }}">
                     <td class="p-3">{{ ($s->completed_at ?? $s->scheduled_at)?->format('d M Y') ?? '—' }}</td>
                     <td class="p-3">{{ $s->topic_category ?? '—' }}</td>
@@ -192,6 +193,9 @@
                 </div>
             </template>
             <p class="mt-4 text-[11px] text-gray-400">Link sesi online dikirim ke email kamu mendekati jadwal.</p>
+            <template x-if="detail?.chatUrl">
+                <a :href="detail.chatUrl" class="mt-3 block text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-3 py-2 hover:bg-pine-800">Chat dengan konsultan</a>
+            </template>
         </div>
     </div>
 

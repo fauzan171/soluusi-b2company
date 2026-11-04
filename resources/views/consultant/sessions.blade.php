@@ -4,6 +4,30 @@
 <h1 class="text-xl font-bold mb-1">Sesi Saya</h1>
 <p class="text-sm text-gray-500 mb-6">Rate kamu mengikuti paket konsultan. Harga jual klinik ke client tidak ditampilkan di portal konsultan.</p>
 
+@if($companySessions->isNotEmpty())
+<h2 class="font-semibold text-sm mb-2">Sesi karyawan perusahaan (CAP)</h2>
+<table class="w-full bg-white border rounded-lg text-sm mb-6">
+    <thead><tr class="border-b text-left text-gray-500">
+        <th class="p-3">Jadwal</th><th class="p-3">Karyawan</th><th class="p-3">Perusahaan</th><th class="p-3">Status</th><th class="p-3"></th>
+    </tr></thead>
+    <tbody>
+        @foreach($companySessions as $cs)
+        <tr class="border-b">
+            <td class="p-3">{{ $cs->scheduled_at?->format('d M Y H:i') ?? '—' }}</td>
+            <td class="p-3">Anonim #{{ $cs->employee_id }}</td>
+            <td class="p-3">{{ $cs->perusahaan?->brand ?? '—' }}</td>
+            <td class="p-3">{{ ucfirst($cs->status) }}</td>
+            <td class="p-3">
+                @if($cs->status === 'scheduled')
+                <a href="{{ route('consultant.chat', $cs) }}" class="text-xs bg-pine-700 text-white rounded px-2 py-1">Chat</a>
+                @endif
+            </td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
+@endif
+
 <table class="w-full bg-white border rounded-lg text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Jadwal</th><th class="p-3">Customer</th><th class="p-3">Klinik</th><th class="p-3">Status</th><th class="p-3">Aksi</th>

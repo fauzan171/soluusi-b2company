@@ -38,4 +38,9 @@ class PerusahaanSession extends Model
     {
         return $this->belongsTo(Consultant::class);
     }
+
+    public function chatMessages()
+    {
+        return $this->hasMany(\App\Models\ChatMessage::class, 'perusahaan_session_id')->orderBy('id');
+    }
 }

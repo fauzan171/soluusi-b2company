@@ -25,7 +25,14 @@ class SessionController extends Controller
             ->orderByDesc('order_at')
             ->paginate(20);
 
-        return view('consultant.sessions', compact('sessions', 'consultant'));
+        // Sesi karyawan perusahaan (CAP) yang ditugaskan ke konsultan ini — room chat.
+        $companySessions = \App\Models\Perusahaan\PerusahaanSession::where('consultant_id', $consultant->id)
+            ->with('employee.user')
+            ->orderByDesc('scheduled_at')
+            ->limit(50)
+            ->get();
+
+        return view('consultant.sessions', compact('sessions', 'consultant', 'companySessions'));
     }
 
     /** Konsultan check-in (pre-session window). */
