@@ -141,7 +141,14 @@
                             {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
                         </span>
                     </td>
-                    <td class="p-3 text-gray-300">›</td>
+                    <td class="p-3 text-right">
+                        @if($s->consultant_id && $s->status === 'scheduled')
+                        <a href="{{ route('perusahaan.chat', $s) }}" @click.stop
+                           class="inline-block whitespace-nowrap rounded-lg bg-pine-700 text-white text-xs font-semibold px-3 py-1.5 hover:bg-pine-800">Chat</a>
+                        @else
+                        <span class="text-gray-300">›</span>
+                        @endif
+                    </td>
                 </tr>
                 @empty
                 <tr><td colspan="5" class="p-4 text-gray-400">Belum ada sesi. <a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Yuk mulai dengan pilih jadwal.</a></td></tr>
