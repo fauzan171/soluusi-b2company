@@ -84,33 +84,87 @@
     {{-- Modal: minta konsultasi --}}
     <div x-show="requestConsult" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
         <div @click.outside="requestConsult = false" x-show="requestConsult" x-transition.scale class="portal-card w-full max-w-md p-6">
-            <div class="flex items-start justify-between">
+            <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="font-semibold text-pine-900">Minta Konsultasi</h3>
                     <p class="text-xs text-gray-500 mt-0.5">Sistem carikan konsultan yang paling siap. Kamu langsung bisa chat.</p>
                 </div>
-                <button @click="requestConsult = false" class="text-gray-400 hover:text-gray-700">✕</button>
+                <button type="button" @click="requestConsult = false" aria-label="Tutup" class="text-gray-400 hover:text-gray-700 text-lg leading-none">&times;</button>
             </div>
-            <form method="POST" action="{{ route('perusahaan.request-consultation') }}" class="mt-4 space-y-3">
+
+            @if($errors->any())
+            <div class="mt-4 bg-terra-50 border border-terra-200 rounded-xl p-3 text-xs text-terra-800" role="alert">
+                <p class="font-semibold">Periksa lagi isian kamu.</p>
+                <ul class="mt-1 space-y-0.5 list-disc list-inside">
+                    @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
+            <form method="POST" action="{{ route('perusahaan.request-consultation') }}" class="mt-4 space-y-4">
                 @csrf
-                <label class="block text-sm">Jenis konsultan
-                    <select name="konsultan_type" required class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
-                        <option value="">— pilih —</option>
-                        <option value="psikolog">Psikolog</option>
-                        <option value="nutrisionis">Nutrisionis</option>
-                        <option value="fisioterapis">Fisioterapis</option>
-                        <option value="karir">Konselor Karir</option>
+
+                <div>
+                    <label for="req_konsultan_type" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Jenis konsultan <span class="text-terra-600" aria-hidden="true">*</span>
+                    </label>
+                    <select id="req_konsultan_type" name="konsultan_type" required
+                        aria-invalid="{{ $errors->has('konsultan_type') ? 'true' : 'false' }}"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('konsultan_type') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">
+                        <option value="">— Pilih jenis konsultan —</option>
+                        <option value="psikolog" @selected(old('konsultan_type') === 'psikolog')>Psikolog</option>
+                        <option value="nutrisionis" @selected(old('konsultan_type') === 'nutrisionis')>Nutrisionis</option>
+                        <option value="fisioterapis" @selected(old('konsultan_type') === 'fisioterapis')>Fisioterapis</option>
+                        <option value="karir" @selected(old('konsultan_type') === 'karir')>Konselor Karir</option>
                     </select>
-                </label>
-                <label class="block text-sm">Topik (opsional)
-                    <input name="topic_category" maxlength="100" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="Misal: Stress kerja, Kecemasan, Tidur">
-                </label>
-                <label class="block text-sm">Cerita singkat
-                    <textarea name="body" rows="4" maxlength="2000" required class="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="Apa yang mau kamu bicarakan?"></textarea>
-                </label>
-                @error('body')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
-                @error('konsultan_type')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
-                <button class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Kirim & Mulai Chat</button>
+                    @error('konsultan_type')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="req_topic_category" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Topik <span class="text-xs font-normal text-gray-400">(opsional)</span>
+                    </label>
+                    <input id="req_topic_category" name="topic_category" maxlength="100" value="{{ old('topic_category') }}"
+                        aria-invalid="{{ $errors->has('topic_category') ? 'true' : 'false' }}"
+                        placeholder="Misal: Stress kerja, Kecemasan, Tidur"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('topic_category') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">
+                    @error('topic_category')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="req_body" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Cerita singkat <span class="text-terra-600" aria-hidden="true">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">Tulis apa yang mau kamu bicarakan. Maks. 2.000 karakter.</p>
+                    <textarea id="req_body" name="body" rows="4" maxlength="2000" required
+                        aria-invalid="{{ $errors->has('body') ? 'true' : 'false' }}"
+                        placeholder="Apa yang mau kamu bicarakan?"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('body') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">{{ old('body') }}</textarea>
+                    @error('body')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="bg-pine-50 border border-pine-200 rounded-xl p-3 text-xs text-pine-800 leading-relaxed">
+                    <strong class="font-semibold">Rahasia penuh.</strong> Hanya kamu dan konsultan yang tahu isi chat ini.
+                </div>
+
+                <button type="submit"
+                    class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-3 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
+                    Kirim &amp; Mulai Chat
+                </button>
             </form>
         </div>
     </div>
