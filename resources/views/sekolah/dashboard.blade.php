@@ -8,10 +8,10 @@
         'Berisiko Tinggi' => '#dc2626',
     ];
     $statCards = [
-        'siswa' => ['label' => 'Siswa terdaftar', 'value' => $registered, 'icon' => 'users', 'tone' => 'slate', 'detail' => $activeEmployeesMonth . ' aktif bulan ini'],
+        'siswa' => ['label' => 'Siswa terdaftar', 'value' => $registered, 'icon' => 'users', 'tone' => 'slate', 'detail' => $activeStudentsMonth . ' aktif bulan ini'],
         'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $doneMonth, 'icon' => 'check', 'tone' => 'pine', 'detail' => ($deltaDone >= 0 ? '+' : '') . $deltaDone . ' vs bulan lalu'],
         'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $scheduled, 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $scheduledNext7Days . ' jatuh tempo 7 hari'],
-        'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($avgRating, 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Aggregate after-session'],
+        'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($avgRating, 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
         'noshow' => ['label' => 'No-show rate', 'value' => $noShowRate . '%', 'icon' => 'bolt', 'tone' => $noShowRate > 15 ? 'red' : 'pine', 'detail' => 'Sesi tidak dihadiri'],
     ];
     $toneClasses = [
@@ -88,7 +88,7 @@
 </style>
 
 <div class="space-y-4" x-data="{ modal: null }" @keydown.escape.window="modal = null">
-    {{-- Alert strip — kondisi yang butuh perhatian HR --}}
+    {{-- Alert strip — kondisi yang butuh perhatian guru BK --}}
     @if($alerts->count())
     <div class="fade-up space-y-2">
         @foreach($alerts as $alert)
@@ -115,11 +115,11 @@
                         @endif
                     </div>
                     <h2 class="mt-3 max-w-2xl text-[1.7rem] md:text-[1.9rem] font-semibold tracking-tight text-white">Executive pulse wellbeing untuk {{ $sekolah->brand }}</h2>
-                    <p class="mt-3 max-w-2xl text-[13px] leading-6 text-pine-50/85">Pantau utilisasi program, distribusi kebutuhan, dan kapasitas layanan dalam satu command center yang rapi untuk evaluasi HR mingguan.</p>
+                    <p class="mt-3 max-w-2xl text-[13px] leading-6 text-pine-50/85">Pantau utilisasi program, distribusi kebutuhan, dan kapasitas layanan dalam satu command center yang rapi untuk evaluasi guru BK mingguan.</p>
 
                     <div class="mt-5 grid gap-3 md:grid-cols-3">
                         <div class="hero-metric">
-                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Engagement</div>
+                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Keterlibatan</div>
                             <div class="mt-2 text-2xl font-semibold">{{ $engagementRate }}%</div>
                             <div class="mt-1 text-[13px] text-pine-50/85">siswa aktif bulan ini</div>
                         </div>
@@ -129,7 +129,7 @@
                             <div class="mt-1 text-[13px] text-pine-50/85">pemakaian kuota bulanan</div>
                         </div>
                         <div class="hero-metric">
-                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Next 7 Days</div>
+                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">7 hari ke depan</div>
                             <div class="mt-2 text-2xl font-semibold">{{ $scheduledNext7Days }}</div>
                             <div class="mt-1 text-[13px] text-pine-50/85">sesi sudah terjadwal</div>
                         </div>
@@ -171,10 +171,10 @@
     <section class="fade-up dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="dash-section-title">Engagement funnel</h3>
+                <h3 class="dash-section-title">Funnel keterlibatan</h3>
                 <p class="dash-section-subtitle">Dari siswa terdaftar hingga pengguna aktif bulan ini.</p>
             </div>
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Aggregate only</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-3">
             @php
@@ -219,8 +219,8 @@
 
         <div class="fade-up dash-card p-5">
             <div class="flex items-center justify-between">
-                <h3 class="dash-section-title">Focus Area</h3>
-                <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Aggregate only</span>
+                <h3 class="dash-section-title">Area Fokus</h3>
+                <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
             </div>
             <div class="mt-4 space-y-3">
                 @foreach($focusAreas as $item)
@@ -277,7 +277,7 @@
                     <p class="text-[11px] text-gray-400">Berdasarkan skor WHO-5 terbaru {{ $totalAssessed }} siswa (90 hari terakhir).</p>
                     @endif
                     <div class="panel-surface">
-                        <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Mix layanan</p>
+                        <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Campuran layanan</p>
                         <div class="mt-3 flex flex-wrap gap-2">
                             @forelse($serviceShare as $type => $share)
                                 <span class="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 border border-[#e7e2d9]">{{ ucfirst($type) }} {{ $share }}%</span>
@@ -311,7 +311,7 @@
                     <h3 class="dash-section-title">Tindakan &amp; action board</h3>
                     <p class="dash-section-subtitle">Rekomendasi tindak lanjut berbasis agregat sesi dan asesmen.</p>
                 </div>
-                <span class="rounded-full bg-pine-50 px-3 py-1 text-[11px] font-semibold text-pine-700">Data-driven</span>
+                <span class="rounded-full bg-pine-50 px-3 py-1 text-[11px] font-semibold text-pine-700">Berbasis data</span>
             </div>
             <div class="mt-4 space-y-3">
                 @foreach($insights as $item)
@@ -379,7 +379,7 @@
                 <h3 class="dash-section-title">Kelola program</h3>
                 <p class="dash-section-subtitle">{{ $registered }} siswa terdaftar · {{ $sekolah->sessions_per_student_month }} sesi per siswa per bulan.</p>
             </div>
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Operational snapshot</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Snapshot operasional</span>
         </div>
         <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             @foreach($programs as $program)
@@ -425,7 +425,7 @@
                             <p class="text-sm font-semibold text-gray-900">Aktivitas bulanan</p>
                             <p class="text-xs text-gray-500">Enam bulan terakhir</p>
                         </div>
-                        <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">Line trend</span>
+                        <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">Tren garis</span>
                     </div>
                     <div class="chart-wrap">
                         <canvas id="chartMonthly"></canvas>
@@ -436,12 +436,12 @@
                             <div class="mt-1 text-lg font-semibold text-gray-900">{{ $doneMonth }}</div>
                         </div>
                         <div class="mini-insight">
-                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Delta MoM</div>
+                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Delta bulanan</div>
                             <div class="mt-1 text-lg font-semibold {{ $deltaDone >= 0 ? 'text-pine-700' : 'text-red-700' }}">{{ $deltaDone >= 0 ? '+' : '' }}{{ $deltaDone }}</div>
                         </div>
                         <div class="mini-insight">
                             <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Siswa aktif</div>
-                            <div class="mt-1 text-lg font-semibold text-gray-900">{{ $activeEmployeesMonth }}</div>
+                            <div class="mt-1 text-lg font-semibold text-gray-900">{{ $activeStudentsMonth }}</div>
                         </div>
                     </div>
                 </div>
@@ -450,9 +450,9 @@
                         <div class="mb-4 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-gray-900">Sesi per minggu</p>
-                                <p class="text-xs text-gray-500">Rolling 8 minggu</p>
+                                <p class="text-xs text-gray-500">8 minggu terakhir</p>
                             </div>
-                            <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">Weekly bar</span>
+                            <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">Grafik mingguan</span>
                         </div>
                         <div class="chart-wrap--sm">
                             <canvas id="chartWeekly"></canvas>
@@ -462,7 +462,7 @@
                         <div class="mb-4 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-gray-900">Sesi per kelas</p>
-                                <p class="text-xs text-gray-500">Aggregate by department</p>
+                                <p class="text-xs text-gray-500">Agregat per kelas</p>
                             </div>
                             <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">{{ $topParticipationDept ?: 'Belum ada data' }}</span>
                         </div>
@@ -523,7 +523,7 @@
                     @endforelse
                     @if($topics->count())
                         <div class="mini-insight">
-                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Leading topic</div>
+                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Topik utama</div>
                             <div class="mt-1 text-lg font-semibold text-gray-900">{{ $topics->keys()->first() }}</div>
                             <div class="mt-1 text-xs text-gray-500">{{ $topics->first() }} sesi anonim paling dominan</div>
                         </div>
@@ -560,8 +560,8 @@
     <section class="fade-up dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="dash-section-title">Quick actions</h3>
-                <p class="dash-section-subtitle">Operasional HR mingguan.</p>
+                <h3 class="dash-section-title">Aksi cepat</h3>
+                <p class="dash-section-subtitle">Operasional guru BK mingguan.</p>
             </div>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -598,7 +598,7 @@
 
             <div x-show="modal === 'siswa'" class="mt-4 space-y-3 text-sm">
                 <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Total terdaftar</span><span class="font-semibold">{{ $registered }}</span></div>
-                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Aktif bulan ini</span><span class="font-semibold">{{ $activeEmployeesMonth }} ({{ $engagementRate }}%)</span></div>
+                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Aktif bulan ini</span><span class="font-semibold">{{ $activeStudentsMonth }} ({{ $engagementRate }}%)</span></div>
                 <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Pernah aktivasi</span><span class="font-semibold">{{ $funnel['activated'] }}</span></div>
                 <div class="flex justify-between rounded-xl bg-terra-50 px-4 py-3"><span class="text-gray-600">Belum onboard dari kontrak</span><span class="font-semibold text-terra-700">{{ $contractGap }}</span></div>
                 <a href="{{ route('sekolah.students') }}" class="block text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Kelola siswa →</a>

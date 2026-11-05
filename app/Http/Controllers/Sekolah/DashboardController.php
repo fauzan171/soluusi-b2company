@@ -25,15 +25,15 @@ class DashboardController extends Controller
         $metrics['byType'] = $monthly['byType'] ?? collect();
 
         $metrics['statCards'] = [
-            'siswa' => ['label' => 'Siswa terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeEmployeesMonth'] . ' aktif bulan ini'],
+            'siswa' => ['label' => 'Siswa terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeStudentsMonth'] . ' aktif bulan ini'],
             'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $metrics['doneMonth'], 'icon' => 'check', 'tone' => 'pine', 'detail' => ($metrics['deltaDone'] >= 0 ? '+' : '') . $metrics['deltaDone'] . ' vs bulan lalu'],
             'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $metrics['scheduled'], 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $metrics['scheduledNext7Days'] . ' jatuh tempo 7 hari'],
-            'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($metrics['avgRating'], 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Aggregate after-session'],
+            'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($metrics['avgRating'], 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
             'noshow' => ['label' => 'No-show rate', 'value' => $metrics['noShowRate'] . '%', 'icon' => 'bolt', 'tone' => $metrics['noShowRate'] > 15 ? 'red' : 'pine', 'detail' => 'Sesi tidak dihadiri'],
         ];
         $metrics['benchmarkCards'] = [
             ['label' => 'Target partisipasi', 'value' => ($metrics['engagementRate'] > 0 ? $metrics['engagementRate'] : 0) . '%', 'target' => '≥ 40%', 'tone' => $metrics['engagementRate'] >= 40 ? 'pine' : 'terra'],
-            ['label' => 'Completion asesmen', 'value' => $metrics['totalAssessed'] . ' siswa', 'target' => '≥ 60%', 'tone' => 'slate'],
+            ['label' => 'Kelengkapan asesmen', 'value' => $metrics['totalAssessed'] . ' siswa', 'target' => '≥ 60%', 'tone' => 'slate'],
             ['label' => 'Pemakaian kuota', 'value' => $metrics['quotaPct'] . '%', 'target' => 'band sehat', 'tone' => $metrics['quotaPct'] >= 80 ? 'terra' : 'pine'],
         ];
         $metrics['focusAreas'] = array_values(array_filter([
@@ -55,7 +55,7 @@ class DashboardController extends Controller
         $metrics['funnel'] = [
             'registered' => $metrics['registered'],
             'activated' => $metrics['activatedTotal'],
-            'activeMonth' => $metrics['activeEmployeesMonth'],
+            'activeMonth' => $metrics['activeStudentsMonth'],
         ];
         $metrics['isSuperAdmin'] = SekolahContext::canSwitch(auth()->user());
 

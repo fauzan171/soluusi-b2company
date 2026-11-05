@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Soluusi Mitra — For Company: Perusahaan</title>
+<title>Soluusi Mitra — Untuk Perusahaan</title>
 <meta name="description" content="EAP & wellbeing program tanpa rekrut tim internal. Kurangi turnover, absen, burnout dengan data agregat aman untuk HR.">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,7 +46,7 @@
   <div class="max-w-6xl mx-auto relative">
     <div class="grid lg:grid-cols-12 gap-12 items-center">
       <div class="lg:col-span-7">
-        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#1d2d50] mb-6">For Company</p>
+        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#1d2d50] mb-6">Untuk Perusahaan</p>
         <h1 class="reveal font-display text-5xl md:text-7xl leading-[1.04] tracking-tight font-medium">
           Wellbeing program <em class="text-[#1d2d50]">tanpa rekrut</em> tim internal.
         </h1>

@@ -5,6 +5,7 @@
 <div id="chat" class="mx-auto max-w-2xl"
      data-poll="{{ $pollUrl }}" data-post="{{ $postUrl }}" data-token="{{ csrf_token() }}"
      data-can-send="{{ $canSend ? 1 : 0 }}">
+    <a href="{{ $backUrl }}" class="inline-flex items-center gap-1 text-sm text-pine-700 hover:text-pine-900 font-medium mb-2">← Kembali ke riwayat sesi</a>
     <div class="flex items-center justify-between mb-3">
         <div>
             <h1 class="font-semibold text-pine-900">Chat {{ $peerLabel }}</h1>

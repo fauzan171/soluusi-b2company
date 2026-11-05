@@ -253,7 +253,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h3 class="dash-section-title">Sesi selesai per minggu</h3>
-                    <p class="dash-section-subtitle">Rolling 12 minggu terakhir</p>
+                    <p class="dash-section-subtitle">12 minggu terakhir</p>
                 </div>
                 <span class="rounded-full bg-pine-50 px-3 py-1 text-xs font-semibold text-pine-700">{{ collect($chartWeekly['data'])->sum() }} sesi</span>
             </div>

@@ -20,7 +20,7 @@ class ChatController extends Controller
         $employee = PerusahaanEmployee::where('user_id', $user->id)->first();
         abort_unless($employee && $session->employee_id === $employee->id, 403);
 
-        return $this->room($session, "Konsultan", route('perusahaan.chat.store', $session));
+        return $this->room($session, "Konsultan", route('perusahaan.chat.store', $session), route('perusahaan.employee'));
     }
 
     public function employeeStore(Request $r, PerusahaanSession $session)
@@ -38,7 +38,7 @@ class ChatController extends Controller
         $consultant = auth()->user()->consultants()->first();
         abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
 
-        return $this->room($session, "Karyawan", route('consultant.chat.store', $session));
+        return $this->room($session, "Karyawan", route('consultant.chat.store', $session), route('consultant.sessions'));
     }
 
     public function consultantStore(Request $r, PerusahaanSession $session)
@@ -49,7 +49,7 @@ class ChatController extends Controller
         return $this->save($r, $session);
     }
 
-    private function room(PerusahaanSession $session, string $peerLabel, string $postUrl)
+    private function room(PerusahaanSession $session, string $peerLabel, string $postUrl, string $backUrl)
     {
         if (request()->wantsJson() || request()->has('after')) {
             return response()->json($this->payload($session, (int) request('after', 0), $peerLabel));
@@ -61,6 +61,7 @@ class ChatController extends Controller
             'postUrl' => $postUrl,
             'pollUrl' => request()->url(),
             'canSend' => $this->canSend($session),
+            'backUrl' => $backUrl,
         ]);
     }
 

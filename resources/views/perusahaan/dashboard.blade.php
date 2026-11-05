@@ -119,7 +119,7 @@
 
                     <div class="mt-5 grid gap-3 md:grid-cols-3">
                         <div class="hero-metric">
-                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Engagement</div>
+                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Keterlibatan</div>
                             <div class="mt-2 text-2xl font-semibold">{{ $engagementRate }}%</div>
                             <div class="mt-1 text-[13px] text-pine-50/85">karyawan aktif bulan ini</div>
                         </div>
@@ -129,7 +129,7 @@
                             <div class="mt-1 text-[13px] text-pine-50/85">pemakaian kuota bulanan</div>
                         </div>
                         <div class="hero-metric">
-                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">Next 7 Days</div>
+                            <div class="text-[11px] uppercase tracking-[0.16em] text-pine-100/80">7 Hari Ke Depan</div>
                             <div class="mt-2 text-2xl font-semibold">{{ $scheduledNext7Days }}</div>
                             <div class="mt-1 text-[13px] text-pine-50/85">sesi sudah terjadwal</div>
                         </div>
@@ -171,10 +171,10 @@
     <section class="fade-up dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="dash-section-title">Engagement funnel</h3>
+                <h3 class="dash-section-title">Funnel keterlibatan</h3>
                 <p class="dash-section-subtitle">Dari karyawan terdaftar hingga pengguna aktif bulan ini.</p>
             </div>
-            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Aggregate only</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-3">
             @php
@@ -219,8 +219,8 @@
 
         <div class="fade-up dash-card p-5">
             <div class="flex items-center justify-between">
-                <h3 class="dash-section-title">Focus Area</h3>
-                <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Aggregate only</span>
+                <h3 class="dash-section-title">Area Fokus</h3>
+                <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
             </div>
             <div class="mt-4 space-y-3">
                 @foreach($focusAreas as $item)
@@ -277,7 +277,7 @@
                     <p class="text-[11px] text-gray-400">Berdasarkan skor WHO-5 terbaru {{ $totalAssessed }} karyawan (90 hari terakhir).</p>
                     @endif
                     <div class="panel-surface">
-                        <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Mix layanan</p>
+                        <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Campuran layanan</p>
                         <div class="mt-3 flex flex-wrap gap-2">
                             @forelse($serviceShare as $type => $share)
                                 <span class="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 border border-[#e7e2d9]">{{ ucfirst($type) }} {{ $share }}%</span>
@@ -484,7 +484,7 @@
                             <div class="mt-1 text-lg font-semibold text-gray-900">{{ $doneMonth }}</div>
                         </div>
                         <div class="mini-insight">
-                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Delta MoM</div>
+                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Delta bulanan</div>
                             <div class="mt-1 text-lg font-semibold {{ $deltaDone >= 0 ? 'text-pine-700' : 'text-red-700' }}">{{ $deltaDone >= 0 ? '+' : '' }}{{ $deltaDone }}</div>
                         </div>
                         <div class="mini-insight">
@@ -498,7 +498,7 @@
                         <div class="mb-4 flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-gray-900">Sesi per minggu</p>
-                                <p class="text-xs text-gray-500">Rolling 8 minggu</p>
+                                <p class="text-xs text-gray-500">8 minggu terakhir</p>
                             </div>
                             <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">Weekly bar</span>
                         </div>
@@ -571,7 +571,7 @@
                     @endforelse
                     @if($topics->count())
                         <div class="mini-insight">
-                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Leading topic</div>
+                            <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Topik utama</div>
                             <div class="mt-1 text-lg font-semibold text-gray-900">{{ $topics->keys()->first() }}</div>
                             <div class="mt-1 text-xs text-gray-500">{{ $topics->first() }} sesi anonim paling dominan</div>
                         </div>
@@ -608,7 +608,7 @@
     <section class="fade-up dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h3 class="dash-section-title">Quick actions</h3>
+                <h3 class="dash-section-title">Aksi cepat</h3>
                 <p class="dash-section-subtitle">Operasional HR mingguan.</p>
             </div>
         </div>

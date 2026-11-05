@@ -158,11 +158,11 @@
     <div class="grid md:grid-cols-3 gap-6">
       {{-- Klinik --}}
       <a href="{{ route('landing.klinik') }}" class="reveal card-hover group bg-white border border-[#0c3b2e]/10 rounded-3xl overflow-hidden">
-        <img src="{{ asset('images/landing/klinik-konsultasi.jpg') }}" alt="For Health Facilities" class="w-full h-48 object-cover">
+        <img src="{{ asset('images/landing/klinik-konsultasi.jpg') }}" alt="Untuk Fasilitas Kesehatan" class="w-full h-48 object-cover">
         <div class="p-7">
           <div class="flex items-center gap-3 mb-3">
             <span class="num-outline font-display text-4xl font-semibold text-[#0d7a5f]">01</span>
-            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#0d7a5f]">For Health Facilities</span>
+            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#0d7a5f]">Untuk Fasilitas Kesehatan</span>
           </div>
           <h3 class="font-display text-2xl font-semibold text-[#0c3b2e]">Klinik & Faskes</h3>
           <p class="mt-2 text-sm text-[#1a2420]/70 leading-relaxed">Tambah layanan psikolog, nutrisionis, fisioterapis tanpa rekrut SDM tetap. White-label checkout atas brand klinik.</p>
@@ -177,11 +177,11 @@
 
       {{-- Sekolah --}}
       <a href="{{ route('landing.sekolah') }}" class="reveal card-hover group bg-white border border-[#c2540a]/10 rounded-3xl overflow-hidden">
-        <img src="{{ asset('images/landing/sekolah-kelas.jpg') }}" alt="For School" class="w-full h-48 object-cover">
+        <img src="{{ asset('images/landing/sekolah-kelas.jpg') }}" alt="Untuk Sekolah" class="w-full h-48 object-cover">
         <div class="p-7">
           <div class="flex items-center gap-3 mb-3">
             <span class="num-outline font-display text-4xl font-semibold text-[#c2540a]">02</span>
-            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#c2540a]">For School</span>
+            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#c2540a]">Untuk Sekolah</span>
           </div>
           <h3 class="font-display text-2xl font-semibold text-[#c2540a]">Sekolah & Kampus</h3>
           <p class="mt-2 text-sm text-[#1a2420]/70 leading-relaxed">Konseling siswa profesional, skrining massal, seminar parenting — tanpa rekrut psikolog full-time.</p>
@@ -196,11 +196,11 @@
 
       {{-- Perusahaan --}}
       <a href="{{ route('landing.perusahaan') }}" class="reveal card-hover group bg-white border border-[#1d2d50]/10 rounded-3xl overflow-hidden">
-        <img src="{{ asset('images/landing/perusahaan-kantor.jpg') }}" alt="For Company" class="w-full h-48 object-cover">
+        <img src="{{ asset('images/landing/perusahaan-kantor.jpg') }}" alt="Untuk Perusahaan" class="w-full h-48 object-cover">
         <div class="p-7">
           <div class="flex items-center gap-3 mb-3">
             <span class="num-outline font-display text-4xl font-semibold text-[#1d2d50]">03</span>
-            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#1d2d50]">For Company</span>
+            <span class="text-xs font-semibold tracking-[.15em] uppercase text-[#1d2d50]">Untuk Perusahaan</span>
           </div>
           <h3 class="font-display text-2xl font-semibold text-[#1d2d50]">Perusahaan</h3>
           <p class="mt-2 text-sm text-[#1a2420]/70 leading-relaxed">EAP & wellbeing program tanpa rekrut tim internal. Kurangi turnover, absen, burnout dengan data agregat.</p>

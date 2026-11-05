@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Soluusi Mitra — For Health Facilities: Klinik & Faskes</title>
+<title>Soluusi Mitra — Untuk Klinik & Faskes</title>
 <meta name="description" content="Tambah layanan psikolog, nutrisionis, fisioterapis ke klinik tanpa rekrut SDM tetap. White-label checkout, split payment otomatis.">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,7 +48,7 @@
   <div class="max-w-6xl mx-auto relative">
     <div class="grid lg:grid-cols-12 gap-12 items-center">
       <div class="lg:col-span-7">
-        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#0d7a5f] mb-6">For Health Facilities</p>
+        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#0d7a5f] mb-6">Untuk Fasilitas Kesehatan</p>
         <h1 class="reveal font-display text-5xl md:text-7xl leading-[1.04] tracking-tight font-medium">
           Tambah layanan profesional, <em class="text-[#0d7a5f]">tanpa rekrut</em> SDM tetap.
         </h1>
