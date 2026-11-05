@@ -73,6 +73,7 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::get('/dashboard/export', [\App\Http\Controllers\Sekolah\DashboardController::class, 'export'])->name('dashboard.export');
         Route::get('/dashboard/ai-insight', [\App\Http\Controllers\Sekolah\DashboardController::class, 'aiInsight'])->name('dashboard.ai-insight');
         Route::post('/dashboard/ai-insight', [\App\Http\Controllers\Sekolah\DashboardController::class, 'aiInsight']);
+        Route::get('/report', [\App\Http\Controllers\Sekolah\ReportController::class, 'index'])->name('report');
         Route::get('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'index'])->name('students');
         Route::post('/students', [\App\Http\Controllers\Sekolah\RosterController::class, 'store'])->name('students.store');
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
