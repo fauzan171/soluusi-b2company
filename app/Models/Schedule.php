@@ -65,4 +65,9 @@ class Schedule extends Model
     {
         return $this->hasMany(\App\Models\Klinik\CheckoutLink::class);
     }
+
+    public function perusahaanSessions()
+    {
+        return $this->hasMany(\App\Models\Perusahaan\PerusahaanSession::class, 'schedule_id');
+    }
 }

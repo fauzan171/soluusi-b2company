@@ -12,14 +12,29 @@
     </tr></thead>
     <tbody>
         @foreach($companySessions as $cs)
-        <tr class="border-b">
-            <td class="p-3">{{ $cs->scheduled_at?->format('d M Y H:i') ?? '—' }}</td>
+        <tr class="border-b {{ !$cs->scheduled_at ? 'bg-amber-50' : '' }}">
+            <td class="p-3">
+                @if($cs->scheduled_at)
+                    {{ $cs->scheduled_at->format('d M Y H:i') }}
+                @else
+                    <span class="text-amber-700 font-medium">Belum dijadwalkan</span>
+                @endif
+            </td>
             <td class="p-3">Anonim #{{ $cs->employee_id }}</td>
             <td class="p-3">{{ $cs->perusahaan?->brand ?? '—' }}</td>
             <td class="p-3">{{ ucfirst($cs->status) }}</td>
-            <td class="p-3">
-                @if($cs->status === 'scheduled')
-                <a href="{{ route('consultant.chat', $cs) }}" class="text-xs bg-pine-700 text-white rounded px-2 py-1">Chat</a>
+            <td class="p-3 space-y-1">
+                <a href="{{ route('consultant.chat', $cs) }}" class="text-xs bg-pine-700 text-white rounded px-2 py-1 inline-block">Chat</a>
+                @if(!$cs->scheduled_at && $cs->status === 'scheduled')
+                <form method="POST" action="{{ route('consultant.sessions.schedule', $cs) }}" class="inline-block">
+                    @csrf
+                    <select name="schedule_id" required class="text-xs border rounded px-1 py-0.5" onchange="this.form.submit()">
+                        <option value="">Set jadwal…</option>
+                        @foreach(\App\Services\BookingService::available('perusahaan', $cs->perusahaan_id) as $slot)
+                        <option value="{{ $slot->id }}">{{ $slot->started_at->format('d M H:i') }}</option>
+                        @endforeach
+                    </select>
+                </form>
                 @endif
             </td>
         </tr>

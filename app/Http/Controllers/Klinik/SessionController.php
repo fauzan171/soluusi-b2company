@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Klinik;
 
 use App\Http\Controllers\Controller;
 use App\Models\ConsultationSession;
+use App\Models\Schedule;
 use App\Services\Klinik\HapPervormaService;
 use Illuminate\Http\Request;
 
@@ -98,5 +99,25 @@ class SessionController extends Controller
     {
         $consultant = auth()->user()->consultants()->first();
         abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+    }
+
+    /** Konsultan set jadwal untuk request konsultasi CAP (scheduled_at masih null). */
+    public function schedulePerusahaan(Request $r, \App\Models\Perusahaan\PerusahaanSession $session)
+    {
+        $consultant = auth()->user()->consultants()->first();
+        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        abort_unless($session->status === 'scheduled' && !$session->scheduled_at, 422, 'Sesi sudah dijadwalkan.');
+
+        $r->validate(['schedule_id' => 'required|integer|exists:schedules,id']);
+
+        $slot = Schedule::where('id', $r->schedule_id)
+            ->where('consultant_id', $consultant->id)
+            ->where('started_at', '>', now())
+            ->whereDoesntHave('perusahaanSessions', fn ($q) => $q->whereIn('status', ['scheduled', 'done']))
+            ->whereDoesntHave('consultationSession', fn ($q) => $q->whereIn('status', ['scheduled', 'done']))
+            ->firstOrFail();
+
+        $session->update(['schedule_id' => $slot->id, 'scheduled_at' => $slot->started_at]);
+        return back()->with('success', 'Jadwal di-set.');
     }
 }

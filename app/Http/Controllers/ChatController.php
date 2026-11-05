@@ -85,8 +85,7 @@ class ChatController extends Controller
     private function canSend(PerusahaanSession $session): bool
     {
         return $session->status === 'scheduled'
-            && $session->consultant_id
-            && (! $session->ended_at || $session->ended_at->isFuture());
+            && $session->consultant_id;
     }
 
     /** Pesan sejak id tertentu, maksimal 200 (poll incremental). Nama peserta tidak dikirim: karyawan anonim. */

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Perusahaan;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConsultantPool;
 use App\Models\Perusahaan\PerusahaanAssessment;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
@@ -190,5 +191,51 @@ class EmployeeController extends Controller
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
+    }
+
+    /** Minta konsultasi tanpa pilih slot: assign 1 konsultan pool terdekat beban. */
+    public function requestConsultation(Request $r)
+    {
+        $employee = $this->resolveEmployee();
+        $r->validate([
+            'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
+            'topic_category' => ['nullable', 'string', 'max:100'],
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $perusahaan = $employee->perusahaan;
+        $monthStart = now()->startOfMonth();
+        $usedMonth = $employee->sessions()
+            ->whereIn('status', ['scheduled', 'done'])
+            ->where('scheduled_at', '>=', $monthStart)->count();
+        abort_if($usedMonth >= $perusahaan->sessions_per_employee_month, 422, 'Kuota bulan ini habis.');
+
+        // Assign konsultan dari pool: tipe cocok, beban scheduled terendah.
+        $pool = ConsultantPool::poolFor('perusahaan', $perusahaan->id);
+        $candidates = $pool->where('type', $r->konsultan_type);
+        abort_if($candidates->isEmpty(), 422, 'Tidak ada konsultan tipe ini di program kamu.');
+
+        $assigned = $candidates->sortBy(fn ($c) => PerusahaanSession::where('consultant_id', $c['id'])
+            ->where('status', 'scheduled')
+            ->count())->first();
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $perusahaan->id,
+            'employee_id' => $employee->id,
+            'departement_id' => $employee->departement_id,
+            'consultant_id' => $assigned['id'],
+            'konsultan_type' => $r->konsultan_type,
+            'topic_category' => $r->topic_category,
+            'status' => 'scheduled',
+        ]);
+
+        \App\Models\ChatMessage::create([
+            'perusahaan_session_id' => $session->id,
+            'sender_id' => auth()->id(),
+            'body' => trim($r->body),
+        ]);
+
+        return redirect()->route('perusahaan.chat', $session)
+            ->with('success', 'Konsultan sudah di-assign. Chat langsung aktif.');
     }
 }

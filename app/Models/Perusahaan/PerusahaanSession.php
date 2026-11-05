@@ -19,6 +19,11 @@ class PerusahaanSession extends Model
         'ended_at' => 'datetime',
     ];
 
+    public function schedule()
+    {
+        return $this->belongsTo(\App\Models\Schedule::class);
+    }
+
     public function perusahaan()
     {
         return $this->belongsTo(Perusahaan::class);

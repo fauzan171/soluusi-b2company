@@ -71,10 +71,47 @@
                 <p class="text-xs text-pine-100 mt-1">Online, rahasia, sesuai sisa kuota kamu.</p>
             </div>
             @if(max(0, $quota - $usedMonth - $scheduledMonth) > 0)
-            <a href="{{ route('perusahaan.booking') }}" class="mt-3 inline-block bg-white text-pine-800 text-sm font-semibold rounded-lg px-4 py-2 text-center hover:bg-pine-50 transition">Pilih Jadwal →</a>
+            <div class="mt-3 flex flex-col gap-2">
+                <button type="button" @click="requestConsult = true" class="bg-white text-pine-800 text-sm font-semibold rounded-lg px-4 py-2 text-center hover:bg-pine-50 transition">Minta Konsultasi →</button>
+                <a href="{{ route('perusahaan.booking') }}" class="text-xs text-pine-100 text-center hover:underline">atau pilih jadwal sendiri</a>
+            </div>
             @else
             <p class="mt-3 text-xs bg-white/10 rounded-lg px-3 py-2">Kuota bulan ini habis. Booking lagi bulan depan ya.</p>
             @endif
+        </div>
+    </div>
+
+    {{-- Modal: minta konsultasi --}}
+    <div x-show="requestConsult" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
+        <div @click.outside="requestConsult = false" x-show="requestConsult" x-transition.scale class="portal-card w-full max-w-md p-6">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 class="font-semibold text-pine-900">Minta Konsultasi</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Sistem carikan konsultan yang paling siap. Kamu langsung bisa chat.</p>
+                </div>
+                <button @click="requestConsult = false" class="text-gray-400 hover:text-gray-700">✕</button>
+            </div>
+            <form method="POST" action="{{ route('perusahaan.request-consultation') }}" class="mt-4 space-y-3">
+                @csrf
+                <label class="block text-sm">Jenis konsultan
+                    <select name="konsultan_type" required class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="">— pilih —</option>
+                        <option value="psikolog">Psikolog</option>
+                        <option value="nutrisionis">Nutrisionis</option>
+                        <option value="fisioterapis">Fisioterapis</option>
+                        <option value="karir">Konselor Karir</option>
+                    </select>
+                </label>
+                <label class="block text-sm">Topik (opsional)
+                    <input name="topic_category" maxlength="100" class="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="Misal: Stress kerja, Kecemasan, Tidur">
+                </label>
+                <label class="block text-sm">Cerita singkat
+                    <textarea name="body" rows="4" maxlength="2000" required class="mt-1 w-full border rounded-lg px-3 py-2 text-sm" placeholder="Apa yang mau kamu bicarakan?"></textarea>
+                </label>
+                @error('body')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                @error('konsultan_type')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                <button class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Kirim & Mulai Chat</button>
+            </form>
         </div>
     </div>
 
