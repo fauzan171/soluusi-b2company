@@ -28,7 +28,7 @@ class DashboardController extends Controller
             'karyawan' => ['label' => 'Karyawan terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeEmployeesMonth'] . ' aktif bulan ini'],
             'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $metrics['doneMonth'], 'icon' => 'check', 'tone' => 'pine', 'detail' => ($metrics['deltaDone'] >= 0 ? '+' : '') . $metrics['deltaDone'] . ' vs bulan lalu'],
             'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $metrics['scheduled'], 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $metrics['scheduledNext7Days'] . ' jatuh tempo 7 hari'],
-            'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($metrics['avgRating'], 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Aggregate after-session'],
+            'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($metrics['avgRating'], 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
             'noshow' => ['label' => 'No-show rate', 'value' => $metrics['noShowRate'] . '%', 'icon' => 'bolt', 'tone' => $metrics['noShowRate'] > 15 ? 'red' : 'pine', 'detail' => 'Sesi tidak dihadiri'],
         ];
         $metrics['benchmarkCards'] = [

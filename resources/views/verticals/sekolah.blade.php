@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Soluusi Mitra — For School: Sekolah & Kampus</title>
+<title>Soluusi Mitra — Untuk Sekolah & Kampus</title>
 <meta name="description" content="Layanan konseling siswa profesional tanpa rekrut psikolog full-time. MHCU sekolah, parenting, wellbeing guru.">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,7 +46,7 @@
   <div class="max-w-6xl mx-auto relative">
     <div class="grid lg:grid-cols-12 gap-12 items-center">
       <div class="lg:col-span-7">
-        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#c2540a] mb-6">For School</p>
+        <p class="reveal text-sm font-semibold tracking-[.2em] uppercase text-[#c2540a] mb-6">Untuk Sekolah</p>
         <h1 class="reveal font-display text-5xl md:text-7xl leading-[1.04] tracking-tight font-medium">
           Wellbeing terstruktur untuk <em class="text-[#c2540a]">siswa, guru & orang tua.</em>
         </h1>

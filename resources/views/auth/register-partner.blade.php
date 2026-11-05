@@ -41,7 +41,7 @@
             </div>
 
             <div class="partner-rise mt-14 max-w-md">
-                <div class="mb-5 flex items-center gap-3"><span class="h-px w-10 bg-terra-400"></span><p class="text-xs font-semibold uppercase tracking-[.22em] text-pine-200">For Health Facilities</p></div>
+                <div class="mb-5 flex items-center gap-3"><span class="h-px w-10 bg-terra-400"></span><p class="text-xs font-semibold uppercase tracking-[.22em] text-pine-200">Untuk Fasilitas Kesehatan</p></div>
                 <h1 class="text-[2.6rem] font-semibold leading-[1.03] tracking-[-.045em] sm:text-5xl">Daftarkan mitra,<br><span class="text-pine-200">aktifkan layanan.</span></h1>
                 <p class="mt-6 max-w-sm text-[15px] leading-7 text-white/70">Lengkapi data faskes agar tim partnership bisa menilai kebutuhan layanan, lokasi, dan estimasi volume sesi.</p>
             </div>
