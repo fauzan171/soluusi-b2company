@@ -127,7 +127,7 @@ class DashboardMetrics
             'deltaDone' => $doneMonth - $prevDone,
             'scheduled' => $scheduled->count(),
             'scheduledNext7Days' => $scheduledNext7Days,
-            'activeEmployeesMonth' => $activeMonthPeople->count(),
+            'activeMonthPeople' => $activeMonthPeople->count(),
             'activatedTotal' => $activatedPeople->count(),
             'engagementRate' => $registered > 0 ? round($activeMonthPeople->count() / $registered * 100) : 0,
             'quotaUsed' => $quotaUsed,

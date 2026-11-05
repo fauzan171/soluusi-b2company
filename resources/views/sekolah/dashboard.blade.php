@@ -8,7 +8,7 @@
         'Berisiko Tinggi' => '#dc2626',
     ];
     $statCards = [
-        'siswa' => ['label' => 'Siswa terdaftar', 'value' => $registered, 'icon' => 'users', 'tone' => 'slate', 'detail' => $activeStudentsMonth . ' aktif bulan ini'],
+        'siswa' => ['label' => 'Siswa terdaftar', 'value' => $registered, 'icon' => 'users', 'tone' => 'slate', 'detail' => $activeMonthPeople . ' aktif bulan ini'],
         'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $doneMonth, 'icon' => 'check', 'tone' => 'pine', 'detail' => ($deltaDone >= 0 ? '+' : '') . $deltaDone . ' vs bulan lalu'],
         'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $scheduled, 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $scheduledNext7Days . ' jatuh tempo 7 hari'],
         'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($avgRating, 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
@@ -441,7 +441,7 @@
                         </div>
                         <div class="mini-insight">
                             <div class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Siswa aktif</div>
-                            <div class="mt-1 text-lg font-semibold text-gray-900">{{ $activeStudentsMonth }}</div>
+                            <div class="mt-1 text-lg font-semibold text-gray-900">{{ $activeMonthPeople }}</div>
                         </div>
                     </div>
                 </div>
@@ -598,7 +598,7 @@
 
             <div x-show="modal === 'siswa'" class="mt-4 space-y-3 text-sm">
                 <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Total terdaftar</span><span class="font-semibold">{{ $registered }}</span></div>
-                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Aktif bulan ini</span><span class="font-semibold">{{ $activeStudentsMonth }} ({{ $engagementRate }}%)</span></div>
+                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Aktif bulan ini</span><span class="font-semibold">{{ $activeMonthPeople }} ({{ $engagementRate }}%)</span></div>
                 <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Pernah aktivasi</span><span class="font-semibold">{{ $funnel['activated'] }}</span></div>
                 <div class="flex justify-between rounded-xl bg-terra-50 px-4 py-3"><span class="text-gray-600">Belum onboard dari kontrak</span><span class="font-semibold text-terra-700">{{ $contractGap }}</span></div>
                 <a href="{{ route('sekolah.students') }}" class="block text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Kelola siswa →</a>

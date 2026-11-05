@@ -25,7 +25,7 @@ class DashboardController extends Controller
         $metrics['byType'] = $monthly['byType'] ?? collect();
 
         $metrics['statCards'] = [
-            'siswa' => ['label' => 'Siswa terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeStudentsMonth'] . ' aktif bulan ini'],
+            'siswa' => ['label' => 'Siswa terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeMonthPeople'] . ' aktif bulan ini'],
             'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $metrics['doneMonth'], 'icon' => 'check', 'tone' => 'pine', 'detail' => ($metrics['deltaDone'] >= 0 ? '+' : '') . $metrics['deltaDone'] . ' vs bulan lalu'],
             'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $metrics['scheduled'], 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $metrics['scheduledNext7Days'] . ' jatuh tempo 7 hari'],
             'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($metrics['avgRating'], 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
@@ -55,7 +55,7 @@ class DashboardController extends Controller
         $metrics['funnel'] = [
             'registered' => $metrics['registered'],
             'activated' => $metrics['activatedTotal'],
-            'activeMonth' => $metrics['activeStudentsMonth'],
+            'activeMonth' => $metrics['activeMonthPeople'],
         ];
         $metrics['isSuperAdmin'] = SekolahContext::canSwitch(auth()->user());
 
