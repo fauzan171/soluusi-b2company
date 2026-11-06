@@ -60,6 +60,7 @@ class DashboardController extends Controller
             'activeMonth' => $metrics['activeMonthPeople'],
         ];
         $metrics['isSuperAdmin'] = PerusahaanContext::canSwitch(auth()->user());
+        $metrics['activeEmployeesMonth'] = $metrics['activeMonthPeople'];
 
         return view('perusahaan.dashboard', ['perusahaan' => $perusahaan] + ProgramAggregate::monthly($perusahaan, 'perusahaan') + $metrics);
     }
