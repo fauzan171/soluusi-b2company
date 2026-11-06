@@ -145,7 +145,7 @@
                 </nav>
             </details>
             <main class="w-full px-6 py-6 lg:px-8">
-                <div class="mx-auto w-full max-w-[1400px]">
+                <div class="w-full">
                 @if(session('success'))
                     <div class="mb-4 p-3 rounded-xl bg-pine-100 text-pine-800 text-sm break-all">{{ session('success') }}</div>
                 @endif

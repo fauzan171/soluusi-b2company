@@ -25,7 +25,7 @@
     @media (prefers-reduced-motion: reduce) { .login-rise { animation: none; } .login-field, .login-submit { transition: none; } }
 </style>
 
-<div class="login-shell mx-auto max-w-[1100px] overflow-hidden border border-[#dcd7cd] bg-white lg:grid lg:grid-cols-[.78fr_1.22fr]">
+<div class="login-shell overflow-hidden border border-[#dcd7cd] bg-white lg:grid lg:grid-cols-[.78fr_1.22fr]">
     <aside class="login-aside relative overflow-hidden px-7 py-9 text-white sm:px-10 lg:min-h-[calc(100vh-9rem)] lg:px-12 lg:py-12">
         <div aria-hidden="true" class="absolute -right-16 top-24 h-48 w-48 rounded-full border border-white/10"></div>
         <div aria-hidden="true" class="absolute -right-4 top-36 h-28 w-28 rounded-full border border-terra-400/40"></div>
