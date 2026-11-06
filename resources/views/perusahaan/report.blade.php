@@ -254,7 +254,7 @@
                     @foreach($riskDist as $band => $count)
                         @php
                             $color = $riskPalette[$band] ?? '#6b7280';
-                            $max = $riskDist->max();
+                            $max = collect($riskDist)->max();
                             $pct = $max > 0 ? round($count / $max * 100) : 0;
                         @endphp
                         <div class="panel-surface bg-white">
