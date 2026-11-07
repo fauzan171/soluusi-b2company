@@ -128,4 +128,59 @@ class ChatTest extends TestCase
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo'])
             ->assertStatus(422);
     }
+
+    public function test_employee_can_end_session_and_give_rating()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+
+        // End session
+        $this->actingAs($owner)->post(route('perusahaan.chat.end', $session))
+            ->assertRedirect(route('perusahaan.chat', $session));
+        $session->refresh();
+        $this->assertSame('done', $session->status);
+        $this->assertNotNull($session->completed_at);
+
+        // Chat store blocked after end
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'should fail'])
+            ->assertStatus(422);
+
+        // Rate
+        $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 5])
+            ->assertRedirect(route('perusahaan.employee'));
+        $this->assertSame(5, $session->fresh()->rating);
+    }
+
+    public function test_rating_only_once_and_only_after_done()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+
+        // Cannot rate before done
+        $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 4])
+            ->assertStatus(422);
+
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        // Rate once
+        $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 4])
+            ->assertRedirect();
+        $this->assertSame(4, $session->fresh()->rating);
+
+        // Rate again → 422
+        $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 1])
+            ->assertStatus(422);
+    }
+
+    public function test_other_employee_cannot_end_or_rate()
+    {
+        [$owner, $other, $emp, $otherEmp, , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        $this->actingAs($other)->post(route('perusahaan.chat.end', $session))
+            ->assertForbidden();
+        $this->actingAs($other)->post(route('perusahaan.chat.rate', $session), ['rating' => 1])
+            ->assertForbidden();
+    }
 }

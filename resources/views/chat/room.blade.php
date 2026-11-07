@@ -24,6 +24,34 @@
             </span>
         </header>
 
+        {{-- End session + rating --}}
+        @if($isEmployee)
+        <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white">
+            @if($session->status === 'scheduled')
+            <form method="POST" action="{{ route('perusahaan.chat.end', $session) }}" class="flex items-center gap-3">
+                @csrf
+                <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
+                <span class="text-xs text-gray-400">Chat akan ditutup setelah sesi diakhiri.</span>
+            </form>
+            @elseif($session->status === 'done' && !$session->rating)
+            <form method="POST" action="{{ route('perusahaan.chat.rate', $session) }}" class="flex items-center gap-3">
+                @csrf
+                <label class="text-sm text-gray-600">Rating:</label>
+                <select name="rating" class="rounded-lg border border-[#e7e2d9] px-2 py-1 text-sm">
+                    <option value="5">★★★★★</option>
+                    <option value="4">★★★★☆</option>
+                    <option value="3">★★★☆☆</option>
+                    <option value="2">★★☆☆☆</option>
+                    <option value="1">★☆☆☆☆</option>
+                </select>
+                <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1 text-sm font-semibold text-white hover:bg-pine-800">Kirim</button>
+            </form>
+            @elseif($session->status === 'done' && $session->rating)
+            <p class="text-sm text-gray-500">Sesi selesai. Rating: {{ str_repeat('★', $session->rating) . str_repeat('☆', 5 - $session->rating) }}</p>
+            @endif
+        </div>
+        @endif
+
         <div id="chat-log" class="px-4 py-4 sm:px-5 h-[55vh] sm:h-[60vh] overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
 
         @if($canSend)

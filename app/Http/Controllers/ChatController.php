@@ -20,7 +20,7 @@ class ChatController extends Controller
         $employee = PerusahaanEmployee::where('user_id', $user->id)->first();
         abort_unless($employee && $session->employee_id === $employee->id, 403);
 
-        return $this->room($session, "Konsultan", route('perusahaan.chat.store', $session), route('perusahaan.employee'));
+        return $this->room($session, "Konsultan", route('perusahaan.chat.store', $session), route('perusahaan.employee'), true);
     }
 
     public function employeeStore(Request $r, PerusahaanSession $session)
@@ -49,7 +49,41 @@ class ChatController extends Controller
         return $this->save($r, $session);
     }
 
-    private function room(PerusahaanSession $session, string $peerLabel, string $postUrl, string $backUrl)
+    /** Employee: akhiri sesi (mark done). */
+    public function employeeEnd(PerusahaanSession $session)
+    {
+        $employee = PerusahaanEmployee::where('user_id', auth()->id())->first();
+        abort_unless($employee && $session->employee_id === $employee->id, 403);
+
+        abort_if($session->status === 'done', 422, 'Sesi sudah selesai.');
+
+        $session->update([
+            'status' => 'done',
+            'completed_at' => now(),
+        ]);
+
+        return redirect()->route('perusahaan.chat', $session)
+            ->with('success', 'Sesi diakhiri. Silakan beri rating.');
+    }
+
+    /** Employee: beri rating 1-5 setelah sesi done. */
+    public function employeeRate(Request $r, PerusahaanSession $session)
+    {
+        $employee = PerusahaanEmployee::where('user_id', auth()->id())->first();
+        abort_unless($employee && $session->employee_id === $employee->id, 403);
+
+        abort_unless($session->status === 'done', 422, 'Hanya sesi selesai yang bisa dirating.');
+        abort_if($session->rating, 422, 'Sudah dirating.');
+
+        $r->validate(['rating' => ['required', 'integer', 'min:1', 'max:5']]);
+
+        $session->update(['rating' => $r->rating]);
+
+        return redirect()->route('perusahaan.employee')
+            ->with('success', 'Terima kasih atas ratingnya.');
+    }
+
+    private function room(PerusahaanSession $session, string $peerLabel, string $postUrl, string $backUrl, bool $isEmployee = false)
     {
         if (request()->wantsJson() || request()->has('after')) {
             return response()->json($this->payload($session, (int) request('after', 0), $peerLabel));
@@ -62,6 +96,7 @@ class ChatController extends Controller
             'pollUrl' => request()->url(),
             'canSend' => $this->canSend($session),
             'backUrl' => $backUrl,
+            'isEmployee' => $isEmployee,
         ]);
     }
 
