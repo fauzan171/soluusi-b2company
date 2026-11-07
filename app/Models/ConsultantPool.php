@@ -50,7 +50,7 @@ class ConsultantPool extends Model
     {
         return static::query()
             ->where("{$tenant}_id", $tenantId)
-            ->whereHas('consultant', fn ($q) => $q->where('status', 'accept'))
+            ->whereHas('consultant', fn ($q) => $q->where('status', 'accept')->whereHas('user', fn ($u) => $u->where('is_active', true)))
             ->with('consultant.user', 'consultant.categories')
             ->get()
             ->map(fn (self $p) => [

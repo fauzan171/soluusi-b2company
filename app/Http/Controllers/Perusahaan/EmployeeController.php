@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Perusahaan;
 
 use App\Http\Controllers\Controller;
+use App\Models\Consultant;
 use App\Models\ConsultantPool;
 use App\Models\Perusahaan\PerusahaanAssessment;
 use App\Models\Perusahaan\PerusahaanEmployee;
@@ -191,6 +192,81 @@ class EmployeeController extends Controller
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
+    }
+
+    /** Halodoc-style: pilih konsultan, langsung chat tanpa jadwal. */
+    public function consultants(Request $request)
+    {
+        $employee = $this->resolveEmployee();
+        abort_unless($employee, 403);
+
+        if (! $employee->consent_at) {
+            return redirect()->route('perusahaan.employee')->with('error', 'Berikan persetujuan dulu.');
+        }
+
+        $perusahaan = $employee->perusahaan;
+        abort_unless($perusahaan, 404);
+
+        $q = $request->string('q')->trim()->toString();
+        $category = $request->string('category')->trim()->toString();
+
+        $pool = ConsultantPool::poolFor('perusahaan', $perusahaan->id);
+        $consultants = $pool
+            ->when($q, fn ($c) => $c->filter(fn ($item) => str_contains(strtolower($item['name']), strtolower($q))))
+            ->when($category, fn ($c) => $c->filter(fn ($item) => str_contains($item['category'], $category)))
+            ->values();
+
+        $categories = $pool->pluck('category')->filter()->unique()->sort()->values();
+
+        return view('perusahaan.consultants', [
+            'perusahaan' => $perusahaan,
+            'employee' => $employee,
+            'consultants' => $consultants,
+            'categories' => $categories,
+            'q' => $q,
+            'activeCategory' => $category,
+        ]);
+    }
+
+    /** Buat sesi langsung dengan konsultan terpilih, redirect ke chat room. */
+    public function startChat(Request $request, Consultant $consultant)
+    {
+        $employee = $this->resolveEmployee();
+        abort_unless($employee, 403);
+
+        if (! $employee->consent_at) {
+            return redirect()->route('perusahaan.employee')->with('error', 'Berikan persetujuan dulu.');
+        }
+
+        $perusahaan = $employee->perusahaan;
+        abort_unless($perusahaan, 404);
+
+        // Pastikan konsultan ada di pool perusahaan ini
+        $pool = ConsultantPool::where('perusahaan_id', $perusahaan->id)
+            ->where('consultant_id', $consultant->id)
+            ->first();
+        abort_unless($pool, 404);
+
+        // Cek duplikat: sesi aktif dengan konsultan yang sama
+        $existing = $employee->sessions()
+            ->where('consultant_id', $consultant->id)
+            ->whereIn('status', ['scheduled', 'pending', 'confirmed'])
+            ->first();
+
+        if ($existing) {
+            return redirect()->route('perusahaan.chat', $existing);
+        }
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $perusahaan->id,
+            'employee_id' => $employee->id,
+            'consultant_id' => $consultant->id,
+            'konsultan_type' => ConsultantPool::typeFromCategory($consultant->categories->first()?->name),
+            'status' => 'scheduled',
+            'scheduled_at' => now(),
+        ]);
+
+        return redirect()->route('perusahaan.chat', $session);
     }
 
     /** Minta konsultasi tanpa pilih slot: assign 1 konsultan pool terdekat beban. */
