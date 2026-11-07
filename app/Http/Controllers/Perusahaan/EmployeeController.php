@@ -43,7 +43,7 @@ class EmployeeController extends Controller
             $rows = PerusahaanEmployee::where('user_id', $user->id)->get();
             abort_unless($rows->count() === 1, 403, 'Membership ambigu. Hubungi ops.');
             $employee = $rows->first();
-            if (!request()->isMethod('GET') && !request()->routeIs('perusahaan.booking.cancel')) {
+            if (!request()->isMethod('GET') && !request()->routeIs('perusahaan.booking.cancel') && !request()->routeIs('perusahaan.consultants.start-chat')) {
                 abort_unless($employee->perusahaan?->is_active && $employee->consent_at, 403, 'Program/consent belum aktif. Hubungi HR.');
             }
             abort_unless($employee, 403, 'Akun belum terhubung ke data karyawan.');
