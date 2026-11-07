@@ -222,7 +222,9 @@
                         'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
                         'cancelUrl' => route('perusahaan.booking.cancel', $s),
                         'rescheduleUrl' => route('perusahaan.booking.reschedule', $s),
-                        'chatUrl' => $s->consultant_id && $s->status === 'scheduled' ? route('perusahaan.chat', $s) : null,
+                        'chatUrl' => $s->consultant_id && in_array($s->status, ['scheduled', 'done']) ? route('perusahaan.chat', $s) : null,
+                        'rating' => $s->rating,
+                        'ratingStars' => $s->rating ? str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) : null,
                     ]) }}">
                     <td class="p-3">{{ ($s->completed_at ?? $s->scheduled_at)?->format('d M Y') ?? '—' }}</td>
                     <td class="p-3">{{ $s->topic_category ?? '—' }}</td>
@@ -231,11 +233,14 @@
                         <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? 'bg-terra-100 text-terra-800' : 'bg-gray-100 text-gray-500') }}">
                             {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
                         </span>
+                        @if($s->rating)
+                        <span class="block text-[11px] text-amber-500 mt-0.5">{{ str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) }}</span>
+                        @endif
                     </td>
                     <td class="p-3 text-right">
-                        @if($s->consultant_id && $s->status === 'scheduled')
+                        @if($s->consultant_id && in_array($s->status, ['scheduled', 'done']))
                         <a href="{{ route('perusahaan.chat', $s) }}" @click.stop
-                           class="inline-block whitespace-nowrap rounded-lg bg-pine-700 text-white text-xs font-semibold px-3 py-1.5 hover:bg-pine-800">Chat</a>
+                           class="inline-block whitespace-nowrap rounded-lg bg-pine-700 text-white text-xs font-semibold px-3 py-1.5 hover:bg-pine-800">{{ $s->status === 'done' && !$s->rating ? 'Beri rating' : 'Chat' }}</a>
                         @else
                         <span class="text-gray-300">›</span>
                         @endif
@@ -279,6 +284,9 @@
                 <div class="flex justify-between gap-4"><dt class="text-gray-500">Jenis konsultan</dt><dd class="font-medium" x-text="detail?.jenis"></dd></div>
                 <div class="flex justify-between gap-4"><dt class="text-gray-500">Topik</dt><dd class="font-medium" x-text="detail?.topik"></dd></div>
                 <div class="flex justify-between gap-4"><dt class="text-gray-500">Status</dt><dd class="font-medium" x-text="detail?.statusLabel"></dd></div>
+                <template x-if="detail?.ratingStars">
+                    <div class="flex justify-between gap-4"><dt class="text-gray-500">Rating kamu</dt><dd class="font-medium text-amber-500" x-text="detail?.ratingStars"></dd></div>
+                </template>
             </dl>
             <template x-if="detail?.status === 'scheduled'">
                 <div class="mt-6 grid grid-cols-2 gap-2">

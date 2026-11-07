@@ -114,6 +114,22 @@ class ChatController extends Controller
             'body' => trim($data['body']),
         ]);
 
+        // ponytail: notif email ke pihak lawan saat pesan pertama sesi. Upgrade: queue + digest.
+        if ($session->chatMessages()->count() === 1) {
+            $senderIsEmployee = $session->employee?->user_id === auth()->id();
+            $recipient = $senderIsEmployee
+                ? $session->consultant?->user
+                : $session->employee?->user;
+            if ($recipient?->email) {
+                \Illuminate\Support\Facades\Mail::to($recipient->email)->send(
+                    new \App\Mail\ChatNewMessage(
+                        $session->konsultan_type,
+                        route($senderIsEmployee ? 'consultant.chat' : 'perusahaan.chat', $session)
+                    )
+                );
+            }
+        }
+
         return response()->json(['id' => $msg->id]);
     }
 

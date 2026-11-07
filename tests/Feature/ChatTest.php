@@ -183,4 +183,21 @@ class ChatTest extends TestCase
         $this->actingAs($other)->post(route('perusahaan.chat.rate', $session), ['rating' => 1])
             ->assertForbidden();
     }
+
+    public function test_first_message_sends_email_to_recipient()
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        [$owner, , $emp, , $docUser, $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+
+        // Pesan pertama dari employee → email ke konsultan
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo dok']);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ChatNewMessage::class, fn ($m) => $m->hasTo($docUser->email));
+
+        // Pesan kedua: tidak kirim lagi
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->actingAs($docUser)->postJson(route('consultant.chat.store', $session), ['body' => 'iya']);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
 }
