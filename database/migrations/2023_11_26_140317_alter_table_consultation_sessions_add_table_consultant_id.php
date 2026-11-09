@@ -19,7 +19,11 @@ return new class extends Migration
         // ADD + DROP dijalankan dalam satu table-alter rebuild. Pisahkan DROP
         // lama dan ADD kolom baru agar fresh install menghasilkan schema utuh.
         if (!$isMysql) {
+            // L11+ sqlite native drop column gagal bila kolom masih
+            // direferensikan foreign key; dropForeign + dropColumn
+            // harus dalam satu table rebuild.
             Schema::table('consultation_sessions', function (Blueprint $table) {
+                $table->dropForeign(['consultant_packages']);
                 $table->dropColumn('consultant_packages');
             });
 
