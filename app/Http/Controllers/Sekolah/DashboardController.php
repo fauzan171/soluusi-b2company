@@ -68,6 +68,11 @@ class DashboardController extends Controller
         $sekolah = SekolahContext::current();
         abort_unless($sekolah && $sekolah->is_active, 403);
 
+        // Endpoint JSON untuk fetch dashboard — akses browser langsung di-redirect (F10).
+        if (!request()->expectsJson()) {
+            return redirect()->route('sekolah.dashboard');
+        }
+
         $context = \App\Services\AiInsightService::buildContext($sekolah, 'sekolah');
         $state = \App\Services\AiInsightService::get($sekolah, 'sekolah', $context, request()->boolean('generate'));
 

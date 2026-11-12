@@ -71,6 +71,11 @@ class DashboardController extends Controller
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
 
+        // Endpoint JSON untuk fetch dashboard — akses browser langsung di-redirect (F10).
+        if (!request()->expectsJson()) {
+            return redirect()->route('perusahaan.dashboard');
+        }
+
         $context = \App\Services\AiInsightService::buildContext($perusahaan, 'perusahaan');
         $state = \App\Services\AiInsightService::get($perusahaan, 'perusahaan', $context, request()->boolean('generate'));
 
