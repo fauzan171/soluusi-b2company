@@ -5,7 +5,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
             <h1 class="text-xl font-bold text-pine-900">Pilih Konsultan</h1>
-            <p class="text-sm text-gray-500 mt-1">Chat langsung tanpa menunggu jadwal.</p>
+            <p class="text-sm text-gray-500 mt-1">Lihat jadwal konsultan dan booking slot konsultasi.</p>
         </div>
         <a href="{{ route('perusahaan.employee') }}" class="text-sm text-pine-700 font-medium hover:underline">&larr; Kembali</a>
     </div>
@@ -49,13 +49,9 @@
                 <h2 class="font-semibold text-pine-900 text-sm">{{ $c['name'] }}</h2>
                 <p class="text-xs text-gray-500 mt-1">{{ $c['category'] ?: 'Umum' }}</p>
             </div>
-            <form method="POST" action="{{ route('perusahaan.consultants.start-chat', $c['id']) }}" class="mt-4">
-                @csrf
-                <button type="submit"
-                    class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
-                    Mulai Chat
-                </button>
-            </form>
+            <a href="{{ route('perusahaan.booking') }}" class="mt-4 block w-full text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
+                Lihat Jadwal &amp; Booking
+            </a>
         </div>
         @endforeach
     </div>

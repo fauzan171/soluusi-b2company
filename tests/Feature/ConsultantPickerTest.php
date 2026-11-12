@@ -64,22 +64,15 @@ class ConsultantPickerTest extends TestCase
         $response->assertSee('Pilih Konsultan');
     }
 
-    public function test_start_chat_creates_session(): void
+    public function test_start_chat_redirects_to_booking_and_creates_no_session(): void
     {
         [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
 
         $response = $this->actingAs($user)
             ->post(route('perusahaan.consultants.start-chat', $consultant));
 
-        $this->assertDatabaseHas('perusahaan_sessions', [
-            'perusahaan_id' => $p->id,
-            'employee_id' => $emp->id,
-            'consultant_id' => $consultant->id,
-            'status' => 'scheduled',
-        ]);
-
-        $session = PerusahaanSession::where('employee_id', $emp->id)->first();
-        $response->assertRedirect(route('perusahaan.chat', $session));
+        $response->assertRedirect(route('perusahaan.booking'));
+        $this->assertDatabaseCount('perusahaan_sessions', 0);
     }
 
     public function test_duplicate_active_session_redirects_to_existing(): void

@@ -63,7 +63,7 @@
         </form>
         <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru</p>
         @else
-        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Chat aktif saat sesi berstatus terjadwal.</p>
+        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Chat aktif setelah konsultan menyetujui jadwal sesi kamu.</p>
         @endif
     </div>
 </div>

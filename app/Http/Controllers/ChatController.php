@@ -133,11 +133,12 @@ class ChatController extends Controller
         return response()->json(['id' => $msg->id]);
     }
 
-    /** Chat hanya untuk sesi terjadwal yang sudah punya konsultan. */
+    /** Chat hanya untuk sesi terjadwal yang sudah di-ACC konsultan (scheduled_at terisi). */
     private function canSend(PerusahaanSession $session): bool
     {
         return $session->status === 'scheduled'
-            && $session->consultant_id;
+            && $session->consultant_id
+            && $session->scheduled_at !== null;
     }
 
     /** Pesan sejak id tertentu, maksimal 200 (poll incremental). Nama peserta tidak dikirim: karyawan anonim. */
