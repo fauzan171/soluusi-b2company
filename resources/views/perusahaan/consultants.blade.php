@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php($title = 'Pilih Konsultan')
+
 @section('content')
 <div class="max-w-4xl">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">

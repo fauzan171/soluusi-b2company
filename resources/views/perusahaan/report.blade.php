@@ -293,7 +293,7 @@
                     @include('perusahaan.partials.icon', ['name' => 'chart'])
                     Kembali ke dashboard
                 </span>
-                <span class="text-[11px] text-gray-400">Overview</span>
+                <span class="text-[11px] text-gray-400">Ikhtisar</span>
             </a>
         </div>
     </section>

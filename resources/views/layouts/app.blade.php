@@ -126,11 +126,6 @@
                     @endif
                     @endauth
                 </div>
-                @auth
-                    <form method="POST" action="{{ route('logout') }}">@csrf
-                        <button class="text-sm text-gray-500 hover:text-gray-800">Keluar</button>
-                    </form>
-                @endauth
             </header>
 
             <details class="md:hidden group bg-white border-b">
@@ -142,6 +137,11 @@
                     @foreach($navItems as $item)
                         <a href="{{ route($item['route']) }}" class="text-sm py-1 {{ request()->routeIs($item['pattern']) ? 'font-bold' : '' }}" @if(request()->routeIs($item['pattern'])) aria-current="page" @endif>{{ $item['label'] }}</a>
                     @endforeach
+                    @auth
+                        <form method="POST" action="{{ route('logout') }}">@csrf
+                            <button class="text-left text-sm py-1 text-gray-500">Keluar</button>
+                        </form>
+                    @endauth
                 </nav>
             </details>
             <main class="w-full px-6 py-6 lg:px-8">

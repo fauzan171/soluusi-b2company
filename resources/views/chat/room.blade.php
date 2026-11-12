@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php($title = 'Chat Konsultasi')
+
 @section('content')
 {{-- ponytail: polling 5s vanilla JS. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
 <div id="chat" class="mx-auto max-w-2xl px-1"

@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php($title = 'Asesmen Kesejahteraan')
+
 @section('content')
 <div class="max-w-3xl">
     <div class="flex items-center justify-between mb-4">

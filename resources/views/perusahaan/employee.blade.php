@@ -52,7 +52,7 @@
                 <span class="text-2xl font-bold {{ $levelClass }}">{{ $assessment->score }}</span>
                 <span class="text-xs text-gray-400">{{ $assessment->taken_at->format('d M Y') }}</span>
             </div>
-            <div class="text-xs text-gray-500 mb-2">Wellbeing score: {{ $assessment->band() }} <span class="text-pine-600 font-medium">· lihat detail</span></div>
+            <div class="text-xs text-gray-500 mb-2">Skor wellbeing: {{ $assessment->band() }} <span class="text-pine-600 font-medium">· lihat detail</span></div>
             @if(count($assessmentTrend) > 1)
             <div class="h-12 w-full"><canvas id="chartTrend"></canvas></div>
             @endif
@@ -333,7 +333,7 @@
         <div @click.outside="wellbeing = false" x-show="wellbeing" x-transition.scale class="portal-card w-full max-w-md p-6">
             <div class="flex items-start justify-between">
                 <div>
-                    <h3 class="font-semibold text-pine-900">Wellbeing score kamu</h3>
+                    <h3 class="font-semibold text-pine-900">Skor wellbeing kamu</h3>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $assessment->taken_at->translatedFormat('d F Y') }} · WHO-5</p>
                 </div>
                 <button @click="wellbeing = false" class="text-gray-400 hover:text-gray-700">✕</button>

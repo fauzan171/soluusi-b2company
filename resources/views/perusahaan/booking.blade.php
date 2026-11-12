@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php($title = 'Booking Sesi Konsultasi')
+
 @section('content')
 <div class="max-w-3xl">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -70,7 +72,7 @@
             <p class="text-xs text-gray-500 mb-2">Semua waktu dalam zona WIB. Sesi berlangsung online. Klik tanggal untuk lompat ke slotnya.</p>
 
             {{-- Overview kalender bulan ini: jumlah slot per tanggal --}}
-            <div class="portal-card p-4 mb-4" aria-label="Overview ketersediaan {{ $month->translatedFormat('F Y') }}">
+            <div class="portal-card p-4 mb-4" aria-label="Ikhtisar ketersediaan {{ $month->translatedFormat('F Y') }}">
                 <p class="text-xs font-semibold text-pine-900 mb-2">{{ $month->translatedFormat('F Y') }}</p>
                 <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-gray-400 mb-1">
                     <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
