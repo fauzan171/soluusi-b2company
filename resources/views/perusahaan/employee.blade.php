@@ -170,7 +170,7 @@
     </div>
 
     {{-- Jadwal mendatang + Google Calendar --}}
-    @php $upcoming = $history->where('status', 'scheduled')->filter(fn ($s) => $s->scheduled_at->isFuture()); @endphp
+    @php $upcoming = $history->where('status', 'scheduled')->filter(fn ($s) => $s->scheduled_at?->isFuture()); @endphp
     @if($upcoming->isNotEmpty())
     <section class="portal-card p-5 mb-6 border-pine-300 bg-pine-50/40">
         <h3 class="dash-section-title">Jadwal mendatang kamu</h3>
@@ -219,7 +219,7 @@
                         'topik' => $s->topic_category ?? '—',
                         'jenis' => ($s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '') . ($typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type)),
                         'status' => $s->status,
-                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
+                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
                         'cancelUrl' => route('perusahaan.booking.cancel', $s),
                         'rescheduleUrl' => route('perusahaan.booking.reschedule', $s),
                         'chatUrl' => $s->consultant_id && in_array($s->status, ['scheduled', 'done']) ? route('perusahaan.chat', $s) : null,
@@ -230,8 +230,8 @@
                     <td class="p-3">{{ $s->topic_category ?? '—' }}</td>
                     <td class="p-3">{{ $s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '' }}{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</td>
                     <td class="p-3">
-                        <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? 'bg-terra-100 text-terra-800' : 'bg-gray-100 text-gray-500') }}">
-                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
+                        <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? ($s->scheduled_at ? 'bg-terra-100 text-terra-800' : 'bg-amber-100 text-amber-800') : 'bg-gray-100 text-gray-500') }}">
+                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
                         </span>
                         @if($s->rating)
                         <span class="block text-[11px] text-amber-500 mt-0.5">{{ str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) }}</span>

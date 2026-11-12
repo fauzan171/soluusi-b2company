@@ -70,8 +70,7 @@ class RequestConsultationTest extends TestCase
         $this->assertSame($consultant->id, $session->consultant_id);
         $this->assertSame('scheduled', $session->status);
         $this->assertNull($session->scheduled_at);
-        $this->assertSame(1, $session->chatMessages()->count());
-        $this->assertSame('Saya butuh konsultasi.', $session->chatMessages()->first()->body);
+        $this->assertSame(0, $session->chatMessages()->count());
     }
 
     public function test_employee_cannot_request_if_quota_exceeded()
@@ -136,6 +135,11 @@ class RequestConsultationTest extends TestCase
         $session->refresh();
         $this->assertSame($slot->id, $session->schedule_id);
         $this->assertSame($slot->started_at->toDateTimeString(), $session->scheduled_at->toDateTimeString());
+
+        // Setelah ACC (scheduled_at terisi), karyawan bisa kirim pesan.
+        $this->actingAs($user)->postJson(route('perusahaan.chat.store', $session), ['body' => 'Terima kasih dok'])
+            ->assertOk();
+        $this->assertSame(1, $session->chatMessages()->count());
     }
 
     public function test_consultant_cannot_schedule_already_scheduled_session()

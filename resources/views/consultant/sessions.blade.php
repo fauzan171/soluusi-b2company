@@ -46,7 +46,7 @@
                             <span class="font-medium text-ink">{{ $cs->scheduled_at->format('d M Y') }}</span>
                             <span class="text-gray-500 text-xs block">{{ $cs->scheduled_at->format('H:i') }} WIB</span>
                         @else
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-terra-100 text-terra-800">Belum dijadwalkan</span>
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-terra-100 text-terra-800">Permintaan baru — set jadwal</span>
                         @endif
                     </td>
                     <td class="px-5 py-3">Anonim #{{ $cs->employee_id }}</td>
