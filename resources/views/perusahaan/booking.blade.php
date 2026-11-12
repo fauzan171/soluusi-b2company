@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@php($title = 'Booking Sesi Konsultasi')
+@php $title = 'Booking Sesi Konsultasi'; @endphp
 
 @section('content')
 <div class="max-w-3xl">
