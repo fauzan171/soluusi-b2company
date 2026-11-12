@@ -194,7 +194,7 @@ class EmployeeController extends Controller
             ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
     }
 
-    /** Halodoc-style: pilih konsultan, langsung chat tanpa jadwal. */
+    /** Lihat konsultan program, link ke form booking. */
     public function consultants(Request $request)
     {
         $employee = $this->resolveEmployee();
@@ -244,7 +244,7 @@ class EmployeeController extends Controller
         // Sesi aktif dengan konsultan yang sama → langsung ke room (read-only sampai di-ACC).
         $existing = $employee->sessions()
             ->where('consultant_id', $consultant->id)
-            ->whereIn('status', ['scheduled', 'pending', 'confirmed'])
+            ->where('status', 'scheduled')
             ->first();
 
         if ($existing) {
@@ -266,10 +266,13 @@ class EmployeeController extends Controller
         ]);
 
         $perusahaan = $employee->perusahaan;
+        abort_if($employee->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
+            422, 'Masih ada permintaan menunggu ACC.');
+
         $monthStart = now()->startOfMonth();
         $usedMonth = $employee->sessions()
             ->whereIn('status', ['scheduled', 'done'])
-            ->where('scheduled_at', '>=', $monthStart)->count();
+            ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))->count();
         abort_if($usedMonth >= $perusahaan->sessions_per_employee_month, 422, 'Kuota bulan ini habis.');
 
         // Assign konsultan dari pool: tipe cocok, beban scheduled terendah.

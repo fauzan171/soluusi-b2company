@@ -93,6 +93,25 @@ class RequestConsultationTest extends TestCase
         $this->assertSame(1, PerusahaanSession::count());
     }
 
+    public function test_employee_cannot_request_while_awaiting_acc()
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+
+        PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
+            'konsultan_type' => 'psikolog',
+            'body' => 'Request kedua saat masih menunggu ACC.',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertSame(1, PerusahaanSession::count());
+    }
+
     public function test_employee_cannot_request_if_no_consultant_in_pool()
     {
         $p = Perusahaan::create([
