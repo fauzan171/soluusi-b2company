@@ -22,7 +22,7 @@
         <p class="text-2xl font-bold text-pine-900">{{ $total }}</p>
     </div>
     <div class="dash-card">
-        <p class="text-xs text-gray-500 mb-1">Akun Aktif</p>
+        <p class="text-xs text-gray-500 mb-1">Akun login aktif</p>
         <p class="text-2xl font-bold text-pine-900">{{ $aktif }}</p>
     </div>
     <div class="dash-card">
