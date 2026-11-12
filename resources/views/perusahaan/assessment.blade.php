@@ -28,7 +28,7 @@
                 @foreach($options as $val => $label)
                 <label class="flex items-center gap-2 text-sm border-[#e7e2d9] rounded-lg rounded px-3 py-2 cursor-pointer hover:border-pine-600 has-checked:border-pine-600 has-checked:bg-pine-50">
                     <input type="radio" name="answers[{{ $i }}]" value="{{ $val }}" required class="accent-pine-700">
-                    {{ $label }}
+                    <span class="leading-snug">{{ $label }}</span>
                 </label>
                 @endforeach
             </div>

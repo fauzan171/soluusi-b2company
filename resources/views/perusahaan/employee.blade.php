@@ -216,7 +216,7 @@
                     @click="detail = {{ Js::from([
                         'id' => $s->id,
                         'tanggal' => ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('l, d M Y H.i') ?? '—',
-                        'topik' => $s->topic_category ?? '—',
+                        'topik' => $s->topic_category ?? 'Belum ditentukan',
                         'jenis' => ($s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '') . ($typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type)),
                         'status' => $s->status,
                         'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
@@ -227,7 +227,7 @@
                         'ratingStars' => $s->rating ? str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) : null,
                     ]) }}">
                     <td class="p-3">{{ ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('d M Y') ?? '—' }}</td>
-                    <td class="p-3">{{ $s->topic_category ?? '—' }}</td>
+                    <td class="p-3">{{ $s->topic_category ?? 'Belum ditentukan' }}</td>
                     <td class="p-3">{{ $s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '' }}{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</td>
                     <td class="p-3">
                         <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? ($s->scheduled_at ? 'bg-terra-100 text-terra-800' : 'bg-amber-100 text-amber-800') : 'bg-gray-100 text-gray-500') }}">
