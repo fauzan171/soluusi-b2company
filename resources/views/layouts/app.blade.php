@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $title ?? config('whitelabel.default_brand'))</title>
+    <title>@yield('title', $title ?? config('whitelabel.internal_brand', 'Soluusi'))</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 @php
@@ -12,10 +12,10 @@
     $role = optional($user?->role)->name;
     $isPerusahaanRoute = request()->routeIs('perusahaan.*');
     $isSekolahRoute = request()->routeIs('sekolah.*');
-    $perusahaanBrand = $isPerusahaanRoute ? ($perusahaan->brand ?? optional(\App\Support\PerusahaanContext::current())->brand) : null;
+    $perusahaanBrand = $isPerusahaanRoute ? ($perusahaan->brand ?? optional(\App\Support\PerusahaanContext::current())->brand ?? optional($user?->perusahaanEmployee?->perusahaan)->brand) : null;
     $sekolahBrand = $isSekolahRoute ? ($sekolah->brand ?? optional(\App\Support\SekolahContext::current())->brand) : null;
     $klinikBrand = request()->routeIs('klinik.*') ? optional(\App\Support\KlinikContext::current())->brand : null;
-    $pageBrand = $perusahaanBrand ?: $sekolahBrand ?: $klinikBrand ?: config('whitelabel.default_brand');
+    $pageBrand = $perusahaanBrand ?: $sekolahBrand ?: $klinikBrand ?: config('whitelabel.internal_brand', 'Soluusi');
 
     // ponytail: nav didefinisikan di layout; pindah ke config kalau portal lain butuh menu dinamis
     $navItems = match (true) {
