@@ -55,7 +55,7 @@
                                         <td style="font-size: 16px; padding: 5px 20px;">
                                             <strong>Jadwal:</strong> 
                                             @if($session->schedule && $session->schedule->started_at && $session->schedule->ended_at)
-                                                {{ \Carbon\Carbon::parse($session->schedule->started_at)->format('d F Y H:i') }} - {{ \Carbon\Carbon::parse($session->schedule->ended_at)->format('H:i') }} WIB
+                                                {{ \Carbon\Carbon::parse($session->schedule->started_at)->translatedFormat('d F Y H.i') }} - {{ \Carbon\Carbon::parse($session->schedule->ended_at)->translatedFormat('H.i') }} WIB
                                             @else
                                                 Belum ditentukan
                                             @endif
@@ -76,7 +76,7 @@
                                         <td style="font-size: 16px; padding: 5px 20px;">
                                             <strong>Tanggal Pembayaran:</strong> 
                                             @if($session->payment_at)
-                                                {{ \Carbon\Carbon::parse($session->payment_at)->format('d F Y H:i') }}
+                                                {{ \Carbon\Carbon::parse($session->payment_at)->translatedFormat('d F Y H.i') }}
                                             @else
                                                 Belum dibayar
                                             @endif

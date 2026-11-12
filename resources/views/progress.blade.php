@@ -120,7 +120,7 @@
     </section>
 
     <footer class="text-xs text-slate-500 border-t pt-4">
-        Soluusi B2B · screening multi-domain · {{ now()->format('d M Y H:i') }}
+        Soluusi B2B · screening multi-domain · {{ now()->translatedFormat('d M Y H.i') }}
     </footer>
 </div>
 </body>

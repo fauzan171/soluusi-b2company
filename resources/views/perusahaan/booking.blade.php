@@ -100,7 +100,7 @@
                     <label class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-pine-50/60 cursor-pointer transition">
                         <input type="radio" name="schedule_id" value="{{ $slot->id }}" required @checked(old('schedule_id') == $slot->id)
                             class="h-4 w-4 text-pine-700 border-gray-300 focus:ring-pine-500">
-                        <span class="text-sm text-ink">{{ $slot->started_at->format('H:i') }}–{{ $slot->ended_at->format('H:i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode }}</span>
+                        <span class="text-sm text-ink">{{ $slot->started_at->translatedFormat('H.i') }}–{{ $slot->ended_at->translatedFormat('H.i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode }}</span>
                     </label>
                     @endforeach
                 </div>

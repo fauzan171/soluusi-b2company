@@ -353,8 +353,8 @@
                             <div class="flex items-center gap-4">
                                 <div class="grid h-14 w-14 place-items-center rounded-2xl border border-[#e7e2d9] bg-white text-center">
                                     <div>
-                                        <div class="text-[10px] uppercase tracking-[0.12em] text-gray-400">{{ $dt->format('M') }}</div>
-                                        <div class="text-lg font-semibold text-gray-900">{{ $dt->format('d') }}</div>
+                                        <div class="text-[10px] uppercase tracking-[0.12em] text-gray-400">{{ $dt->translatedFormat('M') }}</div>
+                                        <div class="text-lg font-semibold text-gray-900">{{ $dt->translatedFormat('d') }}</div>
                                     </div>
                                 </div>
                                 <div class="min-w-0 flex-1">

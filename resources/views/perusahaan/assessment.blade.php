@@ -14,7 +14,7 @@
 
     @if($latest)
     <div class="portal-card p-4 mb-4 flex items-center justify-between">
-        <div class="text-sm text-gray-500">Hasil terakhir: <span class="font-semibold text-gray-900">{{ $latest->score }}/100</span> ({{ $latest->band() }}) — {{ $latest->taken_at->format('d M Y') }}</div>
+        <div class="text-sm text-gray-500">Hasil terakhir: <span class="font-semibold text-gray-900">{{ $latest->score }}/100</span> ({{ $latest->band() }}) — {{ $latest->taken_at->translatedFormat('d M Y') }}</div>
         <a href="{{ route('perusahaan.employee') }}" class="text-xs text-pine-700 font-semibold hover:underline">Lihat tren</a>
     </div>
     @endif

@@ -9,7 +9,7 @@
 
     @if($latest)
     <div class="portal-card p-4 mb-4 text-sm">
-        <p class="text-gray-500 text-xs">Terakhir diisi {{ $latest->taken_at->format('d M Y') }} — skor <b>{{ $latest->score }}/100</b> ({{ $latest->band() }})</p>
+        <p class="text-gray-500 text-xs">Terakhir diisi {{ $latest->taken_at->translatedFormat('d M Y') }} — skor <b>{{ $latest->score }}/100</b> ({{ $latest->band() }})</p>
     </div>
     @endif
 

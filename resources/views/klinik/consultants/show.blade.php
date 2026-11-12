@@ -77,8 +77,8 @@
             @forelse($upcomingSchedules as $schedule)
                 <label class="schedule-option border-2 rounded-lg p-4 cursor-pointer transition-colors hover:border-emerald-400 has-checked:border-emerald-600 has-checked:bg-emerald-50" data-mode="{{ $schedule->mode ?? 'online' }}">
                     <input type="radio" name="schedule_id" value="{{ $schedule->id }}" class="sr-only" @disabled(!$loop->first)>
-                    <div class="font-semibold text-sm">{{ $schedule->started_at->format('d M Y') }}</div>
-                    <div class="text-xs text-gray-500 mt-0.5">{{ $schedule->started_at->format('H:i') }} - {{ $schedule->ended_at->format('H:i') }} · {{ strtoupper($schedule->mode ?? 'online') }}</div>
+                    <div class="font-semibold text-sm">{{ $schedule->started_at->translatedFormat('d M Y') }}</div>
+                    <div class="text-xs text-gray-500 mt-0.5">{{ $schedule->started_at->translatedFormat('H.i') }} - {{ $schedule->ended_at->translatedFormat('H.i') }} · {{ strtoupper($schedule->mode ?? 'online') }}</div>
                     @if(($schedule->mode ?? 'online') === 'offline' && $schedule->location)
                         <div class="text-[11px] text-gray-400 mt-1 truncate">{{ $schedule->location }}</div>
                     @endif

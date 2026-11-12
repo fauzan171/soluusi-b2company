@@ -40,8 +40,8 @@
                                         <td style="font-size: 16px; padding: 5px 20px;">
                                             <strong>Jadwal:</strong> 
                                             @if($consultationSession->schedule && $consultationSession->schedule->started_at && $consultationSession->schedule->ended_at)
-                                                {{ \Carbon\Carbon::parse($consultationSession->schedule->started_at)->format('d F Y, H:i') }}
-                                                - {{ \Carbon\Carbon::parse($consultationSession->schedule->ended_at)->format('d F Y, H:i') }} (WIB)
+                                                {{ \Carbon\Carbon::parse($consultationSession->schedule->started_at)->translatedFormat('d F Y, H.i') }}
+                                                - {{ \Carbon\Carbon::parse($consultationSession->schedule->ended_at)->translatedFormat('d F Y, H.i') }} (WIB)
                                             @else
                                                 Belum ditentukan
                                             @endif

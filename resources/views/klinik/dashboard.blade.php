@@ -101,7 +101,7 @@
             </div>
             <div class="panel-surface bg-white">
                 <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">MoU</p>
-                <p class="mt-1.5 text-sm font-semibold text-gray-900">{{ $klinik->mou_at ? $klinik->mou_at->format('d M Y') : '— belum ada MoU' }}</p>
+                <p class="mt-1.5 text-sm font-semibold text-gray-900">{{ $klinik->mou_at ? $klinik->mou_at->translatedFormat('d M Y') : '— belum ada MoU' }}</p>
             </div>
             <div class="panel-surface bg-white">
                 <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Rate total pervorma</p>
@@ -148,7 +148,7 @@
                                     <td>
                                         <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $p->status === 'paid' ? 'bg-pine-100 text-pine-800' : 'bg-amber-100 text-amber-800' }}">{{ $p->status === 'paid' ? 'Dibayar' : 'Jatuh tempo' }}</span>
                                     </td>
-                                    <td>{{ $p->paid_at ? $p->paid_at->format('d M Y') : '—' }}</td>
+                                    <td>{{ $p->paid_at ? $p->paid_at->translatedFormat('d M Y') : '—' }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -361,7 +361,7 @@
                     <tbody>
                         @forelse($recentSessions as $s)
                         <tr>
-                            <td class="whitespace-nowrap">{{ $s->order_at->format('d M H:i') }}</td>
+                            <td class="whitespace-nowrap">{{ $s->order_at->translatedFormat('d M H.i') }}</td>
                             <td>
                                 <span class="font-medium text-gray-900">{{ trim(($s->consultant->user->firstname ?? '') . ' ' . ($s->consultant->user->lastname ?? '')) }}</span>
                                 <span class="block text-[11px] text-gray-400">{{ $s->consultantPackage->name ?? '-' }}</span>

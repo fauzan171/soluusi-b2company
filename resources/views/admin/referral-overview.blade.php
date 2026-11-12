@@ -39,7 +39,7 @@
                 <td class="p-3 font-semibold {{ $c90 === 0 ? 'text-red-600' : '' }}">{{ $c90 }}</td>
                 <td class="p-3">{{ (int) ($s->completed_total ?? 0) }}</td>
                 <td class="p-3">Rp{{ number_format((int) ($s->revenue_verified ?? 0), 0, ',', '.') }}</td>
-                <td class="p-3">{{ $s && $s->last_order_at ? \Illuminate\Support\Carbon::parse($s->last_order_at)->format('d M Y') : '—' }}</td>
+                <td class="p-3">{{ $s && $s->last_order_at ? \Illuminate\Support\Carbon::parse($s->last_order_at)->translatedFormat('d M Y') : '—' }}</td>
                 <td class="p-3">Rp{{ number_format($paid, 0, ',', '.') }}</td>
                 <td class="p-3">Rp{{ number_format($due, 0, ',', '.') }}</td>
                 <td class="p-3">

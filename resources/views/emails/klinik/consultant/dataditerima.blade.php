@@ -33,7 +33,7 @@
                                   <br><br>
                                   Langkah berikutnya adalah sesi interview singkat (sekitar 15 menit) bersama tim Soluusi untuk mengenal lebih jauh tentang kamu dan memastikan pengalaman terbaik bagi klien di platform kami.
                                   <br><br>
-                                  <strong>{{ \Carbon\Carbon::parse($consultant->interview_at)->locale('id')->translatedFormat('d F Y, H:i') }} WIB</strong>
+                                  <strong>{{ \Carbon\Carbon::parse($consultant->interview_at)->locale('id')->translatedFormat('d F Y, H.i') }} WIB</strong>
                                   <br>
                                   <a href="{{ $consultant->interivew_link }}" style="color: #007648; text-decoration: none; font-weight: 600;">Link Meeting Disini</a>
                                   <br>

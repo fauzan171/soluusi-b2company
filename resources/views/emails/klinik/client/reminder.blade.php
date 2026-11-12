@@ -3,7 +3,7 @@
     <p style="margin:0 0 16px;line-height:1.6;">
         Bersiap ya! Sesi dengan {{ trim(($session->consultant->user->firstname ?? '') . ' ' . ($session->consultant->user->lastname ?? '')) }}
         @if($session->schedule)
-            dimulai {{ $session->schedule->started_at->translatedFormat('H:i') }} WIB.
+            dimulai {{ $session->schedule->started_at->translatedFormat('H.i') }} WIB.
         @endif
     </p>
     @if($session->link_meeting)

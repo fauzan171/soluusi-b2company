@@ -45,7 +45,7 @@
                     </div>
                     <div class="flex justify-between gap-4">
                         <dt class="text-gray-500">Jadwal</dt>
-                        <dd class="text-right font-semibold">{{ $link->schedule->started_at->translatedFormat('D, d M Y H:i') }} WIB</dd>
+                        <dd class="text-right font-semibold">{{ $link->schedule->started_at->translatedFormat('D, d M Y H.i') }} WIB</dd>
                     </div>
                 </dl>
 

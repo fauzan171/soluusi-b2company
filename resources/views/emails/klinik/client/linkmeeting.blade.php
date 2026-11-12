@@ -3,7 +3,7 @@
     <p style="margin:0 0 16px;line-height:1.6;">
         Sesi dengan {{ trim(($consultationSession->consultant->user->firstname ?? '') . ' ' . ($consultationSession->consultant->user->lastname ?? '')) }}
         @if($consultationSession->schedule)
-            pada {{ $consultationSession->schedule->started_at->translatedFormat('l, d M Y H:i') }} WIB
+            pada {{ $consultationSession->schedule->started_at->translatedFormat('l, d M Y H.i') }} WIB
         @endif
     </p>
     @if($consultationSession->link_meeting)

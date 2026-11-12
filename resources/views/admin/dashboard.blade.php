@@ -50,7 +50,7 @@
         <tr class="border-b">
             <td class="p-3">{{ $k->name }}</td>
             <td class="p-3">{{ $k->brand }}</td>
-            <td class="p-3">{{ $k->created_at->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ $k->created_at->translatedFormat('d M Y H.i') }}</td>
             <td class="p-3">
                 <form method="POST" action="{{ route('admin.kliniks.approve', $k) }}">@csrf
                     <button class="text-xs bg-emerald-700 text-white rounded px-3 py-1.5 font-semibold">Approve</button>
@@ -99,7 +99,7 @@
             <td class="p-3">{{ $c->associate ? trim($c->associate->firstname . ' ' . $c->associate->lastname) : '-' }}</td>
             <td class="p-3">Stage {{ $c->stage }}</td>
             <td class="p-3">Rp{{ number_format($c->amount, 0, ',', '.') }}</td>
-            <td class="p-3">{{ optional($c->due_at)->format('d M Y') ?? '-' }}</td>
+            <td class="p-3">{{ optional($c->due_at)->translatedFormat('d M Y') ?? '-' }}</td>
             <td class="p-3">
                 <form method="POST" action="{{ route('admin.pervormas.pay', $c) }}">@csrf
                     <button class="text-xs bg-emerald-700 text-white rounded px-3 py-1.5 font-semibold">Tandai dibayar</button>
@@ -120,10 +120,10 @@
     <tbody>
         @forelse($recentSessions as $s)
         <tr class="border-b">
-            <td class="p-3">{{ $s->order_at->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ $s->order_at->translatedFormat('d M Y H.i') }}</td>
             <td class="p-3">{{ $s->klinik->brand_name ?? '-' }}</td>
             <td class="p-3"><a class="text-emerald-700 hover:underline" href="{{ route('klinik.consultants.show', $s->consultant_id) }}">{{ trim(($s->consultant->user->firstname ?? '') . ' ' . ($s->consultant->user->lastname ?? '')) }}</a></td>
-            <td class="p-3">{{ optional($s->schedule)->started_at?->format('d M H:i') }}</td>
+            <td class="p-3">{{ optional($s->schedule)->started_at?->translatedFormat('d M H.i') }}</td>
             <td class="p-3">
                 <span class="text-xs px-2 py-0.5 rounded {{ $s->payment_status === 'verified' ? 'bg-emerald-100 text-emerald-800' : ($s->payment_status === 'waiting' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500') }}">{{ ucfirst($s->payment_status) }}</span>
             </td>
@@ -150,7 +150,7 @@
             <td class="p-3">
                 <span class="text-xs px-2 py-0.5 rounded {{ $k->is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">{{ $k->is_active ? 'Aktif' : 'Pending' }}</span>
             </td>
-            <td class="p-3">{{ $k->created_at->format('d M Y') }}</td>
+            <td class="p-3">{{ $k->created_at->translatedFormat('d M Y') }}</td>
         </tr>
         @endforeach
     </tbody>
@@ -175,7 +175,7 @@
             </td>
             <td class="p-3">{{ trim(($s->consultant->user->firstname ?? '') . ' ' . ($s->consultant->user->lastname ?? '')) }}</td>
             <td class="p-3">{{ $s->klinik->brand_name ?? '-' }}</td>
-            <td class="p-3">{{ optional($s->konsultan_done_at)->format('d M Y H:i') ?: '-' }}</td>
+            <td class="p-3">{{ optional($s->konsultan_done_at)->translatedFormat('d M Y H.i') ?: '-' }}</td>
             <td class="p-3">
                 <form method="POST" action="{{ route('admin.sessions.verify', $s) }}">@csrf
                     <button class="text-xs bg-emerald-700 text-white rounded px-2 py-1">Verifikasi Manual</button>

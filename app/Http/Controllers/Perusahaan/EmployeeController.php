@@ -75,7 +75,7 @@ class EmployeeController extends Controller
 
         $latest = $employee->assessments()->latest('taken_at')->first();
         $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
-            ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
+            ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
         $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
         return view('perusahaan.employee', [

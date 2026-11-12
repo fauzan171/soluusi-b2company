@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function () {
         events: [
             @foreach ($existingSchedules as $s)
                 {
-                    title: '{{ $s->started_at->format('H:i') }} {{ strtoupper($s->mode) }}',
+                    title: '{{ $s->started_at->translatedFormat('H.i') }} {{ strtoupper($s->mode) }}',
                     start: '{{ $s->started_at->toDateTimeString() }}',
                     end: '{{ $s->ended_at->toDateTimeString() }}',
                     backgroundColor: '{{ ($s->mode ?? 'online') === 'offline' ? '#f59e0b' : '#0d7a5f' }}',
