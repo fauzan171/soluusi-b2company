@@ -104,7 +104,7 @@
                 <p class="mt-1.5 text-sm font-semibold text-gray-900">{{ $klinik->mou_at ? $klinik->mou_at->translatedFormat('d M Y') : '— belum ada MoU' }}</p>
             </div>
             <div class="panel-surface bg-white">
-                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Rate total pervorma</p>
+                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Rate total performa</p>
                 <p class="mt-1.5 text-sm font-semibold text-gray-900">Rp{{ number_format($klinik->total_rate, 0, ',', '.') }}</p>
             </div>
             <div class="panel-surface bg-white">
@@ -131,11 +131,11 @@
         <div class="mt-4 grid gap-3 xl:grid-cols-2">
             <div class="panel-surface bg-white">
                 <div class="flex items-center justify-between">
-                    <p class="text-sm font-semibold text-indigo-900">Komisi pervorma HPA</p>
+                    <p class="text-sm font-semibold text-indigo-900">Komisi performa HPA</p>
                     <span class="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">{{ $pervormas->count() }} tahap</span>
                 </div>
                 @if($pervormas->isEmpty())
-                    <p class="mt-3 text-xs text-gray-400">Belum ada pervorma terpicu. Tahap 1 terpicu saat MoU + 5 sesi terverifikasi dalam 90 hari.</p>
+                    <p class="mt-3 text-xs text-gray-400">Belum ada performa terpicu. Tahap 1 terpicu saat MoU + 5 sesi terverifikasi dalam 90 hari.</p>
                 @else
                     <div class="mt-3 overflow-x-auto">
                         <table class="table-dashed w-full">

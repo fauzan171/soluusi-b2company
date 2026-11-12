@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="text-xl font-bold mb-1">Sesi Kontributor Pervorma HPA — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
-<p class="text-sm text-gray-500 mb-6">Sesi yang di-tag berkontribusi ke stage pervorma (1/2/3). Sesi tanpa tag = di atas stage-3 trigger atau di luar window 90 hari.</p>
+<h1 class="text-xl font-bold mb-1">Sesi Kontributor Performa HPA — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
+<p class="text-sm text-gray-500 mb-6">Sesi yang di-tag berkontribusi ke stage performa (1/2/3). Sesi tanpa tag = di atas stage-3 trigger atau di luar window 90 hari.</p>
 
 <form method="GET" class="mb-4 flex gap-3 items-end">
     <div>

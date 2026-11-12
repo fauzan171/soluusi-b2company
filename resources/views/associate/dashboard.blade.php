@@ -15,7 +15,7 @@
     <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-pine-700">Associate Partner</p>
         <h1 class="mt-2 text-2xl font-bold text-gray-950">Dashboard HPA</h1>
-        <p class="mt-1 text-sm text-gray-500">Pantau klinik referral, progress stage pervorma, dan status pencairan komisi.</p>
+        <p class="mt-1 text-sm text-gray-500">Pantau klinik referral, progress stage performa, dan status pencairan komisi.</p>
     </div>
     <div class="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
         <span class="font-semibold">Rule demo:</span> Stage 1 di 5 sesi, Stage 2 di 25 sesi, Stage 3 di 40 sesi.
@@ -110,7 +110,7 @@
                     @endif
                 </div>
             @empty
-                <p class="py-8 text-center text-sm text-gray-400">Belum ada komisi pervorma.</p>
+                <p class="py-8 text-center text-sm text-gray-400">Belum ada komisi performa.</p>
             @endforelse
         </div>
     </section>

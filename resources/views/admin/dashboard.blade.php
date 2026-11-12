@@ -25,7 +25,7 @@
     </a>
     <a href="{{ route('admin.pervorma-sessions') }}" class="bg-white border rounded-lg p-4 hover:border-emerald-600">
         <div class="text-2xl font-bold">Rp{{ number_format((int) $verifiedRevenue, 0, ',', '.') }}</div>
-        <div class="text-xs text-gray-500">Gross terkumpul (verified) → sesi pervorma</div>
+        <div class="text-xs text-gray-500">Gross terkumpul (verified) → sesi performa</div>
     </a>
 </div>
 
@@ -87,7 +87,7 @@
     </tbody>
 </table>
 
-<h2 class="font-semibold mb-2">Pervorma HPA jatuh tempo — <a href="{{ route('admin.pervorma-sessions') }}" class="text-emerald-700 hover:underline font-normal">lihat sesi kontributor →</a></h2>
+<h2 class="font-semibold mb-2">Performa HPA jatuh tempo — <a href="{{ route('admin.pervorma-sessions') }}" class="text-emerald-700 hover:underline font-normal">lihat sesi kontributor →</a></h2>
 <table class="w-full bg-white border rounded-lg text-sm mb-8">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th><th class="p-3">Associate</th><th class="p-3">Stage</th><th class="p-3">Amount</th><th class="p-3">Jatuh tempo</th><th class="p-3">Aksi</th>
@@ -107,7 +107,7 @@
             </td>
         </tr>
         @empty
-        <tr><td colspan="6" class="p-3 text-gray-400">Tidak ada pervorma due.</td></tr>
+        <tr><td colspan="6" class="p-3 text-gray-400">Tidak ada performa due.</td></tr>
         @endforelse
     </tbody>
 </table>
