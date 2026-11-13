@@ -13,7 +13,7 @@
     ];
 @endphp
 
-<div x-data="{ detail: null, wellbeing: false, rescheduleId: null }" @keydown.escape.window="detail = null; wellbeing = false; rescheduleId = null">
+<div x-data="{ detail: null, wellbeing: false, rescheduleId: null, requestConsult: false }" @keydown.escape.window="detail = null; wellbeing = false; rescheduleId = null; requestConsult = false">
     <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-pine-900">Halo, {{ $employee->name }}</h1>
         @if($isPreview)
