@@ -50,6 +50,7 @@
         ],
         request()->routeIs('admin.*') => [
             ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
+            ['route' => 'admin.perusahaans.index', 'pattern' => 'admin.perusahaans*', 'label' => 'Perusahaan B2B', 'icon' => 'users'],
         ],
         request()->routeIs('associate.*') => [
             ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard', 'label' => 'Dashboard HPA', 'icon' => 'chart'],

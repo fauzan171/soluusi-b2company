@@ -143,6 +143,9 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/referral-overview', [\App\Http\Controllers\AdminDashboardController::class, 'referralOverview'])->name('referral-overview');
     Route::get('/consultant-per-klinik', [\App\Http\Controllers\AdminDashboardController::class, 'consultantPerKlinik'])->name('consultant-per-klinik');
+    Route::get('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'index'])->name('perusahaans.index');
+    Route::post('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'store'])->name('perusahaans.store');
+
     Route::get('/pervorma-sessions', [\App\Http\Controllers\AdminDashboardController::class, 'pervormaSessions'])->name('pervorma-sessions');
 
     Route::post('/pervormas/{pervorma}/pay', function (\App\Models\Klinik\HapPervorma $pervorma) {
