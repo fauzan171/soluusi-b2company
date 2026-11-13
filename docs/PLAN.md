@@ -42,11 +42,38 @@ Multi-tenant B2B: superadmin / HR perusahaan / consultant / employee / klinik ad
 | G23 | Associate dashboard "Rule demo" hardcoded | `associate/dashboard.blade.php:20-22` | Tidak production-ready | P2 | Pindah ke config |
 | G24 | Custom error pages hanya 419 | `errors/` cuma 419 | 403/404/500 default Laravel | P2 | Tambah 403/404/500 brand-neutral |
 | G25 | Statis service classes | `BookingService`, `DashboardMetrics`, dll. semua static | Tidak bisa di-mock/DI | P2 | Instance class + container binding (refactor incremental) |
-| G26 | `app/Models/Model.php` kosong | Tidak ada yang extends | Dead code | P2 | Hapus |
+| G26 | ~~`app/Models/Model.php` kosong~~ **CANCELLED** | Masih dipakai 18 model | Bukan dead code | — | Tidak ada action |
 | G27 | Duplikasi Perusahaan/Sekolah controller/model | `Perusahaan\*Controller` vs `Sekolah\*Controller` hampir copy-paste | Vertical ke-3 = copy ke-3 | P2 | Parameterize atau extract base (deferred — bukan blocker) |
 | G28 | AI seam belum ada | Cek `app/Services/AiInsightService.php` — static, tidak ada interface/flag | Klaim "AI seam" belum terbukti | P1 | Interface `AIService`, env provider, tenant feature flag, modul `ai` |
-| G29 | `MAX_SCHEDULES_PER_SESSION` belum di-config | Belum ada config; reschedule tidak di-limit | Kontrak belum ada | P1 | `config/session.php` key + enforcement di `BookingService::reschedule` + test |
+| G29 | `MAX_SCHEDULES_PER_SESSION` belum di-config | Belum ada config; reschedule tidak di-limit | Kontrak belum ada | P1 | `config/session.php` key + enforcement: **total 3 jadwal, reschedule ke-3 ditolak** (ADR 001) |
 | G30 | Rate limiter hanya di login/lead/daftar | Tidak ada throttle di chat send, booking, reschedule | Spam/abuse surface | P1 | `throttle:` di endpoint chat/store/reschedule |
+
+## Coverage Status Legend
+
+| Status | Arti |
+|--------|------|
+| **Planned** | Ada task spec, belum diimplementasikan |
+| **Implemented** | Kode sudah ditulis, belum diverifikasi |
+| **Verified** | Test hijau + review independen + browser QA (jika UI) |
+
+## North Star Coverage (accurate)
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Tenant isolation di data layer | **Planned** | T2.4 (baru) — kolom tenant_id ada tapi belum ada enforcement |
+| Tenant isolation di Policy layer | **Planned** | T2.2 — policies belum dibuat |
+| Tenant isolation test negatif | **Planned** | T2.3 — test belum ditulis |
+| View-as dengan audit log | **Planned** | T3.1 + F2.2 — audit log belum ada |
+| HR review request queue | **Planned** | F1.1 (baru) — belum ada UI |
+| Consultant slot proposal | **Planned** | F1.2 (baru) — belum ada flow |
+| Employee slot confirmation | **Planned** | F1.3 (baru) — belum ada flow |
+| Session expiry sweep | **Planned** | F1.4 (baru) — belum ada scheduler |
+| AI seam | **Planned** | T6.1 — interface belum dibuat |
+| MAX_SCHEDULES_PER_SESSION | **Planned** | T6.2 — ADR 001 decided, belum diimplementasikan |
+| UTC storage | **Implemented** | Laravel default, verified di migrations |
+| Asia/Jakarta display | **Not planned** | Belum ada task |
+
+**Catatan:** Kolom `perusahaan_id` di tabel BUKAN bukti enforcement tenant. Hanya menunjukkan relasi. Enforcement memerlukan global scope, policy, dan test negatif.
 
 ## Milestones (vertikal slice)
 
