@@ -77,8 +77,8 @@
         <div class="absolute -inset-4 bg-[#0d7a5f]/15 rounded-[2.5rem] rotate-3"></div>
         <img src="{{ asset('images/landing/hero-support.jpg') }}" alt="Dukungan wellbeing profesional" class="relative rounded-[2.5rem] w-full aspect-[4/5] object-cover shadow-2xl">
         <div class="absolute -bottom-6 -left-6 bg-[#f7f4ee] border border-[#0c3b2e]/10 rounded-2xl px-5 py-4 shadow-xl">
-          <div class="font-display text-2xl font-semibold text-[#0c3b2e]">300+</div>
-          <div class="text-xs text-[#1a2420]/60 uppercase tracking-wide">Konsultan profesional</div>
+          <div class="font-display text-2xl font-semibold text-[#0c3b2e]">4 Profesi</div>
+          <div class="text-xs text-[#1a2420]/60 uppercase tracking-wide">Konsultan wellbeing</div>
         </div>
       </div>
     </div>
@@ -130,21 +130,6 @@
       </div>
       @endforeach
     </div>
-  </div>
-</section>
-
-{{-- ============ TRUSTED BY ============ --}}
-<section class="py-16 px-6 bg-white border-y border-[#0c3b2e]/10">
-  <div class="max-w-6xl mx-auto">
-    <p class="reveal text-center text-sm font-semibold tracking-[.2em] uppercase text-[#0d7a5f] mb-10">Dipercaya oleh 30+ organisasi di Indonesia</p>
-    <div class="reveal grid grid-cols-3 md:grid-cols-6 gap-8 items-center opacity-60">
-      @foreach(range(1,12) as $i)
-      <div class="flex items-center justify-center h-12">
-        <div class="w-full h-8 bg-[#0c3b2e]/15 rounded-lg flex items-center justify-center text-[10px] font-bold text-[#0c3b2e]/40 uppercase tracking-wider">Logo {{ $i }}</div>
-      </div>
-      @endforeach
-    </div>
-    <p class="reveal mt-8 text-center text-xs text-[#1a2420]/40">+28 provinsi · 300+ konsultan profesional · 5.000+ kasus ditangani</p>
   </div>
 </section>
 
