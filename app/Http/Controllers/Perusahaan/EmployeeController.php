@@ -75,7 +75,7 @@ class EmployeeController extends Controller
 
         $latest = $employee->assessments()->latest('taken_at')->first();
         $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
-            ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
+            ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
         $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
         return view('perusahaan.employee', [
@@ -194,7 +194,7 @@ class EmployeeController extends Controller
             ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
     }
 
-    /** Halodoc-style: pilih konsultan, langsung chat tanpa jadwal. */
+    /** Lihat konsultan program, link ke form booking. */
     public function consultants(Request $request)
     {
         $employee = $this->resolveEmployee();
@@ -228,7 +228,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    /** Buat sesi langsung dengan konsultan terpilih, redirect ke chat room. */
+    /** Gate jadwal: tanpa slot + ACC konsultan, chat tidak bisa dibuka. Arahkan ke form booking. */
     public function startChat(Request $request, Consultant $consultant)
     {
         $employee = $this->resolveEmployee();
@@ -241,32 +241,18 @@ class EmployeeController extends Controller
         $perusahaan = $employee->perusahaan;
         abort_unless($perusahaan, 404);
 
-        // Pastikan konsultan ada di pool perusahaan ini
-        $pool = ConsultantPool::where('perusahaan_id', $perusahaan->id)
-            ->where('consultant_id', $consultant->id)
-            ->first();
-        abort_unless($pool, 404);
-
-        // Cek duplikat: sesi aktif dengan konsultan yang sama
+        // Sesi aktif dengan konsultan yang sama → langsung ke room (read-only sampai di-ACC).
         $existing = $employee->sessions()
             ->where('consultant_id', $consultant->id)
-            ->whereIn('status', ['scheduled', 'pending', 'confirmed'])
+            ->where('status', 'scheduled')
             ->first();
 
         if ($existing) {
             return redirect()->route('perusahaan.chat', $existing);
         }
 
-        $session = PerusahaanSession::create([
-            'perusahaan_id' => $perusahaan->id,
-            'employee_id' => $employee->id,
-            'consultant_id' => $consultant->id,
-            'konsultan_type' => ConsultantPool::typeFromCategory($consultant->categories->first()?->name),
-            'status' => 'scheduled',
-            'scheduled_at' => now(),
-        ]);
-
-        return redirect()->route('perusahaan.chat', $session);
+        return redirect()->route('perusahaan.booking')
+            ->with('error', 'Pilih jadwal konsultasi dulu sebelum chat.');
     }
 
     /** Minta konsultasi tanpa pilih slot: assign 1 konsultan pool terdekat beban. */
@@ -280,10 +266,13 @@ class EmployeeController extends Controller
         ]);
 
         $perusahaan = $employee->perusahaan;
+        abort_if($employee->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
+            422, 'Masih ada permintaan menunggu ACC.');
+
         $monthStart = now()->startOfMonth();
         $usedMonth = $employee->sessions()
             ->whereIn('status', ['scheduled', 'done'])
-            ->where('scheduled_at', '>=', $monthStart)->count();
+            ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))->count();
         abort_if($usedMonth >= $perusahaan->sessions_per_employee_month, 422, 'Kuota bulan ini habis.');
 
         // Assign konsultan dari pool: tipe cocok, beban scheduled terendah.
@@ -295,6 +284,8 @@ class EmployeeController extends Controller
             ->where('status', 'scheduled')
             ->count())->first();
 
+        // Gate ACC: status 'scheduled' + scheduled_at NULL = menunggu konsultan set jadwal
+        // (nilai 'pending' tidak lolos CHECK constraint status — lihat migrasi 2026_10_21).
         $session = PerusahaanSession::create([
             'perusahaan_id' => $perusahaan->id,
             'employee_id' => $employee->id,
@@ -303,15 +294,10 @@ class EmployeeController extends Controller
             'konsultan_type' => $r->konsultan_type,
             'topic_category' => $r->topic_category,
             'status' => 'scheduled',
-        ]);
-
-        \App\Models\ChatMessage::create([
-            'perusahaan_session_id' => $session->id,
-            'sender_id' => auth()->id(),
-            'body' => trim($r->body),
+            'scheduled_at' => null,
         ]);
 
         return redirect()->route('perusahaan.chat', $session)
-            ->with('success', 'Konsultan sudah di-assign. Chat langsung aktif.');
+            ->with('success', 'Permintaan terkirim. Chat aktif setelah konsultan menyetujui jadwal.');
     }
 }

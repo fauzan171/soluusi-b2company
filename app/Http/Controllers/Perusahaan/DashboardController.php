@@ -24,6 +24,13 @@ class DashboardController extends Controller
         $metrics['byType'] = $monthly['byType'] ?? collect();
 
         // Stat cards + benchmark + focus areas + alert strip — turunan angka.
+        // Real-time: hanya sesi hari ini & mendatang, terdekat dulu — jadwal lampau tak dianggap aktif.
+        $metrics['activeSessions'] = $perusahaan->sessions()
+            ->with(['employee', 'schedule', 'consultant.user'])
+            ->where('status', 'scheduled')
+            ->where('scheduled_at', '>=', now()->startOfDay())
+            ->orderByRaw('checked_in_at is not null desc, scheduled_at asc')
+            ->limit(10)->get();
         $metrics['statCards'] = [
             'karyawan' => ['label' => 'Karyawan terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeMonthPeople'] . ' aktif bulan ini'],
             'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $metrics['doneMonth'], 'icon' => 'check', 'tone' => 'pine', 'detail' => ($metrics['deltaDone'] >= 0 ? '+' : '') . $metrics['deltaDone'] . ' vs bulan lalu'],
@@ -70,6 +77,11 @@ class DashboardController extends Controller
     {
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
+
+        // Endpoint JSON untuk fetch dashboard — akses browser langsung di-redirect (F10).
+        if (!request()->expectsJson()) {
+            return redirect()->route('perusahaan.dashboard');
+        }
 
         $context = \App\Services\AiInsightService::buildContext($perusahaan, 'perusahaan');
         $state = \App\Services\AiInsightService::get($perusahaan, 'perusahaan', $context, request()->boolean('generate'));

@@ -19,7 +19,7 @@
             <option value="">— pilih jadwal —</option>
             @foreach($schedules as $s)
             <option value="{{ $s->id }}" @selected(old('schedule_id') == $s->id || request('schedule_id') == $s->id)>
-                [{{ strtoupper($s->mode ?? 'online') }}] {{ $s->started_at->format('d M Y H:i') }}
+                [{{ strtoupper($s->mode ?? 'online') }}] {{ $s->started_at->translatedFormat('d M Y H.i') }}
             </option>
             @endforeach
         </select>

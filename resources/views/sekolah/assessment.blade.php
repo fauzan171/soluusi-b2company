@@ -9,7 +9,7 @@
 
     @if($latest)
     <div class="portal-card p-4 mb-4 text-sm">
-        <p class="text-gray-500 text-xs">Terakhir diisi {{ $latest->taken_at->format('d M Y') }} — skor <b>{{ $latest->score }}/100</b> ({{ $latest->band() }})</p>
+        <p class="text-gray-500 text-xs">Terakhir diisi {{ $latest->taken_at->translatedFormat('d M Y') }} — skor <b>{{ $latest->score }}/100</b> ({{ $latest->band() }})</p>
     </div>
     @endif
 
@@ -22,7 +22,7 @@
                 @foreach($options as $val => $label)
                 <label class="flex items-center gap-2 text-xs border border-[#e7e2d9] rounded-xl px-3 py-2 cursor-pointer has-checked:border-pine-600 has-checked:bg-pine-50">
                     <input type="radio" name="answers[{{ $i }}]" value="{{ $val }}" class="accent-pine-700" required>
-                    {{ $label }}
+                    <span class="leading-snug">{{ $label }}</span>
                 </label>
                 @endforeach
             </div>

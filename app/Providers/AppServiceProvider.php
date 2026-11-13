@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Date;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        // Locale tanggal Indonesia global (F5): hari/bulan via translatedFormat jadi id.
+        Date::setLocale('id');
+
         // White-label $brand untuk semua email klinik (PRD §15.4). Resolve dari
         // session kalau ada (per-klinik), fallback internal/default config.
         \Illuminate\Support\Facades\View::composer('emails.klinik.*', function ($view) {

@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="text-xl font-bold mb-1">Sesi Kontributor Pervorma HPA — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
-<p class="text-sm text-gray-500 mb-6">Sesi yang di-tag berkontribusi ke stage pervorma (1/2/3). Sesi tanpa tag = di atas stage-3 trigger atau di luar window 90 hari.</p>
+<h1 class="text-xl font-bold mb-1">Sesi Kontributor Performa HPA — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
+<p class="text-sm text-gray-500 mb-6">Sesi yang di-tag berkontribusi ke stage performa (1/2/3). Sesi tanpa tag = di atas stage-3 trigger atau di luar window 90 hari.</p>
 
 <form method="GET" class="mb-4 flex gap-3 items-end">
     <div>
@@ -41,8 +41,8 @@
             <td class="p-3"><a class="text-emerald-700 hover:underline" href="{{ route('klinik.dashboard', ['klinik_id' => $s->klinik_id]) }}">{{ $s->klinik->brand_name ?? '—' }}</a></td>
             <td class="p-3">{{ trim(($s->consultant->user->firstname ?? '') . ' ' . ($s->consultant->user->lastname ?? '')) }}</td>
             <td class="p-3"><span class="bg-emerald-100 text-emerald-800 text-xs font-semibold rounded px-2 py-1">Stage {{ $s->hap_pervorma_stage }}</span></td>
-            <td class="p-3">{{ optional($s->completion_verified_at)->format('d M Y H:i') }}</td>
-            <td class="p-3">{{ optional($s->schedule)->started_at?->format('d M Y H:i') ?? '—' }}</td>
+            <td class="p-3">{{ optional($s->completion_verified_at)->translatedFormat('d M Y H.i') }}</td>
+            <td class="p-3">{{ optional($s->schedule)->started_at?->translatedFormat('d M Y H.i') ?? '—' }}</td>
             <td class="p-3">Rp{{ number_format((int) $s->payment, 0, ',', '.') }}</td>
         </tr>
         @empty

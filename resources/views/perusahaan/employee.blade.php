@@ -50,9 +50,9 @@
             @endphp
             <div class="flex items-baseline justify-between w-full">
                 <span class="text-2xl font-bold {{ $levelClass }}">{{ $assessment->score }}</span>
-                <span class="text-xs text-gray-400">{{ $assessment->taken_at->format('d M Y') }}</span>
+                <span class="text-xs text-gray-400">{{ $assessment->taken_at->translatedFormat('d M Y') }}</span>
             </div>
-            <div class="text-xs text-gray-500 mb-2">Wellbeing score: {{ $assessment->band() }} <span class="text-pine-600 font-medium">· lihat detail</span></div>
+            <div class="text-xs text-gray-500 mb-2">Skor wellbeing: {{ $assessment->band() }} <span class="text-pine-600 font-medium">· lihat detail</span></div>
             @if(count($assessmentTrend) > 1)
             <div class="h-12 w-full"><canvas id="chartTrend"></canvas></div>
             @endif
@@ -170,7 +170,7 @@
     </div>
 
     {{-- Jadwal mendatang + Google Calendar --}}
-    @php $upcoming = $history->where('status', 'scheduled')->filter(fn ($s) => $s->scheduled_at->isFuture()); @endphp
+    @php $upcoming = $history->where('status', 'scheduled')->filter(fn ($s) => $s->scheduled_at?->isFuture()); @endphp
     @if($upcoming->isNotEmpty())
     <section class="portal-card p-5 mb-6 border-pine-300 bg-pine-50/40">
         <h3 class="dash-section-title">Jadwal mendatang kamu</h3>
@@ -180,7 +180,7 @@
                 <div>
                     <p class="text-sm font-medium">{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</p>
                     <p class="text-xs text-gray-500">
-                        {{ $s->scheduled_at->translatedFormat('l, d M Y, H:i') }} WIB
+                        {{ $s->scheduled_at->translatedFormat('l, d M Y, H.i') }} WIB
                         @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
                     </p>
                 </div>
@@ -215,23 +215,23 @@
                 <tr class="border-b border-[#e7e2d9] last:border-0 hover:bg-pine-50/40 cursor-pointer transition"
                     @click="detail = {{ Js::from([
                         'id' => $s->id,
-                        'tanggal' => ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('l, d M Y H:i') ?? '—',
-                        'topik' => $s->topic_category ?? '—',
+                        'tanggal' => ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('l, d M Y H.i') ?? '—',
+                        'topik' => $s->topic_category ?? 'Belum ditentukan',
                         'jenis' => ($s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '') . ($typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type)),
                         'status' => $s->status,
-                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
+                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
                         'cancelUrl' => route('perusahaan.booking.cancel', $s),
                         'rescheduleUrl' => route('perusahaan.booking.reschedule', $s),
                         'chatUrl' => $s->consultant_id && in_array($s->status, ['scheduled', 'done']) ? route('perusahaan.chat', $s) : null,
                         'rating' => $s->rating,
                         'ratingStars' => $s->rating ? str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) : null,
                     ]) }}">
-                    <td class="p-3">{{ ($s->completed_at ?? $s->scheduled_at)?->format('d M Y') ?? '—' }}</td>
-                    <td class="p-3">{{ $s->topic_category ?? '—' }}</td>
+                    <td class="p-3">{{ ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('d M Y') ?? '—' }}</td>
+                    <td class="p-3">{{ $s->topic_category ?? 'Belum ditentukan' }}</td>
                     <td class="p-3">{{ $s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '' }}{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</td>
                     <td class="p-3">
-                        <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? 'bg-terra-100 text-terra-800' : 'bg-gray-100 text-gray-500') }}">
-                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => 'Terjadwal', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
+                        <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? ($s->scheduled_at ? 'bg-terra-100 text-terra-800' : 'bg-amber-100 text-amber-800') : 'bg-gray-100 text-gray-500') }}">
+                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
                         </span>
                         @if($s->rating)
                         <span class="block text-[11px] text-amber-500 mt-0.5">{{ str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) }}</span>
@@ -318,7 +318,7 @@
                 <select id="reschedule-slot" name="schedule_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
                     <option value="">— pilih slot —</option>
                     @foreach(\App\Services\BookingService::available('perusahaan', $perusahaan->id) as $slot)
-                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H:i') }} · {{ $slot->consultant->user->firstname }}</option>
+                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H.i') }} · {{ $slot->consultant->user->firstname }}</option>
                     @endforeach
                 </select>
                 @error('schedule_id')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
@@ -333,7 +333,7 @@
         <div @click.outside="wellbeing = false" x-show="wellbeing" x-transition.scale class="portal-card w-full max-w-md p-6">
             <div class="flex items-start justify-between">
                 <div>
-                    <h3 class="font-semibold text-pine-900">Wellbeing score kamu</h3>
+                    <h3 class="font-semibold text-pine-900">Skor wellbeing kamu</h3>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $assessment->taken_at->translatedFormat('d F Y') }} · WHO-5</p>
                 </div>
                 <button @click="wellbeing = false" class="text-gray-400 hover:text-gray-700">✕</button>

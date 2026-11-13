@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $title ?? config('whitelabel.default_brand'))</title>
+    <title>@yield('title', $title ?? config('whitelabel.internal_brand', 'Soluusi'))</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 @php
@@ -12,10 +12,10 @@
     $role = optional($user?->role)->name;
     $isPerusahaanRoute = request()->routeIs('perusahaan.*');
     $isSekolahRoute = request()->routeIs('sekolah.*');
-    $perusahaanBrand = $isPerusahaanRoute ? ($perusahaan->brand ?? optional(\App\Support\PerusahaanContext::current())->brand) : null;
+    $perusahaanBrand = $isPerusahaanRoute ? ($perusahaan->brand ?? optional(\App\Support\PerusahaanContext::current())->brand ?? optional($user?->perusahaanEmployee?->perusahaan)->brand) : null;
     $sekolahBrand = $isSekolahRoute ? ($sekolah->brand ?? optional(\App\Support\SekolahContext::current())->brand) : null;
     $klinikBrand = request()->routeIs('klinik.*') ? optional(\App\Support\KlinikContext::current())->brand : null;
-    $pageBrand = $perusahaanBrand ?: $sekolahBrand ?: $klinikBrand ?: config('whitelabel.default_brand');
+    $pageBrand = $perusahaanBrand ?: $sekolahBrand ?: $klinikBrand ?: config('whitelabel.internal_brand', 'Soluusi');
 
     // ponytail: nav didefinisikan di layout; pindah ke config kalau portal lain butuh menu dinamis
     $navItems = match (true) {
@@ -50,6 +50,7 @@
         ],
         request()->routeIs('admin.*') => [
             ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
+            ['route' => 'admin.perusahaans.index', 'pattern' => 'admin.perusahaans*', 'label' => 'Perusahaan B2B', 'icon' => 'users'],
         ],
         request()->routeIs('associate.*') => [
             ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard', 'label' => 'Dashboard HPA', 'icon' => 'chart'],
@@ -126,11 +127,6 @@
                     @endif
                     @endauth
                 </div>
-                @auth
-                    <form method="POST" action="{{ route('logout') }}">@csrf
-                        <button class="text-sm text-gray-500 hover:text-gray-800">Keluar</button>
-                    </form>
-                @endauth
             </header>
 
             <details class="md:hidden group bg-white border-b">
@@ -142,6 +138,11 @@
                     @foreach($navItems as $item)
                         <a href="{{ route($item['route']) }}" class="text-sm py-1 {{ request()->routeIs($item['pattern']) ? 'font-bold' : '' }}" @if(request()->routeIs($item['pattern'])) aria-current="page" @endif>{{ $item['label'] }}</a>
                     @endforeach
+                    @auth
+                        <form method="POST" action="{{ route('logout') }}">@csrf
+                            <button class="text-left text-sm py-1 text-gray-500">Keluar</button>
+                        </form>
+                    @endauth
                 </nav>
             </details>
             <main class="w-full px-6 py-6 lg:px-8">

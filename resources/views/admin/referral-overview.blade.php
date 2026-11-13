@@ -6,7 +6,7 @@
     <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Dashboard</a>
 </div>
 <p class="text-sm text-gray-500 mb-6">
-    Afiliasi: HPA mana membawa klinik siapa. Payout pervorma harus sebanding dengan
+    Afiliasi: HPA mana membawa klinik siapa. Payout performa harus sebanding dengan
     aktivitas order — klinik tanpa sesi selesai 90 hari terakhir ditandai untuk dicek.
 </p>
 
@@ -18,8 +18,8 @@
         <th class="p-3">Sesi selesai total</th>
         <th class="p-3">Gross verified</th>
         <th class="p-3">Order terakhir</th>
-        <th class="p-3">Pervorma paid</th>
-        <th class="p-3">Pervorma due</th>
+        <th class="p-3">Performa paid</th>
+        <th class="p-3">Performa due</th>
         <th class="p-3">Status</th>
     </tr></thead>
     <tbody>
@@ -39,12 +39,12 @@
                 <td class="p-3 font-semibold {{ $c90 === 0 ? 'text-red-600' : '' }}">{{ $c90 }}</td>
                 <td class="p-3">{{ (int) ($s->completed_total ?? 0) }}</td>
                 <td class="p-3">Rp{{ number_format((int) ($s->revenue_verified ?? 0), 0, ',', '.') }}</td>
-                <td class="p-3">{{ $s && $s->last_order_at ? \Illuminate\Support\Carbon::parse($s->last_order_at)->format('d M Y') : '—' }}</td>
+                <td class="p-3">{{ $s && $s->last_order_at ? \Illuminate\Support\Carbon::parse($s->last_order_at)->translatedFormat('d M Y') : '—' }}</td>
                 <td class="p-3">Rp{{ number_format($paid, 0, ',', '.') }}</td>
                 <td class="p-3">Rp{{ number_format($due, 0, ',', '.') }}</td>
                 <td class="p-3">
                     @if($flag === 'mencurigakan')
-                        <span class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">Cek — 0 sesi tapi ada pervorma</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">Cek — 0 sesi tapi ada performa</span>
                     @elseif($flag === 'sepi')
                         <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">Belum ada aktivitas</span>
                     @elseif($flag === 'rendah')

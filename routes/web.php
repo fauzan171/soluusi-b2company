@@ -130,6 +130,8 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'schedulePerusahaan'])->name('sessions.schedule');
     Route::get('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultant'])->name('chat');
     Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->name('chat.store');
+    Route::post('/sessions/{session}/start', [\App\Http\Controllers\ChatController::class, 'consultantStart'])->name('chat.start');
+    Route::post('/sessions/{session}/end', [\App\Http\Controllers\ChatController::class, 'consultantEnd'])->name('chat.end');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---
@@ -143,6 +145,9 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/referral-overview', [\App\Http\Controllers\AdminDashboardController::class, 'referralOverview'])->name('referral-overview');
     Route::get('/consultant-per-klinik', [\App\Http\Controllers\AdminDashboardController::class, 'consultantPerKlinik'])->name('consultant-per-klinik');
+    Route::get('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'index'])->name('perusahaans.index');
+    Route::post('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'store'])->name('perusahaans.store');
+
     Route::get('/pervorma-sessions', [\App\Http\Controllers\AdminDashboardController::class, 'pervormaSessions'])->name('pervorma-sessions');
 
     Route::post('/pervormas/{pervorma}/pay', function (\App\Models\Klinik\HapPervorma $pervorma) {

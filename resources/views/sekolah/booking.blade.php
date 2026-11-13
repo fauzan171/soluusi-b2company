@@ -25,7 +25,7 @@
             <select id="schedule_id" name="schedule_id" required class="w-full border rounded px-3 py-2">
                 <option value="">— Pilih slot sesuai jenis konsultan —</option>
                 @foreach($slots as $slot)
-                <option value="{{ $slot->id }}" @selected(old('schedule_id') == $slot->id)>{{ $slot->started_at->translatedFormat('D, d M Y H:i') }}–{{ $slot->ended_at->format('H:i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode }}</option>
+                <option value="{{ $slot->id }}" @selected(old('schedule_id') == $slot->id)>{{ $slot->started_at->translatedFormat('D, d M Y H.i') }}–{{ $slot->ended_at->translatedFormat('H.i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode }}</option>
                 @endforeach
             </select>
             @if($slots->isEmpty())<p class="text-sm text-gray-500 mt-2">Belum ada slot tersedia. Hubungi pengelola program.</p>@endif

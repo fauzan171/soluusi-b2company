@@ -103,6 +103,47 @@
     </div>
     @endif
 
+    {{-- Sesi aktif — HR internal melihat siapa saja yang sedang konsultasi --}}
+    @if($activeSessions->count())
+    <section class="fade-up dash-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="dash-section-title">Sesi aktif</h3>
+                <p class="dash-section-subtitle">Sesi terjadwal — hijau berarti konsultan sudah mulai (check-in).</p>
+            </div>
+            <span class="rounded-full bg-pine-50 px-3 py-1 text-xs font-semibold text-pine-700">{{ $activeSessions->count() }} sesi</span>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-400">
+                        <th class="pb-2 pr-4 font-medium">Karyawan</th>
+                        <th class="pb-2 pr-4 font-medium">Konsultan</th>
+                        <th class="pb-2 pr-4 font-medium">Jadwal</th>
+                        <th class="pb-2 font-medium">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @foreach($activeSessions as $s)
+                    <tr>
+                        <td class="py-2.5 pr-4 font-medium text-gray-900">{{ $s->employee?->name ?? '—' }}</td>
+                        <td class="py-2.5 pr-4 text-gray-600">{{ $s->consultant?->user?->name ?? 'Belum ditugaskan' }}</td>
+                        <td class="py-2.5 pr-4 text-gray-600">{{ $s->scheduled_at?->translatedFormat('l, d M Y H:i') ?? 'Belum dijadwalkan' }}</td>
+                        <td class="py-2.5">
+                            @if($s->checked_in_at)
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-pine-100 px-2.5 py-1 text-xs font-semibold text-pine-700"><span class="h-1.5 w-1.5 rounded-full bg-pine-600"></span>Berlangsung</span>
+                            @else
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-terra-100 px-2.5 py-1 text-xs font-semibold text-terra-700">Menunggu</span>
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+    @endif
+
     <section id="overview" class="fade-up dash-card p-4 md:p-5">
         <div class="hero-band p-5 md:p-6">
             <div class="grid gap-5 xl:grid-cols-[minmax(0,1.25fr),minmax(320px,0.75fr)]">
@@ -401,8 +442,8 @@
                             <div class="flex items-center gap-4">
                                 <div class="grid h-14 w-14 place-items-center rounded-2xl border border-[#e7e2d9] bg-white text-center">
                                     <div>
-                                        <div class="text-[10px] uppercase tracking-[0.12em] text-gray-400">{{ $dt->format('M') }}</div>
-                                        <div class="text-lg font-semibold text-gray-900">{{ $dt->format('d') }}</div>
+                                        <div class="text-[10px] uppercase tracking-[0.12em] text-gray-400">{{ $dt->translatedFormat('M') }}</div>
+                                        <div class="text-lg font-semibold text-gray-900">{{ $dt->translatedFormat('d') }}</div>
                                     </div>
                                 </div>
                                 <div class="min-w-0 flex-1">

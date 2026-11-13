@@ -49,6 +49,33 @@ class ChatController extends Controller
         return $this->save($r, $session);
     }
 
+    /** Konsultan: mulai sesi (check-in). */
+    public function consultantStart(PerusahaanSession $session)
+    {
+        $consultant = auth()->user()->consultants()->first();
+        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+
+        abort_if($session->checked_in_at, 422, 'Sesi sudah dimulai.');
+        abort_unless($session->status === 'scheduled' && $session->scheduled_at, 422, 'Sesi belum dijadwalkan.');
+
+        $session->update(['checked_in_at' => now()]);
+
+        return redirect()->route('consultant.chat', $session)->with('success', 'Sesi dimulai.');
+    }
+
+    /** Konsultan: akhiri sesi (mark done). */
+    public function consultantEnd(PerusahaanSession $session)
+    {
+        $consultant = auth()->user()->consultants()->first();
+        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+
+        abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
+
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        return redirect()->route('consultant.chat', $session)->with('success', 'Sesi diakhiri.');
+    }
+
     /** Employee: akhiri sesi (mark done). */
     public function employeeEnd(PerusahaanSession $session)
     {
@@ -133,11 +160,12 @@ class ChatController extends Controller
         return response()->json(['id' => $msg->id]);
     }
 
-    /** Chat hanya untuk sesi terjadwal yang sudah punya konsultan. */
+    /** Chat hanya untuk sesi terjadwal yang sudah di-ACC konsultan (scheduled_at terisi). */
     private function canSend(PerusahaanSession $session): bool
     {
         return $session->status === 'scheduled'
-            && $session->consultant_id;
+            && $session->consultant_id
+            && $session->scheduled_at !== null;
     }
 
     /** Pesan sejak id tertentu, maksimal 200 (poll incremental). Nama peserta tidak dikirim: karyawan anonim. */
@@ -151,7 +179,7 @@ class ChatController extends Controller
             ->map(fn (ChatMessage $m) => [
                 'id' => $m->id,
                 'mine' => $m->sender_id === auth()->id(),
-                'name' => $peerLabel,
+                'name' => $m->sender_id === auth()->id() ? trim(auth()->user()->firstname.' '.auth()->user()->lastname) : $peerLabel,
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
             ]);

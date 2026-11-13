@@ -22,7 +22,7 @@
         <p class="text-2xl font-bold text-pine-900">{{ $total }}</p>
     </div>
     <div class="dash-card">
-        <p class="text-xs text-gray-500 mb-1">Akun Aktif</p>
+        <p class="text-xs text-gray-500 mb-1">Akun login aktif</p>
         <p class="text-2xl font-bold text-pine-900">{{ $aktif }}</p>
     </div>
     <div class="dash-card">
@@ -85,7 +85,7 @@
                 <td class="p-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ $emp->departement?->name ?? '—' }}</span></td>
                 <td class="p-3">
                     @if($emp->consent_at)
-                    <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-800">Setuju {{ $emp->consent_at->format('d M y') }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-800">Setuju {{ $emp->consent_at->translatedFormat('d M y') }}</span>
                     @else
                     <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-terra-800">Belum consent</span>
                     @endif

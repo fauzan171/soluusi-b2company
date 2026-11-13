@@ -49,7 +49,7 @@
             <dl class="text-sm space-y-2">
                 <div class="flex justify-between"><dt class="text-gray-500">Konsultan</dt><dd class="font-semibold">{{ trim(($link->consultant->user->firstname ?? '') . ' ' . ($link->consultant->user->lastname ?? '')) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Paket</dt><dd class="font-semibold">{{ $link->package->name ?? '-' }} ({{ $link->package->duration ?? '-' }} mnt)</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Jadwal</dt><dd class="font-semibold">{{ $link->schedule->started_at->translatedFormat('l, d M Y H:i') }} WIB</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Jadwal</dt><dd class="font-semibold">{{ $link->schedule->started_at->translatedFormat('l, d M Y H.i') }} WIB</dd></div>
                 <div class="flex justify-between border-t pt-2 mt-2"><dt class="text-gray-500">Total</dt><dd class="font-bold text-emerald-700">Rp{{ number_format($link->final_price, 0, ',', '.') }}</dd></div>
             </dl>
         </div>

@@ -104,7 +104,7 @@
                     <div class="rounded-lg bg-gray-50 p-4">
                         <div class="text-xs font-semibold uppercase text-gray-400">Jam</div>
                         <div class="mt-2 text-sm font-bold text-gray-900">
-                            {{ $schedule?->started_at?->format('H:i') ?? '-' }} - {{ $schedule?->ended_at?->format('H:i') ?? '-' }} WIB
+                            {{ $schedule?->started_at?->translatedFormat('H.i') ?? '-' }} - {{ $schedule?->ended_at?->translatedFormat('H.i') ?? '-' }} WIB
                         </div>
                     </div>
                     <div class="rounded-lg bg-gray-50 p-4">

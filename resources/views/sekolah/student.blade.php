@@ -36,7 +36,7 @@
                     <p class="text-xs text-gray-500">Skor kesejahteraan (WHO-5)</p>
                     @if($assessment)
                     <p class="text-2xl font-bold mt-1 {{ $assessment->band() === 'Sehat' ? 'text-pine-700' : ($assessment->band() === 'Perlu Perhatian' ? 'text-terra-500' : 'text-red-600') }}">{{ $assessment->score }}<span class="text-sm text-gray-400">/100</span></p>
-                    <p class="text-[11px] text-gray-400">{{ $assessment->band() }} · {{ $assessment->taken_at->format('d M') }}</p>
+                    <p class="text-[11px] text-gray-400">{{ $assessment->band() }} · {{ $assessment->taken_at->translatedFormat('d M') }}</p>
                     @else
                     <p class="text-sm text-gray-500 mt-1">Belum ada</p>
                     @endif
@@ -75,7 +75,7 @@
                 <div>
                     <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ ucfirst($h->mode) }}</p>
                     <p class="text-xs text-gray-500">
-                        {{ $h->scheduled_at->translatedFormat('l, d M Y, H:i') }}
+                        {{ $h->scheduled_at->translatedFormat('l, d M Y, H.i') }}
                         @if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif
                         @if($h->origin === 'bk_referral')
                         <span class="ml-1 text-[10px] font-semibold bg-terra-100 text-terra-800 rounded px-1.5 py-0.5">dijadwalkan guru BK</span>
@@ -102,7 +102,7 @@
             <div class="flex items-center justify-between rounded-xl border border-[#e7e2d9] px-4 py-3">
                 <div>
                     <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ ucfirst($h->mode) }}</p>
-                    <p class="text-xs text-gray-500">{{ $h->scheduled_at?->format('d M Y, H:i') }}@if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif</p>
+                    <p class="text-xs text-gray-500">{{ $h->scheduled_at?->translatedFormat('d M Y, H.i') }}@if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif</p>
                 </div>
                 @if($h->status === 'scheduled')
                 <form method="POST" action="{{ route('sekolah.booking.cancel', $h) }}">@csrf

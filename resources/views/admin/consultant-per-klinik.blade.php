@@ -28,7 +28,7 @@
             <td class="p-3 font-semibold text-emerald-700">{{ $r->completed_sessions }}</td>
             <td class="p-3">{{ $r->no_show_sessions }}</td>
             <td class="p-3">Rp{{ number_format((int) $r->verified_revenue, 0, ',', '.') }}</td>
-            <td class="p-3">{{ $r->last_session_at ? \Carbon\Carbon::parse($r->last_session_at)->format('d M Y H:i') : '—' }}</td>
+            <td class="p-3">{{ $r->last_session_at ? \Carbon\Carbon::parse($r->last_session_at)->translatedFormat('d M Y H.i') : '—' }}</td>
         </tr>
         @empty
         <tr><td colspan="7" class="p-3 text-gray-400">Belum ada sesi dari mitra klinik.</td></tr>

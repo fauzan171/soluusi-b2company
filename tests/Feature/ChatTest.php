@@ -120,6 +120,19 @@ class ChatTest extends TestCase
         $this->assertSame(0, $session->chatMessages()->count());
     }
 
+    public function test_chat_blocked_while_awaiting_consultant_schedule()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        // Gate ACC: 'scheduled' + scheduled_at NULL = belum di-ACC konsultan → tidak boleh chat.
+        $session = $this->makeSession($emp, $consultant->id);
+        $session->update(['scheduled_at' => null]);
+
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo'])
+            ->assertStatus(422);
+
+        $this->assertSame(0, $session->chatMessages()->count());
+    }
+
     public function test_chat_closed_when_session_has_no_consultant()
     {
         [$owner, , $emp] = $this->fixture();

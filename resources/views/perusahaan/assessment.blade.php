@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@php($title = 'Asesmen Kesejahteraan')
+
 @section('content')
 <div class="max-w-3xl">
     <div class="flex items-center justify-between mb-4">
@@ -12,7 +14,7 @@
 
     @if($latest)
     <div class="portal-card p-4 mb-4 flex items-center justify-between">
-        <div class="text-sm text-gray-500">Hasil terakhir: <span class="font-semibold text-gray-900">{{ $latest->score }}/100</span> ({{ $latest->band() }}) — {{ $latest->taken_at->format('d M Y') }}</div>
+        <div class="text-sm text-gray-500">Hasil terakhir: <span class="font-semibold text-gray-900">{{ $latest->score }}/100</span> ({{ $latest->band() }}) — {{ $latest->taken_at->translatedFormat('d M Y') }}</div>
         <a href="{{ route('perusahaan.employee') }}" class="text-xs text-pine-700 font-semibold hover:underline">Lihat tren</a>
     </div>
     @endif
@@ -26,7 +28,7 @@
                 @foreach($options as $val => $label)
                 <label class="flex items-center gap-2 text-sm border-[#e7e2d9] rounded-lg rounded px-3 py-2 cursor-pointer hover:border-pine-600 has-checked:border-pine-600 has-checked:bg-pine-50">
                     <input type="radio" name="answers[{{ $i }}]" value="{{ $val }}" required class="accent-pine-700">
-                    {{ $label }}
+                    <span class="leading-snug">{{ $label }}</span>
                 </label>
                 @endforeach
             </div>

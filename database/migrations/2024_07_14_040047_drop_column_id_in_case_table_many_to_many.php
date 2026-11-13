@@ -13,6 +13,11 @@ return new class extends Migration
      */
     public function up()
     {
+        // ponytail: sqlite tidak bisa drop PRIMARY KEY column; id sisa di pivot
+        // harmless utk test. MySQL (prod) tetap drop.
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            return;
+        }
         Schema::table('consultant_categories', function (Blueprint $table) {
             $table->dropColumn('id');
         });

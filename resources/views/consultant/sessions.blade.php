@@ -43,10 +43,10 @@
                 <tr class="{{ !$cs->scheduled_at ? 'bg-terra-50/60' : 'hover:bg-pine-50/40' }} transition-colors">
                     <td class="px-5 py-3 whitespace-nowrap">
                         @if($cs->scheduled_at)
-                            <span class="font-medium text-ink">{{ $cs->scheduled_at->format('d M Y') }}</span>
-                            <span class="text-gray-500 text-xs block">{{ $cs->scheduled_at->format('H:i') }} WIB</span>
+                            <span class="font-medium text-ink">{{ $cs->scheduled_at->translatedFormat('d M Y') }}</span>
+                            <span class="text-gray-500 text-xs block">{{ $cs->scheduled_at->translatedFormat('H.i') }} WIB</span>
                         @else
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-terra-100 text-terra-800">Belum dijadwalkan</span>
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-terra-100 text-terra-800">Permintaan baru — set jadwal</span>
                         @endif
                     </td>
                     <td class="px-5 py-3">Anonim #{{ $cs->employee_id }}</td>
@@ -63,7 +63,7 @@
                                 <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
                                     <option value="">Set jadwal…</option>
                                     @foreach(\App\Services\BookingService::available('perusahaan', $cs->perusahaan_id) as $slot)
-                                    <option value="{{ $slot->id }}">{{ $slot->started_at->format('d M H:i') }}</option>
+                                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M H.i') }}</option>
                                     @endforeach
                                 </select>
                             </form>
@@ -108,8 +108,8 @@
                 <tr class="hover:bg-pine-50/40 transition-colors align-top" data-status="{{ $s->status }}">
                     <td class="px-5 py-3 whitespace-nowrap">
                         @if(optional($s->schedule)->started_at)
-                            <span class="font-medium text-ink">{{ $s->schedule->started_at->format('d M Y') }}</span>
-                            <span class="text-gray-500 text-xs block">{{ $s->schedule->started_at->format('H:i') }} WIB</span>
+                            <span class="font-medium text-ink">{{ $s->schedule->started_at->translatedFormat('d M Y') }}</span>
+                            <span class="text-gray-500 text-xs block">{{ $s->schedule->started_at->translatedFormat('H.i') }} WIB</span>
                         @else
                             <span class="text-gray-400">—</span>
                         @endif

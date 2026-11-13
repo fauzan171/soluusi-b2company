@@ -15,7 +15,7 @@
     <div>
         <p class="text-xs font-semibold uppercase tracking-[0.18em] text-pine-700">Associate Partner</p>
         <h1 class="mt-2 text-2xl font-bold text-gray-950">Dashboard HPA</h1>
-        <p class="mt-1 text-sm text-gray-500">Pantau klinik referral, progress stage pervorma, dan status pencairan komisi.</p>
+        <p class="mt-1 text-sm text-gray-500">Pantau klinik referral, progress stage performa, dan status pencairan komisi.</p>
     </div>
     <div class="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
         <span class="font-semibold">Rule demo:</span> Stage 1 di 5 sesi, Stage 2 di 25 sesi, Stage 3 di 40 sesi.
@@ -97,8 +97,8 @@
                         <span class="shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold {{ $pill }}">{{ $label }}</span>
                     </div>
                     <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
-                        <span>Diajukan: {{ optional($item->requested_at)->format('d M Y') ?? '-' }}</span>
-                        <span>Estimasi cair: {{ optional($item->due_at)->format('d M Y') ?? '-' }}</span>
+                        <span>Diajukan: {{ optional($item->requested_at)->translatedFormat('d M Y') ?? '-' }}</span>
+                        <span>Estimasi cair: {{ optional($item->due_at)->translatedFormat('d M Y') ?? '-' }}</span>
                     </div>
                     @if(!$isPaid && !$isRequested)
                         <form method="POST" action="{{ route('associate.pervormas.request-payout', $item) }}" class="mt-3">
@@ -110,7 +110,7 @@
                     @endif
                 </div>
             @empty
-                <p class="py-8 text-center text-sm text-gray-400">Belum ada komisi pervorma.</p>
+                <p class="py-8 text-center text-sm text-gray-400">Belum ada komisi performa.</p>
             @endforelse
         </div>
     </section>
@@ -128,7 +128,7 @@
                 <div class="min-w-0">
                     <h3 class="truncate font-semibold text-gray-950">{{ $klinik->brand_name }}</h3>
                     <p class="text-xs text-gray-500">{{ $klinik->name }}</p>
-                    <p class="mt-1 text-xs text-gray-400">MoU {{ optional($klinik->mou_at)->format('d M Y') ?? optional($klinik->created_at)->format('d M Y') }}</p>
+                    <p class="mt-1 text-xs text-gray-400">MoU {{ optional($klinik->mou_at)->translatedFormat('d M Y') ?? optional($klinik->created_at)->translatedFormat('d M Y') }}</p>
                 </div>
                 <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $klinik->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
                     {{ $klinik->is_active ? 'Aktif' : 'Pending' }}
@@ -198,7 +198,7 @@
             @forelse($recentSessions as $s)
                 @php $copy = $statusCopy[$s->status] ?? ['label' => ucfirst(str_replace('_', ' ', $s->status)), 'class' => 'bg-gray-50 text-gray-600 border-gray-100']; @endphp
                 <tr class="border-b last:border-b-0">
-                    <td class="p-3">{{ \Illuminate\Support\Carbon::parse($s->activity_date)->format('d M Y') }}</td>
+                    <td class="p-3">{{ \Illuminate\Support\Carbon::parse($s->activity_date)->translatedFormat('d M Y') }}</td>
                     <td class="p-3">{{ $s->klinik->brand_name ?? '-' }}</td>
                     <td class="p-3">
                         <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {{ $copy['class'] }}">{{ $copy['label'] }}</span>

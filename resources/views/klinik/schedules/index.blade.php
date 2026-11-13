@@ -28,7 +28,7 @@
                         {{ strtoupper($schedule->mode ?? 'online') }}
                     </span>
                 </td>
-                <td class="p-3">{{ $schedule->started_at->format('d M Y H:i') }} - {{ $schedule->ended_at->format('H:i') }}</td>
+                <td class="p-3">{{ $schedule->started_at->translatedFormat('d M Y H.i') }} - {{ $schedule->ended_at->translatedFormat('H.i') }}</td>
                 <td class="p-3 text-xs text-gray-500">
                     @if(($schedule->mode ?? 'online') === 'offline')
                         {{ $schedule->location ?: '-' }}

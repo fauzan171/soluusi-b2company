@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@php($title = 'Masuk — ' . config('whitelabel.default_brand'))
+@php($title = 'Masuk — ' . config('whitelabel.internal_brand', 'Soluusi'))
 
 @section('content')
 <style>

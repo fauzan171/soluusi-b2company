@@ -35,7 +35,10 @@ class BookingService
         foreach ([\App\Models\Perusahaan\PerusahaanSession::class, \App\Models\Sekolah\SekolahSession::class] as $model) {
             if ($model::where('consultant_id', $slot->consultant_id)->whereIn('status', ['scheduled', 'done'])
                 ->where('scheduled_at', '<', $slot->ended_at)
-                ->where(fn ($q) => $q->where('ended_at', '>', $slot->started_at)->orWhereNull('ended_at'))->exists()) {
+                ->where(fn ($q) => $q->where('ended_at', '>', $slot->started_at)
+                    ->orWhere(fn ($q2) => $q2->whereNull('ended_at')
+                        // ponytail: ended_at NULL dianggap durasi 1 jam; upgrade: kolom durasi eksplisit
+                        ->where('scheduled_at', '>', $slot->started_at->copy()->subHour())))->exists()) {
                 return true;
             }
         }

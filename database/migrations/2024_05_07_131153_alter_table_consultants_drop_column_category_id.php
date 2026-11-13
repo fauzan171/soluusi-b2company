@@ -13,12 +13,9 @@ return new class extends Migration
      */
     public function up()
     {
-        // ponytail: SQLite can't dropForeign; guard MySQL-only op (prod identik B2C).
-        $isMysql = Schema::getConnection()->getDriverName() === 'mysql';
-        Schema::table('consultants', function (Blueprint $table) use ($isMysql) {
-            if ($isMysql) {
-                $table->dropForeign(['category_id']);
-            }
+        // L11+ sqlite: dropForeign+dropColumn wajib dalam satu rebuild.
+        Schema::table('consultants', function (Blueprint $table) {
+            $table->dropForeign(['category_id']);
             $table->dropColumn('category_id');
         });
     }

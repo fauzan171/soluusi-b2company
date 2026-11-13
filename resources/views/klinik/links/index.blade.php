@@ -25,7 +25,7 @@
             <p class="mt-1 text-xs leading-5 text-gray-500">
                 {{ trim(($createdLink->consultant->user->firstname ?? '') . ' ' . ($createdLink->consultant->user->lastname ?? '')) }}
                 · {{ $createdLink->package->name ?? 'Paket konsultasi' }}
-                · {{ $createdLink->schedule->started_at->format('d M Y H:i') }}
+                · {{ $createdLink->schedule->started_at->translatedFormat('d M Y H.i') }}
             </p>
             <div class="mt-3 space-y-2">
                 <code class="block break-all rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">{{ route('checkout.show', $createdLink->token) }}</code>
@@ -48,7 +48,7 @@
         @forelse($links as $l)
         <tr class="border-b">
             <td class="p-3">{{ trim(($l->consultant->user->firstname ?? '') . ' ' . ($l->consultant->user->lastname ?? '')) }}</td>
-            <td class="p-3">{{ $l->schedule->started_at->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ $l->schedule->started_at->translatedFormat('d M Y H.i') }}</td>
             <td class="p-3">{{ $l->package->name ?? '-' }}</td>
             <td class="p-3">Rp{{ number_format($l->final_price, 0, ',', '.') }}</td>
             <td class="p-3">

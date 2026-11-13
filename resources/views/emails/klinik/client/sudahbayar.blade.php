@@ -7,7 +7,7 @@
         <tr><td style="padding:6px 0;color:#8a948f;">Konsultan</td><td style="padding:6px 0;font-weight:600;">{{ trim(($session->consultant->user->firstname ?? '') . ' ' . ($session->consultant->user->lastname ?? '')) }}</td></tr>
         <tr><td style="padding:6px 0;color:#8a948f;">Paket</td><td style="padding:6px 0;font-weight:600;">{{ $session->consultantPackage->name ?? '-' }}</td></tr>
         @if($session->schedule)
-        <tr><td style="padding:6px 0;color:#8a948f;">Jadwal</td><td style="padding:6px 0;font-weight:600;">{{ $session->schedule->started_at->translatedFormat('l, d M Y H:i') }} WIB</td></tr>
+        <tr><td style="padding:6px 0;color:#8a948f;">Jadwal</td><td style="padding:6px 0;font-weight:600;">{{ $session->schedule->started_at->translatedFormat('l, d M Y H.i') }} WIB</td></tr>
         @endif
         <tr><td style="padding:6px 0;color:#8a948f;">No. Order</td><td style="padding:6px 0;font-weight:600;">{{ $session->order_number }}</td></tr>
     </table>
