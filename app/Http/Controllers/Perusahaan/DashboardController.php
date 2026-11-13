@@ -24,6 +24,11 @@ class DashboardController extends Controller
         $metrics['byType'] = $monthly['byType'] ?? collect();
 
         // Stat cards + benchmark + focus areas + alert strip — turunan angka.
+        $metrics['activeSessions'] = $perusahaan->sessions()
+            ->with(['employee', 'schedule', 'consultant.user'])
+            ->where('status', 'scheduled')
+            ->orderByDesc('checked_in_at')->orderBy('scheduled_at')
+            ->limit(10)->get();
         $metrics['statCards'] = [
             'karyawan' => ['label' => 'Karyawan terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeMonthPeople'] . ' aktif bulan ini'],
             'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $metrics['doneMonth'], 'icon' => 'check', 'tone' => 'pine', 'detail' => ($metrics['deltaDone'] >= 0 ? '+' : '') . $metrics['deltaDone'] . ' vs bulan lalu'],

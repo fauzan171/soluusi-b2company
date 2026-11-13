@@ -53,6 +53,26 @@
             @endif
         </div>
         @endif
+        @if(!$isEmployee)
+        <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-3">
+            @if($session->status === 'scheduled')
+                @if(!$session->checked_in_at)
+                <form method="POST" action="{{ route('consultant.chat.start', $session) }}">
+                    @csrf
+                    <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Mulai sesi</button>
+                </form>
+                @else
+                <span class="inline-flex items-center gap-1.5 text-sm font-medium text-pine-700"><span class="h-1.5 w-1.5 rounded-full bg-pine-600"></span>Sesi berlangsung</span>
+                @endif
+                <form method="POST" action="{{ route('consultant.chat.end', $session) }}" class="flex items-center gap-3">
+                    @csrf
+                    <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
+                </form>
+            @else
+                <span class="text-sm text-gray-500">Sesi selesai.</span>
+            @endif
+        </div>
+        @endif
 
         <div id="chat-log" class="px-4 py-4 sm:px-5 h-[55vh] sm:h-[60vh] overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
 
