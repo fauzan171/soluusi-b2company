@@ -24,10 +24,12 @@ class DashboardController extends Controller
         $metrics['byType'] = $monthly['byType'] ?? collect();
 
         // Stat cards + benchmark + focus areas + alert strip — turunan angka.
+        // Real-time: hanya sesi hari ini & mendatang, terdekat dulu — jadwal lampau tak dianggap aktif.
         $metrics['activeSessions'] = $perusahaan->sessions()
             ->with(['employee', 'schedule', 'consultant.user'])
             ->where('status', 'scheduled')
-            ->orderByDesc('checked_in_at')->orderBy('scheduled_at')
+            ->where('scheduled_at', '>=', now()->startOfDay())
+            ->orderByRaw('checked_in_at is not null desc, scheduled_at asc')
             ->limit(10)->get();
         $metrics['statCards'] = [
             'karyawan' => ['label' => 'Karyawan terdaftar', 'value' => $metrics['registered'], 'icon' => 'users', 'tone' => 'slate', 'detail' => $metrics['activeMonthPeople'] . ' aktif bulan ini'],
