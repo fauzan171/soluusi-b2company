@@ -179,7 +179,7 @@ class ChatController extends Controller
             ->map(fn (ChatMessage $m) => [
                 'id' => $m->id,
                 'mine' => $m->sender_id === auth()->id(),
-                'name' => $peerLabel,
+                'name' => $m->sender_id === auth()->id() ? trim(auth()->user()->firstname.' '.auth()->user()->lastname) : $peerLabel,
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
             ]);
