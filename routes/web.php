@@ -103,6 +103,9 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
         Route::post('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'store'])->name('employees.store');
         Route::post('/employees/{employee}/consent', [\App\Http\Controllers\Perusahaan\RosterController::class, 'consent'])->name('employees.consent');
         Route::post('/employees/invite', [\App\Http\Controllers\Perusahaan\RosterController::class, 'invite'])->name('employees.invite');
+        Route::get('/review', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'index'])->name('review');
+        Route::post('/review/{session}/approve', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'approve'])->name('review.approve');
+        Route::post('/review/{session}/reject', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'reject'])->name('review.reject');
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
@@ -150,22 +153,10 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
 
     Route::get('/pervorma-sessions', [\App\Http\Controllers\AdminDashboardController::class, 'pervormaSessions'])->name('pervorma-sessions');
 
-    Route::post('/pervormas/{pervorma}/pay', function (\App\Models\Klinik\HapPervorma $pervorma) {
-        abort_if($pervorma->status === 'paid', 422, 'Pervorma sudah dibayar.');
-        $pervorma->status = 'paid';
-        $pervorma->paid_at = now();
-        $pervorma->save();
-
-        return back()->with('success', "Pervorma Stage {$pervorma->stage} ditandai sudah dibayar.");
-    })->name('pervormas.pay');
+    Route::post('/pervormas/{pervorma}/pay', [\App\Http\Controllers\Admin\PervormaController::class, 'pay'])->name('pervormas.pay');
 
     // Approval mitra baru (dari registrasi /daftar-mitra)
-    Route::post('/kliniks/{klinik}/approve', function (\App\Models\Klinik\Klinik $klinik) {
-        $klinik->is_active = true;
-        $klinik->approved_at = now();
-        $klinik->save();
-        return back()->with('success', "Mitra {$klinik->name} di-approve. Dashboard mitra sekarang aktif.");
-    })->name('kliniks.approve');
+    Route::post('/kliniks/{klinik}/approve', [\App\Http\Controllers\Admin\KlinikApprovalController::class, 'store'])->name('kliniks.approve');
 
     // Paket klinik B2B — pembuatan & akses hanya super admin (harga sesuai budget mitra).
     Route::get('/kliniks/{klinik}/packages', [\App\Http\Controllers\Klinik\KlinikPackageController::class, 'index'])->name('kliniks.packages.index');
@@ -177,35 +168,14 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::post('/kliniks/{klinik}/markups', [\App\Http\Controllers\Klinik\MarkupRuleController::class, 'store'])->name('kliniks.markups.store');
 
     // Aktivasi program perusahaan (CAP)
-    Route::post('/perusahaans/{perusahaan}/activate', function (\App\Models\Perusahaan\Perusahaan $perusahaan) {
-        $perusahaan->is_active = true;
-        $perusahaan->save();
-        return back()->with('success', "Program {$perusahaan->brand} diaktifkan. Dashboard HR sekarang aktif.");
-    })->name('perusahaans.activate');
+    Route::post('/perusahaans/{perusahaan}/activate', [\App\Http\Controllers\Admin\PerusahaanActivationController::class, 'store'])->name('perusahaans.activate');
 
     // Aktivasi program sekolah
-    Route::post('/sekolahs/{sekolah}/activate', function (\App\Models\Sekolah\Sekolah $sekolah) {
-        $sekolah->is_active = true;
-        $sekolah->save();
-        return back()->with('success', "Program {$sekolah->brand} diaktifkan. Dashboard BK sekarang aktif.");
-    })->name('sekolahs.activate');
+    Route::post('/sekolahs/{sekolah}/activate', [\App\Http\Controllers\Admin\SekolahActivationController::class, 'store'])->name('sekolahs.activate');
 
     // Settle margin klinik (finance: margin sudah ditransfer ke klinik)
-    Route::post('/splits/{split}/settle', function (\App\Models\Klinik\SplitSettlement $split) {
-        abort_if($split->status === 'settled', 422, 'Sudah settled.');
-        $split->status = 'settled';
-        $split->settled_at = now();
-        $split->save();
-        return back()->with('success', "Margin Rp" . number_format($split->klinik_margin, 0, ',', '.') . " untuk {$split->klinik->brand_name} ditandai settled.");
-    })->name('splits.settle');
+    Route::post('/splits/{split}/settle', [\App\Http\Controllers\Admin\SplitSettlementController::class, 'settle'])->name('splits.settle');
 
     // Ops manual verify (dual-confirm fallback, Spec §9.1 step 4)
-    Route::post('/sessions/{session}/verify', function (\App\Models\ConsultationSession $session) {
-        abort_if($session->completion_verified_at, 422, 'Sudah terverifikasi.');
-        $session->customer_confirmed_at = $session->customer_confirmed_at ?? now();
-        $session->needs_ops_review = false;
-        $session->save();
-        \App\Http\Controllers\Klinik\SessionController::customerConfirm($session);
-        return back()->with('success', 'Sesi diverifikasi manual oleh ops.');
-    })->name('sessions.verify');
+    Route::post('/sessions/{session}/verify', [\App\Http\Controllers\Admin\SessionVerificationController::class, 'store'])->name('sessions.verify');
 });

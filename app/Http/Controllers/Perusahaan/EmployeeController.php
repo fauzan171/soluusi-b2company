@@ -57,6 +57,12 @@ class EmployeeController extends Controller
                 ->where('perusahaan_id', \App\Support\PerusahaanContext::current()?->id)
                 ->first();
         abort_unless($employee, 403, 'Belum ada karyawan dengan akun untuk preview.');
+
+        // Audit: admin membaca data karyawan lain.
+        \App\Models\AdminAction::record($user->id, 'employee.preview', $employee, [
+            'url' => request()->fullUrl(),
+        ]);
+
         return $employee;
     }
 
