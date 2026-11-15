@@ -249,6 +249,30 @@
     </section>
     @endif
 
+    {{-- Saran AI per sesi (karyawan lihat miliknya sendiri) --}}
+    @if($advices->isNotEmpty())
+    <h2 class="font-semibold text-sm text-pine-900 mb-2">Saran dari sesi kamu</h2>
+    <div class="space-y-3 mb-6">
+        @foreach($history as $s)
+            @php $adv = $advices[$s->id] ?? null; @endphp
+            @if($adv && $adv->client_advice)
+            <div class="portal-card p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-xs text-gray-500">
+                            {{ ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('d M Y') ?? '' }}
+                            · {{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}
+                        </p>
+                        <p class="text-sm text-gray-800 mt-2 whitespace-pre-wrap leading-relaxed">{{ $adv->client_advice }}</p>
+                    </div>
+                    <a href="{{ route('perusahaan.chat', $s) }}" class="text-xs font-semibold text-pine-700 hover:text-pine-900 whitespace-nowrap">Lihat sesi →</a>
+                </div>
+            </div>
+            @endif
+        @endforeach
+    </div>
+    @endif
+
     {{-- Riwayat --}}
     <div class="flex items-center justify-between mb-2">
         <h2 class="font-semibold text-sm text-pine-900">Riwayat sesi kamu</h2>
