@@ -32,16 +32,20 @@ class DashboardMetrics
         $scheduled = $tenant->sessions()->whereIn('status', ['scheduled'])->where('scheduled_at', '>=', now())->get();
         $scheduledNext7Days = $scheduled->where('scheduled_at', '<=', now()->copy()->addDays(7))->count();
 
-        $members = $roster->get();
+        // T7.1: eager load departemen supaya group->first()->departement tidak N+1.
+        // Sekolah tidak punya relasi departement (kelas = kolom string) — skip.
+        $members = $school ? $roster->get() : $roster->with('departement')->get();
         $registered = $members->count();
 
-        $activatedPeople = $tenant->sessions()->where('status', 'done')->pluck($person)->filter()->unique();
+        // T7.1: satu query untuk semua sesi done (dipakai untuk activated + ratings).
+        $doneAll = $tenant->sessions()->where('status', 'done')->get([$person, 'rating']);
+        $activatedPeople = $doneAll->pluck($person)->filter()->unique();
         $activeMonthPeople = $sessionsAll->whereIn('status', ['done', 'scheduled'])->pluck($person)->filter()->unique();
 
         $contractCount = (int) ($school ? ($tenant->student_count ?: 0) : ($tenant->employee_count ?: 0));
         $contractGap = max(0, $contractCount - $registered);
 
-        $ratings = $tenant->sessions()->where('status', 'done')->whereNotNull('rating')->get();
+        $ratings = $doneAll->whereNotNull('rating');
         $avgRating = $ratings->isNotEmpty() ? round($ratings->avg('rating'), 1) : 0.0;
         $ratingDist = collect([5, 4, 3, 2, 1])->map(fn ($s) => $ratings->where('rating', $s)->count());
 
@@ -152,9 +156,10 @@ class DashboardMetrics
             'chartWeekly' => $chartWeekly,
             'chartDept' => ['labels' => $deptSeries->pluck('name')->all(), 'data' => $deptSeries->pluck('sessions')->all()],
             'chartParticipation' => $chartParticipation,
+            // Zip menghasilkan pair [0=>label, 1=>value] — key 'name' tidak pernah ada (bug lama: selalu null).
             'topParticipationDept' => collect($chartParticipation['labels'])
                 ->zip($chartParticipation['data'])->filter(fn ($pair) => $pair[1] !== null)
-                ->sortDesc()->first()['name'] ?? null,
+                ->sortByDesc(fn ($pair) => $pair[1])->first()[0] ?? null,
             'insights' => $insights,
         ];
     }
