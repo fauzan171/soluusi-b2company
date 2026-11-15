@@ -48,13 +48,25 @@ class HrReviewController extends Controller
 
         $perusahaan = PerusahaanContext::current();
 
+        $pools = $requests->groupBy('konsultan_type')
+            ->map(fn ($g) => ConsultantPool::poolFor('perusahaan', $perusahaan->id)
+                ->where('type', $g->first()->konsultan_type)->values())
+            ->filter(fn ($p) => $p->isNotEmpty());
+
+        // F2.3: suggested consultant = pool beban terendah per request (kalkulasi sekali per tipe).
+        $suggested = $requests->mapWithKeys(function ($s) use ($pools) {
+            $pool = $pools->get($s->konsultan_type) ?? collect();
+            $pick = $pool->sortBy(fn ($c) => PerusahaanSession::where('consultant_id', $c['id'])
+                ->where('status', 'scheduled')->count())->first();
+
+            return [$s->id => $pick];
+        });
+
         return view('perusahaan.hr-review', [
             'perusahaan' => $perusahaan,
             'requests' => $requests,
-            'pools' => $requests->groupBy('konsultan_type')
-                ->map(fn ($g) => ConsultantPool::poolFor('perusahaan', $perusahaan->id)
-                    ->where('type', $g->first()->konsultan_type)->values())
-                ->filter(fn ($p) => $p->isNotEmpty()),
+            'pools' => $pools,
+            'suggested' => $suggested,
             'activeFilter' => $r->string('type')->trim()->toString(),
         ]);
     }
@@ -63,26 +75,38 @@ class HrReviewController extends Controller
     public function approve(Request $r, PerusahaanSession $session)
     {
         $pending = $this->resolvePending($session);
-        $r->validate(['consultant_id' => ['nullable', 'integer']]);
+        $r->validate([
+            'consultant_id' => ['nullable', 'integer'],
+            'override_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
 
         $pool = ConsultantPool::poolFor('perusahaan', $pending->perusahaan_id)
             ->where('type', $pending->konsultan_type)->values();
         abort_if($pool->isEmpty(), 422, 'Tidak ada konsultan tipe ini di program kamu.');
+
+        // Suggested = beban terendah (selalu dikalkulasi, untuk audit).
+        $suggested = $pool->sortBy(fn ($c) => PerusahaanSession::where('consultant_id', $c['id'])
+            ->where('status', 'scheduled')->count())->first();
 
         if ($r->filled('consultant_id')) {
             abort_unless(ConsultantPool::validChoice('perusahaan', $pending->perusahaan_id,
                 $r->integer('consultant_id'), $pending->konsultan_type), 422, 'Konsultan tidak ada di pool program.');
             $assigned = $pool->firstWhere('id', $r->integer('consultant_id'));
         } else {
-            $assigned = $pool->sortBy(fn ($c) => PerusahaanSession::where('consultant_id', $c['id'])
-                ->where('status', 'scheduled')->count())->first();
+            $assigned = $suggested;
         }
 
         \App\Support\SessionStateMachine::assign($pending, $assigned['id']);
 
-        AdminAction::record($r->user()->id, 'hr_review.approve', $pending, [
+        // Audit payload: suggested_id selalu ada; override_reason hanya bila beda dari suggested.
+        $payload = [
             'consultant_id' => $assigned['id'],
-        ]);
+            'suggested_id' => $suggested['id'],
+        ];
+        if ($assigned['id'] !== $suggested['id'] && $r->filled('override_reason')) {
+            $payload['override_reason'] = $r->string('override_reason')->trim()->toString();
+        }
+        AdminAction::record($r->user()->id, 'hr_review.approve', $pending, $payload);
 
         return back()->with('success', 'Request disetujui — ' . $assigned['name'] . ' ditugaskan. Konsultan tinggal set jadwal.');
     }
