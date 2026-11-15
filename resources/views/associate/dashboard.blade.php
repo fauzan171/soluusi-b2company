@@ -17,8 +17,18 @@
         <h1 class="mt-2 text-2xl font-bold text-gray-950">Dashboard HPA</h1>
         <p class="mt-1 text-sm text-gray-500">Pantau klinik referral, progress stage performa, dan status pencairan komisi.</p>
     </div>
+    @php
+        $hapStages = [
+            1 => config('klinik.hap.stage1_trigger', 5),
+            2 => config('klinik.hap.stage2_trigger', 25),
+            3 => config('klinik.hap.stage3_trigger', 40),
+        ];
+    @endphp
     <div class="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        <span class="font-semibold">Rule demo:</span> Stage 1 di 5 sesi, Stage 2 di 25 sesi, Stage 3 di 40 sesi.
+        <span class="font-semibold">Rule:</span>
+        @foreach($hapStages as $stage => $sessions)
+            Stage {{ $stage }} di {{ $sessions }} sesi{{ !$loop->last ? ',' : '.' }}
+        @endforeach
     </div>
 </div>
 
