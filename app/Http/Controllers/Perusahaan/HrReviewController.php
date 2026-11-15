@@ -78,7 +78,7 @@ class HrReviewController extends Controller
                 ->where('status', 'scheduled')->count())->first();
         }
 
-        $pending->update(['consultant_id' => $assigned['id']]);
+        \App\Support\SessionStateMachine::assign($pending, $assigned['id']);
 
         AdminAction::record($r->user()->id, 'hr_review.approve', $pending, [
             'consultant_id' => $assigned['id'],
@@ -93,11 +93,7 @@ class HrReviewController extends Controller
         $pending = $this->resolvePending($session);
         $r->validate(['reason' => ['required', 'string', 'max:1000']]);
 
-        $pending->update([
-            'status' => 'cancelled',
-            'cancel_reason' => '[HR] ' . $r->reason,
-            'cancelled_at' => now(),
-        ]);
+        \App\Support\SessionStateMachine::cancel($pending, '[HR] ' . $r->reason);
 
         // Reason = free-text HR, sudah terlihat ke employee di cancel_reason —
         // dicatat apa adanya (tidak menambah eksposur PII baru).

@@ -142,10 +142,7 @@ class EmployeeController extends Controller
             abort_if(\App\Support\SlotOverlap::exists($lockedSession->consultant_id, $start, $end),
                 422, 'Slot bentrok dengan jadwal konsultan. Minta konsultan mengirim opsi baru.');
 
-            $lockedSession->update([
-                'scheduled_at' => $start,
-                'ended_at' => $end,
-            ]);
+            \App\Support\SessionStateMachine::schedule($lockedSession, $start, $end);
             $proposal->update(['status' => 'accepted']);
             // Auto-reject proposal lain yang masih pending untuk sesi ini.
             \App\Models\SessionSlotProposal::where('session_id', $session->id)

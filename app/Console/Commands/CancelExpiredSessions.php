@@ -53,13 +53,8 @@ class CancelExpiredSessions extends Command
             }
 
             foreach ($sessions as $session) {
-                $session->update([
-                    'status' => 'cancelled',
-                    // Guard: sweep bukan late-cancel — hanya restore bila kuota sedang terkonsumsi.
-                    'quota_consumed' => false,
-                    'cancel_reason' => 'Auto-cancelled: no check-in',
-                    'cancelled_at' => now(),
-                ]);
+                // Sweep bukan late-cancel — kuota selalu di-restore.
+                \App\Support\SessionStateMachine::cancel($session, 'Auto-cancelled: no check-in');
             }
 
             $ids = $sessions->pluck('id');
@@ -97,12 +92,7 @@ class CancelExpiredSessions extends Command
             }
 
             foreach ($sessions as $session) {
-                $session->update([
-                    'status' => 'cancelled',
-                    'quota_consumed' => false,
-                    'cancel_reason' => $reason,
-                    'cancelled_at' => now(),
-                ]);
+                \App\Support\SessionStateMachine::cancel($session, $reason);
             }
 
             $ids = $sessions->pluck('id');
