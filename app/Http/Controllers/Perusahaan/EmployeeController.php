@@ -60,8 +60,10 @@ class EmployeeController extends Controller
         abort_unless($employee, 403, 'Belum ada karyawan dengan akun untuk preview.');
 
         // Audit: admin membaca data karyawan lain.
+        // ponytail: path + id saja, bukan fullUrl — query string bisa bawa param sensitif.
         \App\Models\AdminAction::record($user->id, 'employee.preview', $employee, [
-            'url' => request()->fullUrl(),
+            'url' => request()->path(),
+            'employee_id' => $employee->id,
         ]);
 
         return $employee;
@@ -325,7 +327,7 @@ class EmployeeController extends Controller
     public function requestConsultation(Request $r)
     {
         $employee = $this->resolveEmployee();
-        $r->validate([
+        $validated = $r->validate([
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             'topic_category' => ['nullable', 'string', 'max:100'],
             'body' => ['required', 'string', 'max:2000'],
@@ -353,6 +355,7 @@ class EmployeeController extends Controller
             'topic_category' => $r->topic_category,
             'status' => 'scheduled',
             'scheduled_at' => null,
+            'request_notes' => $validated['body'],
         ]);
 
         return redirect()->route('perusahaan.employee')

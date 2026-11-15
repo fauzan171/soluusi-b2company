@@ -189,6 +189,41 @@ class HrReviewTest extends TestCase
         $this->assertNull($session->scheduled_at);
     }
 
+    public function test_employee_request_persists_request_notes()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+
+        $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
+            'konsultan_type' => 'psikolog',
+            'topic_category' => 'Stress',
+            'body' => 'Saya butuh konsultasi soal burnout.',
+        ])->assertRedirect();
+
+        $this->assertSame('Saya butuh konsultasi soal burnout.', PerusahaanSession::first()->request_notes);
+    }
+
+    public function test_hr_review_page_renders_request_notes()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $session = $this->pendingSession($p, $emp);
+        $session->update(['request_notes' => 'Saya butuh konsultasi soal kecemasan.']);
+
+        $this->actingAs($hrUser)->get(route('perusahaan.review'))
+            ->assertOk()
+            ->assertSeeText('Saya butuh konsultasi soal kecemasan.');
+    }
+
+    public function test_hr_approve_keeps_request_notes_untouched()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $session = $this->pendingSession($p, $emp);
+        $session->update(['request_notes' => 'Saya butuh konsultasi.']);
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session));
+
+        $this->assertSame('Saya butuh konsultasi.', $session->refresh()->request_notes);
+    }
+
     public function test_employee_can_request_again_after_hr_reject()
     {
         [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();

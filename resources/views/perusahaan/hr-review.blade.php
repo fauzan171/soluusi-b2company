@@ -47,6 +47,9 @@
             @if($session->topic_category)
             <p class="text-xs text-gray-500 mt-0.5">Topik: <span class="font-medium text-gray-700">{{ $session->topic_category }}</span></p>
             @endif
+            @if($session->request_notes)
+            <p class="text-xs text-gray-600 mt-1.5 leading-relaxed">{{ str($session->request_notes)->limit(200) }}</p>
+            @endif
         </div>
     </div>
 

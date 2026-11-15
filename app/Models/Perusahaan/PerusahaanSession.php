@@ -32,6 +32,7 @@ class PerusahaanSession extends Model
         'location',
         'delivery_status',
         'no_show_party',
+        'request_notes',
     ];
 
     protected $casts = [
