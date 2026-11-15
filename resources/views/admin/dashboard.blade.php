@@ -41,7 +41,7 @@
 </div>
 
 <h2 id="pending" class="font-semibold mb-2">Mitra menunggu approval ({{ $pendingKliniks->count() }})</h2>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th><th class="p-3">Brand</th><th class="p-3">Daftar</th><th class="p-3">Aksi</th>
     </tr></thead>
@@ -61,10 +61,10 @@
         <tr><td colspan="4" class="p-3 text-gray-400">Tidak ada mitra pending.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <h2 class="font-semibold mb-2">Margin mitra menunggu payout</h2>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Mitra</th><th class="p-3">Sesi</th><th class="p-3">Net (Soluusi)</th><th class="p-3">Margin (mitra)</th><th class="p-3">Aksi</th>
     </tr></thead>
@@ -85,10 +85,10 @@
         <tr><td colspan="5" class="p-3 text-gray-400">Tidak ada margin pending.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <h2 class="font-semibold mb-2">Performa HPA jatuh tempo — <a href="{{ route('admin.pervorma-sessions') }}" class="text-emerald-700 hover:underline font-normal">lihat sesi kontributor →</a></h2>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th><th class="p-3">Associate</th><th class="p-3">Stage</th><th class="p-3">Amount</th><th class="p-3">Jatuh tempo</th><th class="p-3">Aksi</th>
     </tr></thead>
@@ -110,10 +110,10 @@
         <tr><td colspan="6" class="p-3 text-gray-400">Tidak ada performa due.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <h2 class="font-semibold mb-2">Aktivitas sesi terbaru (platform)</h2>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Waktu order</th><th class="p-3">Mitra</th><th class="p-3">Konsultan</th><th class="p-3">Jadwal</th><th class="p-3">Bayar</th><th class="p-3">Status</th>
     </tr></thead>
@@ -135,10 +135,10 @@
         <tr><td colspan="6" class="p-3 text-gray-400">Belum ada sesi.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <h2 class="font-semibold mb-2">Mitra terbaru</h2>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th><th class="p-3">Associate (HPA)</th><th class="p-3">Status</th><th class="p-3">Daftar</th>
     </tr></thead>
@@ -154,11 +154,11 @@
         </tr>
         @endforeach
     </tbody>
-</table>
+</table></div>
 
 <h2 class="font-semibold mb-2">Sesi perlu review ops</h2>
 <p class="text-sm text-gray-500 mb-6">Dua sumber flag: (a) konsultan mark-done &gt; {{ config('klinik.confirm_window_hours') }} jam tanpa konfirmasi customer — possible fake; (b) pembayaran masuk setelah sesi ditutup (expired/batal/refund) — dana perlu dikembalikan atau sesi dijadwalkan ulang.</p>
-<table class="w-full bg-white border rounded-lg text-sm mb-8">
+<div class="overflow-x-auto bg-white border rounded-lg mb-8"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Sesi</th><th class="p-3">Alasan</th><th class="p-3">Konsultan</th><th class="p-3">Klinik</th><th class="p-3">Mark-done</th><th class="p-3">Aksi</th>
     </tr></thead>
@@ -186,7 +186,7 @@
         <tr><td colspan="6" class="p-3 text-gray-400">Tidak ada sesi yang perlu review.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <div class="mt-4">{{ $flagged->links() }}</div>
 

@@ -10,7 +10,7 @@
     aktivitas order — klinik tanpa sesi selesai 90 hari terakhir ditandai untuk dicek.
 </p>
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">HPA (referral)</th>
         <th class="p-3">Klinik</th>
@@ -58,5 +58,5 @@
         <tr><td colspan="9" class="p-3 text-gray-400">Belum ada mitra klinik.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 @endsection

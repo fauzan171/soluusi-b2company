@@ -33,7 +33,7 @@
 </form>
 
 @if($tenantId)
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Konsultan</th>
         <th class="p-3">Status</th>
@@ -67,7 +67,7 @@
         <tr><td colspan="3" class="p-3 text-gray-400">Belum ada konsultan dengan status accept.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 @else
 <p class="text-sm text-gray-400">Pilih tenant untuk melihat & mengatur assignment.</p>
 @endif

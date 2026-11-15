@@ -4,7 +4,7 @@
 
 @section('content')
 {{-- ponytail: polling 5s vanilla JS. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
-<div id="chat" class="mx-auto max-w-2xl px-1"
+<div id="chat" class="mx-auto max-w-2xl"
      data-poll="{{ $pollUrl }}" data-post="{{ $postUrl }}" data-token="{{ csrf_token() }}"
      data-can-send="{{ $canSend ? 1 : 0 }}">
 

@@ -9,7 +9,7 @@
     <a href="{{ route('klinik.consultants.index') }}" class="bg-emerald-700 text-white rounded px-4 py-2 text-sm font-semibold">Pilih Konsultan</a>
 </div>
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead>
         <tr class="border-b text-left text-gray-500">
             <th class="p-3">Konsultan</th>
@@ -44,7 +44,7 @@
             </tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <div class="mt-4">{{ $schedules->links() }}</div>
 @endsection

@@ -257,8 +257,8 @@
     @if($usedMonth > 0)
     <p class="text-xs text-gray-500 mb-2">{{ $usedMonth }} dari {{ $quota }} sesi selesai bulan ini — bagus, terus jaga ritmenya.</p>
     @endif
-    <div class="portal-card text-sm mb-6 overflow-hidden">
-        <table class="w-full">
+    <div class="portal-card text-sm mb-6 overflow-x-auto">
+        <table class="w-full min-w-[640px]">
             <thead><tr class="border-b border-[#e7e2d9] text-left text-gray-500 text-xs bg-pine-50/50">
                 <th class="p-3">Tanggal</th><th class="p-3">Topik</th><th class="p-3">Jenis konsultan</th><th class="p-3">Status</th><th class="p-3"></th>
             </tr></thead>
