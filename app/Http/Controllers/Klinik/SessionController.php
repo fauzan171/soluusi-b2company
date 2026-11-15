@@ -39,7 +39,7 @@ class SessionController extends Controller
     /** Konsultan check-in (pre-session window). */
     public function checkIn(ConsultationSession $session)
     {
-        $this->authorizeConsultant($session);
+        $this->authorize('checkIn', $session);
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak dalam status scheduled.');
 
         $session->konsultan_checked_in_at = now();
@@ -51,7 +51,7 @@ class SessionController extends Controller
     /** Konsultan mark-done (dual-confirm step 1). Notes = confidential. */
     public function markDone(Request $request, ConsultationSession $session)
     {
-        $this->authorizeConsultant($session);
+        $this->authorize('markDone', $session);
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak bisa ditandai selesai.');
 
         $request->validate([
@@ -95,17 +95,11 @@ class SessionController extends Controller
         HapPervormaService::evaluate($session);
     }
 
-    protected function authorizeConsultant(ConsultationSession $session): void
-    {
-        $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
-    }
-
     /** Konsultan set jadwal untuk request konsultasi CAP (scheduled_at masih null). */
     public function schedulePerusahaan(Request $r, \App\Models\Perusahaan\PerusahaanSession $session)
     {
+        $this->authorize('view', $session);
         $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
         abort_unless($session->status === 'scheduled' && !$session->scheduled_at, 422, 'Sesi sudah dijadwalkan.');
 
         $r->validate(['schedule_id' => 'required|integer|exists:schedules,id']);

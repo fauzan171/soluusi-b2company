@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChatMessage;
-use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use Illuminate\Http\Request;
 
@@ -16,18 +15,14 @@ class ChatController extends Controller
     /** Karyawan: pastikan sesi miliknya. */
     public function employee(PerusahaanSession $session)
     {
-        $user = auth()->user();
-        $employee = PerusahaanEmployee::where('user_id', $user->id)->first();
-        abort_unless($employee && $session->employee_id === $employee->id, 403);
+        $this->authorize('view', $session);
 
         return $this->room($session, "Konsultan", route('perusahaan.chat.store', $session), route('perusahaan.employee'), true);
     }
 
     public function employeeStore(Request $r, PerusahaanSession $session)
     {
-        $user = auth()->user();
-        $employee = PerusahaanEmployee::where('user_id', $user->id)->first();
-        abort_unless($employee && $session->employee_id === $employee->id, 403);
+        $this->authorize('send', $session);
 
         return $this->save($r, $session);
     }
@@ -35,16 +30,14 @@ class ChatController extends Controller
     /** Konsultan: pastikan sesi miliknya. */
     public function consultant(PerusahaanSession $session)
     {
-        $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        $this->authorize('view', $session);
 
         return $this->room($session, "Karyawan", route('consultant.chat.store', $session), route('consultant.sessions'));
     }
 
     public function consultantStore(Request $r, PerusahaanSession $session)
     {
-        $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        $this->authorize('send', $session);
 
         return $this->save($r, $session);
     }
@@ -52,8 +45,7 @@ class ChatController extends Controller
     /** Konsultan: mulai sesi (check-in). */
     public function consultantStart(PerusahaanSession $session)
     {
-        $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        $this->authorize('view', $session);
 
         abort_if($session->checked_in_at, 422, 'Sesi sudah dimulai.');
         abort_unless($session->status === 'scheduled' && $session->scheduled_at, 422, 'Sesi belum dijadwalkan.');
@@ -66,8 +58,7 @@ class ChatController extends Controller
     /** Konsultan: akhiri sesi (mark done). */
     public function consultantEnd(PerusahaanSession $session)
     {
-        $consultant = auth()->user()->consultants()->first();
-        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        $this->authorize('end', $session);
 
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
 
@@ -79,8 +70,7 @@ class ChatController extends Controller
     /** Employee: akhiri sesi (mark done). */
     public function employeeEnd(PerusahaanSession $session)
     {
-        $employee = PerusahaanEmployee::where('user_id', auth()->id())->first();
-        abort_unless($employee && $session->employee_id === $employee->id, 403);
+        $this->authorize('end', $session);
 
         abort_if($session->status === 'done', 422, 'Sesi sudah selesai.');
 
@@ -96,10 +86,8 @@ class ChatController extends Controller
     /** Employee: beri rating 1-5 setelah sesi done. */
     public function employeeRate(Request $r, PerusahaanSession $session)
     {
-        $employee = PerusahaanEmployee::where('user_id', auth()->id())->first();
-        abort_unless($employee && $session->employee_id === $employee->id, 403);
+        $this->authorize('rate', $session);
 
-        abort_unless($session->status === 'done', 422, 'Hanya sesi selesai yang bisa dirating.');
         abort_if($session->rating, 422, 'Sudah dirating.');
 
         $r->validate(['rating' => ['required', 'integer', 'min:1', 'max:5']]);
@@ -129,8 +117,6 @@ class ChatController extends Controller
 
     private function save(Request $r, PerusahaanSession $session)
     {
-        abort_unless($this->canSend($session), 422, 'Chat hanya aktif untuk sesi terjadwal.');
-
         $data = $r->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);

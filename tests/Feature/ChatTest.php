@@ -128,7 +128,7 @@ class ChatTest extends TestCase
         $session->update(['scheduled_at' => null]);
 
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo'])
-            ->assertStatus(422);
+            ->assertForbidden();
 
         $this->assertSame(0, $session->chatMessages()->count());
     }
@@ -139,7 +139,7 @@ class ChatTest extends TestCase
         $session = $this->makeSession($emp, null);
 
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo'])
-            ->assertStatus(422);
+            ->assertForbidden();
     }
 
     public function test_employee_can_end_session_and_give_rating()
@@ -156,7 +156,7 @@ class ChatTest extends TestCase
 
         // Chat store blocked after end
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'should fail'])
-            ->assertStatus(422);
+            ->assertForbidden();
 
         // Rate
         $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 5])
@@ -171,7 +171,7 @@ class ChatTest extends TestCase
 
         // Cannot rate before done
         $this->actingAs($owner)->post(route('perusahaan.chat.rate', $session), ['rating' => 4])
-            ->assertStatus(422);
+            ->assertForbidden();
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
 
