@@ -212,7 +212,7 @@ class FullConsultationFlowTest extends TestCase
 
     public function test_stale_pending_request_auto_cancelled_via_sweep()
     {
-        config()->set('session.pending_cancel_hours', 72);
+        config()->set('booking.pending_cancel_hours', 72);
         [$p, $empUser, $emp, $hrUser] = $this->fixture();
 
         // Employee request → pending
