@@ -50,7 +50,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_expired_scheduled_sessions_are_auto_cancelled_and_quota_restored()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
         [$s, $student] = $this->sekolahFixture();
 
@@ -82,7 +82,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_recent_scheduled_sessions_are_not_cancelled()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
 
         $recent = PerusahaanSession::create([
@@ -99,7 +99,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_checked_in_or_terminal_sessions_are_not_cancelled()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
 
         $checkedIn = PerusahaanSession::create([
@@ -127,7 +127,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_booking_claims_are_released_for_cancelled_sessions()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
 
         $consultant = \App\Models\Consultant::factory()->create();
@@ -150,7 +150,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_sweep_does_not_cancel_session_checked_in_after_cutoff_race()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
 
         // Sesi melewati cutoff TAPI sudah check-in — harus tidak tersentuh.
@@ -170,7 +170,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_sweep_rejects_pending_proposals_of_cancelled_sessions()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
 
         $consultant = \App\Models\Consultant::factory()->create();
@@ -196,7 +196,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_stale_pending_request_auto_cancelled_after_72h()
     {
-        config()->set('session.pending_cancel_hours', 72);
+        config()->set('booking.pending_cancel_hours', 72);
         [$p, $emp] = $this->perusahaanFixture();
 
         // Pending request macet > 72 jam (scheduled + no slot + no consultant).
@@ -230,7 +230,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_stale_pending_request_rejects_pending_proposals()
     {
-        config()->set('session.pending_cancel_hours', 72);
+        config()->set('booking.pending_cancel_hours', 72);
         [$p, $emp] = $this->perusahaanFixture();
 
         $consultant = \App\Models\Consultant::factory()->create();
@@ -258,7 +258,7 @@ class SessionExpirySweepTest extends TestCase
 
     public function test_sekolah_sweep_does_not_reject_perusahaan_proposals_with_same_id()
     {
-        config()->set('session.auto_cancel_hours', 24);
+        config()->set('booking.auto_cancel_hours', 24);
         [$p, $emp] = $this->perusahaanFixture();
         [$s, $student] = $this->sekolahFixture();
 

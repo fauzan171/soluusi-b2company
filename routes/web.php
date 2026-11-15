@@ -189,4 +189,13 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
 
     // Ops manual verify (dual-confirm fallback, Spec §9.1 step 4)
     Route::post('/sessions/{session}/verify', [\App\Http\Controllers\Admin\SessionVerificationController::class, 'store'])->name('sessions.verify');
+
+    // F2.2: view-as superadmin — lihat portal seolah-olah employee target.
+    Route::post('/view-as/start', [\App\Http\Controllers\Admin\ViewAsController::class, 'start'])->name('view-as.start');
+    Route::post('/view-as/stop', [\App\Http\Controllers\Admin\ViewAsController::class, 'stop'])->name('view-as.stop');
+
+    // F2.1: consultant assignment management (assign/remove dari pool tenant).
+    Route::get('/consultant-assignment', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'index'])->name('consultant-assignment.index');
+    Route::post('/consultant-assignment/assign', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'assign'])->middleware('throttle:20,1')->name('consultant-assignment.assign');
+    Route::post('/consultant-assignment/remove', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'remove'])->middleware('throttle:20,1')->name('consultant-assignment.remove');
 });

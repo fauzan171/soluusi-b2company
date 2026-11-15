@@ -16,8 +16,8 @@ class CancelExpiredSessions extends Command
 
     public function handle(): int
     {
-        $cutoff = now()->subHours((int) config('session.auto_cancel_hours', 24));
-        $pendingCutoff = now()->subHours((int) config('session.pending_cancel_hours', 72));
+        $cutoff = now()->subHours((int) config('booking.auto_cancel_hours', 24));
+        $pendingCutoff = now()->subHours((int) config('booking.pending_cancel_hours', 72));
         $total = 0;
 
         foreach (['perusahaan' => PerusahaanSession::class, 'sekolah' => SekolahSession::class] as $vertical => $model) {
@@ -77,7 +77,7 @@ class CancelExpiredSessions extends Command
      */
     private function sweepStalePendingRequests(string $vertical, string $model, \DateTimeInterface $cutoff): int
     {
-        $hours = (int) config('session.pending_cancel_hours', 72);
+        $hours = (int) config('booking.pending_cancel_hours', 72);
         $reason = "[HR] Permintaan kedaluwarsa (tidak diproses dalam {$hours} jam)";
 
         return DB::transaction(function () use ($vertical, $model, $cutoff, $reason) {

@@ -22,7 +22,13 @@ use Illuminate\Support\Facades\Log;
  */
 class AiInsightService
 {
-    public const MODEL = 'tg/glm-5.3-flash';
+    /** Model dibaca dari config (env AI_INSIGHT_MODEL). Const dipertahankan sebagai fallback. */
+    public const MODEL = 'glm-5.3-flash';
+
+    protected static function model(): string
+    {
+        return trim((string) config('services.ai_insight.model')) ?: self::MODEL;
+    }
 
     /** Cache rows: vertical, tenant_id, input_hash, scope(fixed 'tenant'), status, result_json, model, generated_at. */
     public static function get($tenant, string $vertical, string $contextJson, bool $generate = false): array
@@ -76,7 +82,7 @@ class AiInsightService
             [
                 'input_hash' => $hash, 'scope' => 'tenant', 'status' => 'running',
                 'result_json' => null, 'error_code' => null,
-                'model' => self::MODEL, 'started_at' => now(),
+                'model' => self::model(), 'started_at' => now(),
                 'generated_at' => null, 'created_at' => now(), 'updated_at' => now(),
             ]
         );
@@ -86,16 +92,16 @@ class AiInsightService
             \Illuminate\Support\Facades\DB::table('ai_insights')
                 ->where('vertical', $vertical)->where('tenant_id', $tenant->id)
                 ->update(['status' => 'completed', 'result_json' => json_encode($insight, JSON_UNESCAPED_UNICODE),
-                    'model' => self::MODEL, 'generated_at' => now(), 'updated_at' => now(), 'error_code' => null]);
+                    'model' => self::model(), 'generated_at' => now(), 'updated_at' => now(), 'error_code' => null]);
             return ['status' => 'completed', 'stale' => false, 'insight' => $insight,
-                'generated_at' => now()->toDateTimeString(), 'model' => self::MODEL, 'error' => null];
+                'generated_at' => now()->toDateTimeString(), 'model' => self::model(), 'error' => null];
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\DB::table('ai_insights')
                 ->where('vertical', $vertical)->where('tenant_id', $tenant->id)
                 ->update(['status' => 'failed', 'error_code' => substr($e->getMessage(), 0, 200), 'updated_at' => now()]);
             Log::error('AI insight gagal: ' . $e->getMessage());
             return ['status' => 'failed', 'stale' => $stale, 'insight' => null,
-                'generated_at' => null, 'model' => self::MODEL,
+                'generated_at' => null, 'model' => self::model(),
                 'error' => 'Analisis AI belum berhasil. Coba lagi sebentar.'];
         }
     }
@@ -105,7 +111,7 @@ class AiInsightService
         $response = Http::asJson()->timeout(120)->withHeaders([
                 'Authorization' => 'Bearer ' . config('services.ai_insight.key'),
             ])->post(rtrim(config('services.ai_insight.base_url'), '/') . '/chat/completions', [
-            'model' => self::MODEL,
+            'model' => self::model(),
             'messages' => [
                 ['role' => 'system', 'content' => self::systemPrompt()],
                 ['role' => 'user', 'content' => $contextJson],

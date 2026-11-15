@@ -157,6 +157,10 @@ class ChatController extends Controller
     /** Pesan sejak id tertentu, maksimal 200 (poll incremental). Nama peserta tidak dikirim: karyawan anonim. */
     private function payload(PerusahaanSession $session, int $after, string $peerLabel)
     {
+        $me = auth()->user();
+        $myId = $me->id;
+        $myName = trim($me->firstname.' '.$me->lastname);
+
         return $session->chatMessages()
             ->where('id', '>', $after)
             ->orderBy('id')
@@ -164,8 +168,8 @@ class ChatController extends Controller
             ->get()
             ->map(fn (ChatMessage $m) => [
                 'id' => $m->id,
-                'mine' => $m->sender_id === auth()->id(),
-                'name' => $m->sender_id === auth()->id() ? trim(auth()->user()->firstname.' '.auth()->user()->lastname) : $peerLabel,
+                'mine' => $m->sender_id === $myId,
+                'name' => $m->sender_id === $myId ? $myName : $peerLabel,
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
             ]);

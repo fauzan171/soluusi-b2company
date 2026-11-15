@@ -117,11 +117,12 @@ class TenancyIsolationTest extends TestCase
             'status' => 'scheduled', 'scheduled_at' => null,
         ]);
 
-        // Approve sesi perusahaan lain oleh HR A → bukan antrean A → 422 (bukan sukses).
+        // T2.4: TenantScope memfilter session tenant lain di route-model-binding → 404
+        // (lebih kuat dari 422 — resource tidak pernah terlihat, bukan hanya ditolak).
         $this->actingAs($hrA)->post(route('perusahaan.review.approve', $sessionB))
-            ->assertStatus(422);
+            ->assertStatus(404);
         $this->actingAs($hrA)->post(route('perusahaan.review.reject', $sessionB), ['reason' => 'x'])
-            ->assertStatus(422);
+            ->assertStatus(404);
 
         $this->assertSame('scheduled', $sessionB->refresh()->status);
         $this->assertNull($sessionB->consultant_id);

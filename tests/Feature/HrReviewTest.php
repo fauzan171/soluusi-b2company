@@ -239,4 +239,85 @@ class HrReviewTest extends TestCase
         $this->assertSame(2, PerusahaanSession::count());
         $this->assertNull(PerusahaanSession::latest('id')->first()->consultant_id);
     }
+
+    // --- F2.3: HR consultant allocation approval (suggested + override) ---
+
+    private function secondConsultant(Perusahaan $p): Consultant
+    {
+        $docUser2 = $this->user('doc2@test.local', 'consultant');
+        $consultant2 = Consultant::create([
+            'user_id' => $docUser2->id, 'uuid' => (string) Str::uuid(),
+            'about' => 'Test', 'profit_sharing' => 0,
+            'status' => Consultant::ACCEPT, 'is_active' => true,
+        ]);
+        ConsultantPool::create(['perusahaan_id' => $p->id, 'consultant_id' => $consultant2->id]);
+
+        return $consultant2;
+    }
+
+    public function test_hr_review_page_shows_suggested_consultant()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $this->secondConsultant($p);
+        $session = $this->pendingSession($p, $emp);
+
+        // Beban: consultant utama punya 1 sesi scheduled → suggested = konsultan ke-2.
+        PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($hrUser)->get(route('perusahaan.review'))
+            ->assertOk()
+            ->assertViewHas('suggested', fn ($suggested) => ($suggested[$session->id] ?? null) !== null
+                && $suggested[$session->id]['id'] !== $consultant->id);
+    }
+
+    public function test_hr_approve_with_suggested_consultant_audits_suggested_id()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session))
+            ->assertRedirect();
+
+        $row = \App\Models\AdminAction::where('action', 'hr_review.approve')->latest('id')->first();
+        $this->assertSame($consultant->id, $row->payload_json['consultant_id']);
+        $this->assertSame($consultant->id, $row->payload_json['suggested_id']);
+        $this->assertArrayNotHasKey('override_reason', $row->payload_json);
+    }
+
+    public function test_hr_approve_with_override_audits_reason()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $consultant2 = $this->secondConsultant($p);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session), [
+            'consultant_id' => $consultant2->id,
+            'override_reason' => 'Pasien pernah konsultasi dengan konsultan ini.',
+        ])->assertRedirect();
+
+        $this->assertSame($consultant2->id, $session->refresh()->consultant_id);
+
+        $row = \App\Models\AdminAction::where('action', 'hr_review.approve')->latest('id')->first();
+        $this->assertSame($consultant2->id, $row->payload_json['consultant_id']);
+        $this->assertSame($consultant->id, $row->payload_json['suggested_id']);
+        $this->assertSame('Pasien pernah konsultasi dengan konsultan ini.', $row->payload_json['override_reason']);
+    }
+
+    public function test_hr_approve_override_reason_optional()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $consultant2 = $this->secondConsultant($p);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session), [
+            'consultant_id' => $consultant2->id,
+        ])->assertRedirect();
+
+        $row = \App\Models\AdminAction::where('action', 'hr_review.approve')->latest('id')->first();
+        $this->assertArrayNotHasKey('override_reason', $row->payload_json);
+    }
 }

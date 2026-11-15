@@ -20,6 +20,11 @@ class PerusahaanContext
             return null;
         }
 
+        // F2.2: view-as superadmin — scope ke tenant target, abaikan admin_perusahaan_id.
+        if ($viewAs = ViewAs::current()) {
+            return Perusahaan::find($viewAs['perusahaan_id']);
+        }
+
         if (self::canSwitch($user)) {
             if (request()->filled('perusahaan_id')) {
                 $p = Perusahaan::find(request('perusahaan_id'));

@@ -4,12 +4,18 @@ namespace App\Models\Perusahaan;
 
 use App\Models\Departement;
 use App\Models\Model;
+use App\Models\Scopes\TenantScope;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PerusahaanEmployee extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope('perusahaan'));
+    }
 
     protected $fillable = [
         'perusahaan_id',

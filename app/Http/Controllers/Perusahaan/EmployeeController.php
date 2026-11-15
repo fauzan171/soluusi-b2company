@@ -262,7 +262,7 @@ class EmployeeController extends Controller
 
         // ADR 001: max 3 jadwal total per sesi. Enforced di perusahaan flow;
         // ponytail: sekolah/BookingService belum — samakan saat reschedule mereka dimigrasi.
-        $max = (int) config('session.max_schedules_per_session', 3);
+        $max = (int) config('booking.max_schedules_per_session', 3);
         abort_if($session->schedule_version >= $max, 422,
             "Maksimal {$max} jadwal per sesi tercapai. Batalkan sesi dan buat yang baru.");
 

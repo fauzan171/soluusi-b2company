@@ -35,7 +35,10 @@
 </div>
 
 @forelse($requests as $session)
-@php $pool = $pools->get($session->konsultan_type) ?? collect(); @endphp
+@php
+    $pool = $pools->get($session->konsultan_type) ?? collect();
+    $pick = $suggested[$session->id] ?? null;
+@endphp
 <div class="portal-card p-5 mb-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -58,15 +61,21 @@
         <form method="POST" action="{{ route('perusahaan.review.approve', $session) }}" class="rounded-xl border border-pine-200 bg-pine-50/40 p-3">
             @csrf
             <label class="block text-xs font-semibold text-pine-900 mb-1.5" for="approve-{{ $session->id }}">Tugaskan konsultan</label>
+            @if($pick)
+            <p class="text-[11px] text-gray-600 mb-1.5">Saran sistem: <span class="font-semibold text-pine-800">{{ $pick['name'] }}</span> (beban terendah)</p>
+            @endif
             <div class="flex gap-2">
                 <select id="approve-{{ $session->id }}" name="consultant_id" class="flex-1 rounded-lg border border-gray-300 px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-pine-500">
-                    <option value="">— otomatis (beban terendah) —</option>
+                    <option value="">— otomatis ({{ $pick['name'] ?? 'beban terendah' }}) —</option>
                     @foreach($pool as $c)
-                    <option value="{{ $c['id'] }}">{{ $c['name'] }}</option>
+                    <option value="{{ $c['id'] }}" @selected($pick && $pick['id'] === $c['id'])>{{ $c['name'] }}</option>
                     @endforeach
                 </select>
                 <button type="submit" class="shrink-0 rounded-lg bg-pine-700 text-white text-xs font-semibold px-3 py-2 hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-1">Setujui</button>
             </div>
+            <input type="text" name="override_reason" maxlength="1000"
+                   placeholder="Alasan override (opsional, hanya bila beda dari saran)"
+                   class="mt-2 w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-pine-500">
             @if($pool->isEmpty())
             <p class="text-[11px] text-terra-700 mt-1.5">Pool konsultan tipe ini kosong — tambah konsultan dulu.</p>
             @endif

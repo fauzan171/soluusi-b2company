@@ -62,8 +62,10 @@ class AuthController extends Controller
             return redirect()->route('loginIndex')->with('error', 'Akun belum terdaftar. Hubungi admin.');
         }
 
+        // Skema: kolomnya provider_name (bukan 'provider') — dulu updateOrCreate
+        // silent-drop karena key tidak cocok (mass-assignment guard).
         SocialAccount::updateOrCreate(
-            ['provider' => $provider, 'provider_id' => $socialUser->getId()],
+            ['provider_name' => $provider, 'provider_id' => $socialUser->getId()],
             ['user_id' => $user->id, 'provider_token' => $socialUser->token ?? null]
         );
 
