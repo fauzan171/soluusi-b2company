@@ -95,6 +95,11 @@ class EmployeeController extends Controller
             ->latest('proposed_at')
             ->get();
 
+        // T5.3: permintaan yang masih menunggu review HR / konfirmasi konsultan.
+        $pendingRequest = $employee->sessions()->with('consultant.user')
+            ->where('status', 'scheduled')->whereNull('scheduled_at')
+            ->latest('id')->first();
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -107,7 +112,25 @@ class EmployeeController extends Controller
             'assessmentTrend' => $trend,
             'needsAssessment' => $needsAssessment,
             'pendingProposals' => $pendingProposals,
+            'pendingRequest' => $pendingRequest,
         ]);
+    }
+
+    /**
+     * T5.3: batalkan permintaan konsultasi yang masih menunggu review/ACC.
+     * Kuota kembali penuh — sesi belum terjadwal, tidak ada cutoff.
+     */
+    public function cancelPendingRequest(PerusahaanSession $session)
+    {
+        $employee = $this->resolveEmployee();
+        abort_unless($session->employee_id === $employee->id, 403);
+        abort_unless($session->status === 'scheduled' && $session->scheduled_at === null,
+            422, 'Hanya permintaan yang belum terjadwal bisa dibatalkan di sini.');
+
+        \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+
+        return redirect()->route('perusahaan.employee')
+            ->with('success', 'Permintaan konsultasi dibatalkan. Kuota kamu kembali.');
     }
 
     /** F1.3: karyawan pilih 1 slot dari proposal → sesi ter-book, proposal lain di-reject. */

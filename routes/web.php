@@ -115,6 +115,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
         Route::get('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingForm'])->name('booking');
         Route::post('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
         Route::post('/employee/request-consultation', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('request-consultation');
+        Route::post('/employee/request/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('request.cancel');
         Route::post('/employee/slot-proposals/{proposal}/confirm', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'confirmSlot'])->middleware('throttle:10,1')->name('slots.confirm');
         Route::post('/employee/sessions/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
         Route::post('/employee/sessions/{session}/reschedule', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');

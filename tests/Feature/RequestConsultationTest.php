@@ -164,6 +164,82 @@ class RequestConsultationTest extends TestCase
         $this->assertSame(1, $session->chatMessages()->count());
     }
 
+    public function test_employee_sees_pending_request_card_on_dashboard()
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+
+        PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+
+        $this->actingAs($user)->get(route('perusahaan.employee'))
+            ->assertOk()
+            ->assertSee('Menunggu konfirmasi konsultan')
+            ->assertSee('Batalkan permintaan');
+    }
+
+    public function test_employee_can_cancel_pending_request_and_quota_restored()
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+
+        $this->actingAs($user)->post(route('perusahaan.request.cancel', $session))
+            ->assertRedirect(route('perusahaan.employee'));
+
+        $session->refresh();
+        $this->assertSame('cancelled', $session->status);
+        $this->assertFalse((bool) $session->quota_consumed);
+
+        // Kuota kembali: request baru bisa dibuat lagi.
+        $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
+            'konsultan_type' => 'psikolog',
+            'body' => 'Request baru setelah cancel.',
+        ])->assertRedirect(route('perusahaan.employee'));
+    }
+
+    public function test_employee_cannot_cancel_pending_request_of_other_employee()
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+
+        $otherUser = $this->user('other@test.local', 'employee');
+        $otherEmp = PerusahaanEmployee::create([
+            'perusahaan_id' => $p->id, 'user_id' => $otherUser->id,
+            'name' => 'Other', 'email' => 'other@test.local', 'consent_at' => now(),
+        ]);
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $otherEmp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+
+        $this->actingAs($user)->post(route('perusahaan.request.cancel', $session))
+            ->assertStatus(403);
+
+        $this->assertSame('scheduled', $session->fresh()->status);
+    }
+
+    public function test_employee_cannot_cancel_already_scheduled_session_via_pending_route()
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)->post(route('perusahaan.request.cancel', $session))
+            ->assertStatus(422);
+    }
+
     public function test_consultant_cannot_schedule_already_scheduled_session()
     {
         [$p, $user, $emp, $docUser, $consultant] = $this->fixture();

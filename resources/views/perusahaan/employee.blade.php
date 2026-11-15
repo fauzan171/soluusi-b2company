@@ -169,6 +169,29 @@
         </div>
     </div>
 
+    {{-- T5.3: permintaan menunggu review HR / konfirmasi konsultan --}}
+    @if($pendingRequest)
+    <section class="portal-card p-5 mb-6 border-pine-300 bg-pine-50/40">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h3 class="dash-section-title">Permintaan konsultasi kamu sedang diproses</h3>
+                <p class="text-sm font-medium text-pine-900 mt-2">{{ $typeLabels[$pendingRequest->konsultan_type] ?? ucfirst($pendingRequest->konsultan_type) }}
+                    @if($pendingRequest->topic_category) · {{ $pendingRequest->topic_category }}@endif
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    {{ $pendingRequest->consultant_id ? 'Menunggu konfirmasi konsultan' : 'Menunggu review HR' }}
+                    — kamu dapat kabar begitu jadwal disetujui.
+                </p>
+            </div>
+            <form method="POST" action="{{ route('perusahaan.request.cancel', $pendingRequest) }}"
+                onsubmit="return confirm('Batalkan permintaan konsultasi ini?')">
+                @csrf
+                <button type="submit" class="shrink-0 text-xs font-semibold text-terra-700 border border-terra-300 rounded-lg px-3 py-2 hover:bg-terra-50 transition">Batalkan permintaan</button>
+            </form>
+        </div>
+    </section>
+    @endif
+
     {{-- Pilih jadwal dari proposal konsultan (F1.3) --}}
     @if($pendingProposals->isNotEmpty())
     <section class="portal-card p-5 mb-6 border-amber-300 bg-amber-50/50">
