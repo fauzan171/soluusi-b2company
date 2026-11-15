@@ -72,11 +72,11 @@
             <p class="mt-0.5 text-xs text-gray-500">Partisipasi per kelas bulan ini.</p>
             <div class="mt-4 space-y-3">
                 @forelse($groups as $group)
-                    @php $pct = $group['registered'] > 0 ? round($group['participants'] / $group['registered'] * 100) : 0; @endphp
+                    @php $pct = $group['participants'] !== null && $group['registered'] > 0 ? round($group['participants'] / $group['registered'] * 100) : 0; @endphp
                     <div>
                         <div class="mb-1 flex items-center justify-between text-sm">
                             <span class="font-medium text-gray-700">{{ $group['name'] }}</span>
-                            <span class="text-xs text-gray-500">{{ $group['participants'] }} / {{ $group['registered'] }} siswa ({{ $pct }}%)</span>
+                            <span class="text-xs text-gray-500">{{ $group['participants'] === null ? 'Data disembunyikan (n<5)' : $group['participants'].' / '.$group['registered'].' siswa ('.$pct.'%)' }}</span>
                         </div>
                         <div class="h-2 overflow-hidden rounded-full bg-gray-100">
                             <div class="h-full rounded-full bg-pine-600" style="width: {{ $pct }}%"></div>

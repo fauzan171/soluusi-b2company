@@ -32,10 +32,14 @@ class ProgramAggregate
         $groupKey = $school ? 'kelas' : 'departement_id';
         $groups = $members->groupBy($groupKey)->map(function ($members, $key) use ($done, $person, $people, $school) {
             $rows = $done->whereIn($person, $members->pluck('id')->all());
+            $n = $people($rows);
+            // P0.3: suppress per-group — departemen/kelas kecil bisa re-identifikasi.
+            $groupSafe = AggregatePrivacy::safe([$n, $rows->count()]);
             return [
                 'name' => $school ? (string) $key : ($members->first()->departement?->name ?? 'Tanpa departemen'),
-                'registered' => $members->count(), 'participants' => $people($rows),
-                'sessions' => $rows->count(),
+                'registered' => $members->count(),
+                'participants' => $groupSafe ? $n : null,
+                'sessions' => $groupSafe ? $rows->count() : null,
             ];
         })->values();
         // ponytail: conservative whole-family suppression; narrower release needs disclosure review.

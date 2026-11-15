@@ -101,7 +101,7 @@ class DashboardController extends Controller
             ['Peserta unik', $data['participants'] ?? 'Tidak tersedia'], ['No-show', $data['noShow'] ?? 'Tidak tersedia'],
         ];
         foreach ($data['groups'] as $group) {
-            $rows[] = [$group['name'], $group['participants']];
+            $rows[] = [$group['name'], $group['participants'] ?? '—'];
         }
         foreach ($data['topics'] as $topic => $count) {
             $rows[] = [$topic, $count];

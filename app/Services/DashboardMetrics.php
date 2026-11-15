@@ -87,20 +87,29 @@ class DashboardMetrics
         // Per departemen / kelas: jumlah peserta done bulan ini (aggregate).
         $groupKey = $school ? 'kelas' : 'departement_id';
         $doneSessions = $sessionsAll->where('status', 'done');
-        $deptSeries = $members->groupBy($groupKey)->map(function ($groupMembers, $key) use ($doneSessions, $person, $school) {
-            $count = $doneSessions->whereIn($person, $groupMembers->pluck('id')->all())->count();
+        $grouped = $members->groupBy($groupKey);
+        $uniqueByGroup = $grouped->map(fn ($groupMembers) => $doneSessions->whereIn($person, $groupMembers->pluck('id')->all())
+            ->pluck($person)->filter()->unique()->count());
+        // P0.3: grup dengan contributor nonzero <5 → nilai disuppress (null), label tetap.
+        $groupSafe = $grouped->map(fn ($groupMembers, $key) => AggregatePrivacy::safe([
+            $uniqueByGroup[$key],
+            $doneSessions->whereIn($person, $groupMembers->pluck('id')->all())->count(),
+        ]));
+        $deptSeries = $grouped->map(function ($groupMembers, $key) use ($doneSessions, $person, $school, $groupSafe) {
             return [
                 'name' => $school ? ('Kelas ' . $key) : ($groupMembers->first()->departement?->name ?? 'Tanpa dept'),
-                'sessions' => $count,
+                'sessions' => $groupSafe[$key] ? $doneSessions->whereIn($person, $groupMembers->pluck('id')->all())->count() : null,
             ];
         })->values();
 
         // Partisipasi per departemen (peserta unik done / terdaftar).
         $chartParticipation = [
             'labels' => $deptSeries->pluck('name')->all(),
-            'data' => $members->groupBy($groupKey)->map(function ($groupMembers, $key) use ($doneSessions, $person) {
-                $unique = $doneSessions->whereIn($person, $groupMembers->pluck('id')->all())
-                    ->pluck($person)->filter()->unique()->count();
+            'data' => $grouped->map(function ($groupMembers, $key) use ($uniqueByGroup, $groupSafe) {
+                if (!$groupSafe[$key]) {
+                    return null;
+                }
+                $unique = $uniqueByGroup[$key];
                 return $groupMembers->count() > 0 ? round($unique / $groupMembers->count() * 100) : 0;
             })->values()->all(),
         ];
@@ -144,7 +153,8 @@ class DashboardMetrics
             'chartDept' => ['labels' => $deptSeries->pluck('name')->all(), 'data' => $deptSeries->pluck('sessions')->all()],
             'chartParticipation' => $chartParticipation,
             'topParticipationDept' => collect($chartParticipation['labels'])
-                ->zip($chartParticipation['data'])->sortDesc()->first()['name'] ?? null,
+                ->zip($chartParticipation['data'])->filter(fn ($pair) => $pair[1] !== null)
+                ->sortDesc()->first()['name'] ?? null,
             'insights' => $insights,
         ];
     }

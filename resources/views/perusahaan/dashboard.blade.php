@@ -630,14 +630,18 @@
                 </div>
                 <div class="space-y-3">
                     @foreach($chartParticipation['labels'] as $index => $label)
-                        @php $value = $chartParticipation['data'][$index] ?? 0; @endphp
+                        @php $value = $chartParticipation['data'][$index] ?? null; @endphp
                         <div class="panel-surface bg-white">
                             <div class="mb-2 flex items-center justify-between text-sm">
                                 <span class="font-semibold text-gray-900">{{ $label }}</span>
-                                <span class="font-semibold {{ $value >= 50 ? 'text-pine-700' : 'text-terra-700' }}">{{ $value }}%</span>
+                                @if($value === null)
+                                    <span class="text-xs text-gray-400">Disembunyikan (n<5)</span>
+                                @else
+                                    <span class="font-semibold {{ $value >= 50 ? 'text-pine-700' : 'text-terra-700' }}">{{ $value }}%</span>
+                                @endif
                             </div>
                             <div class="h-2 overflow-hidden rounded-full bg-gray-100">
-                                <div class="h-full rounded-full {{ $value >= 50 ? 'bg-pine-600' : 'bg-terra-400' }}" style="width: {{ $value }}%"></div>
+                                <div class="h-full rounded-full {{ $value >= 50 ? 'bg-pine-600' : 'bg-terra-400' }}" style="width: {{ $value ?? 0 }}%"></div>
                             </div>
                         </div>
                     @endforeach

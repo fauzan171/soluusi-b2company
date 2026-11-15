@@ -160,17 +160,17 @@
             <div class="mt-4 space-y-3">
                 @forelse($groups as $group)
                     @php
-                        $pct = $group['registered'] > 0 ? round($group['participants'] / $group['registered'] * 100) : 0;
+                        $pct = $group['participants'] !== null && $group['registered'] > 0 ? round($group['participants'] / $group['registered'] * 100) : 0;
                     @endphp
                     <div class="panel-surface bg-white">
                         <div class="flex items-center justify-between text-sm">
                             <span class="font-medium text-gray-700">{{ $group['name'] }}</span>
-                            <span class="font-semibold text-gray-900">{{ $group['participants'] }} / {{ $group['registered'] }}</span>
+                            <span class="font-semibold text-gray-900">{{ $group['participants'] ?? '—' }} / {{ $group['registered'] }}</span>
                         </div>
                         <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
                             <div class="h-full rounded-full bg-pine-600" style="width: {{ $pct }}%"></div>
                         </div>
-                        <p class="mt-1.5 text-[11px] text-gray-400">{{ $pct }}% karyawan departemen berpartisipasi</p>
+                        <p class="mt-1.5 text-[11px] text-gray-400">{{ $group['participants'] === null ? 'Data disembunyikan untuk privasi (n<5).' : $pct.'% karyawan departemen berpartisipasi' }}</p>
                     </div>
                 @empty
                     <p class="rounded-3xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">Belum ada data departemen.</p>
