@@ -85,6 +85,29 @@ Multi-tenant B2B: superadmin / HR perusahaan / consultant / employee / klinik ad
 - **M5 — AI seam + hardening** (G28, G13, G14, G16, G20): interface + flag + queue + eager load. Verify: AI provider fake mengembalikan insight di dashboard saat flag on; flag off tidak manggil provider.
 - **M6 — Cleanup P2** (G21–G27): localization, nav, dead code, dedup.
 
+## Status Batch 1 (2026-11-15, branch goal/production-foundation)
+
+**DONE** — 21 commits, 137 tests / 572 assertions / 0 failures. Reviewer + security-auditor pass pasca-fix.
+
+| Gap | Status | Commit |
+|---|---|---|
+| G1 (Alpine requestConsult) | ✅ done (pre-batch) | 0d6296f |
+| G4 (placeholder logo/stats) | ✅ done (pre-batch) | eee2797 |
+| G5 (/progress public) | ✅ done | e723d0b |
+| G6 (dummy payment public) | ✅ done | 87c940b |
+| G7 (mass-assignment) | ✅ done | 13dbbd2 |
+| G8 (inline admin closures) | ✅ done | 8e46c17 |
+| G9 (policies) | ✅ done | 9f9ac28 |
+| G15 (tenancy test negatif) | ✅ done | 791ad17 |
+| Rate limit (G29/G30) | ✅ done | 261d1a3 + QA throttle parity |
+| Flow F1.x HR-review-gated | ✅ done | e627a4f, a7c0c3f, 82fd7fe, 5995399 |
+| P0 baru: checkout 410 + dual-confirm | ✅ done | c1a0015, 8c97cf0 |
+| P0 baru: AI redaction nama | ✅ done | 069af33, 8c97cf0 |
+| P0 baru: H2 suppression parity | ✅ done | d68d85a |
+| QA fixes: slot race, sweep atomic, pending stuck | ✅ done | 32b2441 |
+
+**Batch 2 (deferred):** T2.4 tenant global scope (risky), T4.1 Laravel 12 skeleton (berbahaya — 5 conflict di branch lama), T4.2 CheckoutController extract, T4.3 SessionStateMachine, T5.x UX, T6.x AI seam + max-schedules (ADR 001: total 3 jadwal), T7.x hardening, F2.x ops. Residual minor: employee.preview payload fullUrl→path (fixed), request `body` persist (in progress), SocialAccount provider_token column missing.
+
 ## Batas
 - Tidak push, tidak deploy, tidak migrate:fresh/refresh/reset, tidak akses production lama Hostinger.
 - Server: read-only recon; mutasi butuh baseline + backup terverifikasi + rollback plan + owner approval.
