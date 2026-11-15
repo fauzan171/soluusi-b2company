@@ -30,12 +30,11 @@ Route::controller(\App\Http\Controllers\AuthController::class)->group(function (
     Route::post('/logout', 'logout')->name('logout')->middleware('auth');
 });
 
-// --- Landing page B2B (public) + lead capture + vertical detail pages ---
+// --- Landing page B2B (public) + vertical detail pages ---
 Route::get('/', [\App\Http\Controllers\LandingController::class, 'index'])->name('landing');
 Route::get('/klinik', fn () => view('verticals.klinik'))->name('landing.klinik');
 Route::get('/sekolah', fn () => view('verticals.sekolah'))->name('landing.sekolah');
 Route::get('/perusahaan', fn () => view('verticals.perusahaan'))->name('landing.perusahaan');
-Route::post('/lead', [\App\Http\Controllers\LandingController::class, 'storeLead'])->middleware('throttle:5,1')->name('landing.lead');
 
 Route::get('/portal', fn () => redirect()->route('loginIndex'));
 
