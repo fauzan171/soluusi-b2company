@@ -376,8 +376,15 @@ class CheckoutController extends Controller
             ->with(['klinik', 'consultant.user', 'consultant.categories', 'schedule', 'package'])
             ->firstOrFail();
 
-        abort_unless($link->expires_at->isFuture(), 410, 'Link sudah kedaluwarsa.');
+        // Link expired tetap boleh buka status JIKA sudah ada sesi berbayar —
+        // sesi bisa berlangsung hari kedua (dual-confirm §9.1), jauh setelah
+        // expiry 1 jam. Unpaid + expired → 410 (token bukan bearer permanen).
         $session = $this->latestSessionForLink($link);
+        abort_unless(
+            $link->expires_at->isFuture() || ($session && $session->payment_status === ConsultationSession::PAYMENT_STATUS_VERIFIED),
+            410,
+            'Link sudah kedaluwarsa.'
+        );
 
         return view('checkout.status', [
             'link' => $link,
@@ -439,8 +446,15 @@ class CheckoutController extends Controller
     {
         $link = CheckoutLink::where('token', $token)->firstOrFail();
 
-        abort_unless($link->expires_at->isFuture(), 410, 'Link sudah kedaluwarsa.');
         $session = ConsultationSession::where('checkout_link_id', $link->id)->latest('id')->firstOrFail();
+
+        // Gate expiry setelah lookup sesi: link expired tetap bisa confirm-done
+        // bila sesi sudah berbayar (dual-confirm §9.1 — sesi hari kedua).
+        abort_unless(
+            $link->expires_at->isFuture() || $session->payment_status === ConsultationSession::PAYMENT_STATUS_VERIFIED,
+            410,
+            'Link sudah kedaluwarsa.'
+        );
 
         abort_unless($session->payment_status === 'verified', 422, 'Sesi belum dibayar.');
         abort_if($session->completion_verified_at, 422, 'Sesi sudah terkonfirmasi.');

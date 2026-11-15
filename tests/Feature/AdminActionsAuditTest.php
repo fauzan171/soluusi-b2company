@@ -8,8 +8,11 @@ use App\Models\ConsultationSession;
 use App\Models\Klinik\HapPervorma;
 use App\Models\Klinik\Klinik;
 use App\Models\Klinik\SplitSettlement;
+use App\Models\ConsultantPool;
 use App\Models\Perusahaan\Perusahaan;
+use App\Models\Perusahaan\PerusahaanAdmin;
 use App\Models\Perusahaan\PerusahaanEmployee;
+use App\Models\Perusahaan\PerusahaanSession;
 use App\Models\Role;
 use App\Models\Schedule;
 use App\Models\Sekolah\Sekolah;
@@ -199,6 +202,74 @@ class AdminActionsAuditTest extends TestCase
             'action' => 'session.verify',
             'target_id' => $session->id,
         ]);
+    }
+
+    /** [$perusahaan, $hrUser, $session, $consultant] — pending HR review. */
+    private function hrReviewFixture(): array
+    {
+        $perusahaan = Perusahaan::create([
+            'name' => 'PT Audit', 'brand' => 'AuditCo', 'sessions_per_employee_month' => 2,
+            'employee_count' => 3, 'is_active' => true,
+        ]);
+        $hrRole = Role::firstOrCreate(['name' => 'hr_admin']);
+        $hrUser = User::factory()->create(['role_id' => $hrRole->id]);
+        PerusahaanAdmin::create(['perusahaan_id' => $perusahaan->id, 'user_id' => $hrUser->id, 'name' => 'HR']);
+
+        $empRole = Role::firstOrCreate(['name' => 'employee']);
+        $empUser = User::factory()->create(['role_id' => $empRole->id]);
+        $employee = PerusahaanEmployee::create([
+            'perusahaan_id' => $perusahaan->id, 'user_id' => $empUser->id,
+            'name' => 'Emp', 'email' => 'emp-audit@test.local', 'consent_at' => now(),
+        ]);
+
+        $consRole = Role::firstOrCreate(['name' => 'consultant']);
+        $consUser = User::factory()->create(['role_id' => $consRole->id]);
+        $consultant = Consultant::factory()->create([
+            'user_id' => $consUser->id, 'status' => 'accept',
+        ]);
+        ConsultantPool::create(['perusahaan_id' => $perusahaan->id, 'consultant_id' => $consultant->id]);
+
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $perusahaan->id, 'employee_id' => $employee->id,
+            'consultant_id' => null, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+
+        return [$perusahaan, $hrUser, $session, $consultant];
+    }
+
+    public function test_hr_approve_mencatat_admin_action()
+    {
+        [$perusahaan, $hrUser, $session, $consultant] = $this->hrReviewFixture();
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session), [
+            'consultant_id' => $consultant->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('admin_actions', [
+            'admin_id' => $hrUser->id,
+            'action' => 'hr_review.approve',
+            'target_id' => $session->id,
+        ]);
+        $row = \App\Models\AdminAction::where('action', 'hr_review.approve')->latest('id')->first();
+        $this->assertSame($consultant->id, $row->payload_json['consultant_id'] ?? null);
+    }
+
+    public function test_hr_reject_mencatat_admin_action()
+    {
+        [$perusahaan, $hrUser, $session, $consultant] = $this->hrReviewFixture();
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.reject', $session), [
+            'reason' => 'Kuota habis.',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('admin_actions', [
+            'admin_id' => $hrUser->id,
+            'action' => 'hr_review.reject',
+            'target_id' => $session->id,
+        ]);
+        $row = \App\Models\AdminAction::where('action', 'hr_review.reject')->latest('id')->first();
+        $this->assertSame('Kuota habis.', $row->payload_json['reason'] ?? null);
     }
 
     public function test_superadmin_preview_employee_mencatat_admin_action()

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Perusahaan;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminAction;
 use App\Models\ConsultantPool;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Support\PerusahaanContext;
@@ -79,6 +80,10 @@ class HrReviewController extends Controller
 
         $pending->update(['consultant_id' => $assigned['id']]);
 
+        AdminAction::record($r->user()->id, 'hr_review.approve', $pending, [
+            'consultant_id' => $assigned['id'],
+        ]);
+
         return back()->with('success', 'Request disetujui — ' . $assigned['name'] . ' ditugaskan. Konsultan tinggal set jadwal.');
     }
 
@@ -92,6 +97,12 @@ class HrReviewController extends Controller
             'status' => 'cancelled',
             'cancel_reason' => '[HR] ' . $r->reason,
             'cancelled_at' => now(),
+        ]);
+
+        // Reason = free-text HR, sudah terlihat ke employee di cancel_reason —
+        // dicatat apa adanya (tidak menambah eksposur PII baru).
+        AdminAction::record($r->user()->id, 'hr_review.reject', $pending, [
+            'reason' => $r->reason,
         ]);
 
         return back()->with('success', 'Request ditolak. Karyawan bisa mengirim request baru.');

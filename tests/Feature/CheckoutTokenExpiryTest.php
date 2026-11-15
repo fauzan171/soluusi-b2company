@@ -12,14 +12,17 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * P0.1: token checkout (status page + confirm-done) bukan bearer permanen.
- * Setelah checkout_links.expires_at lewat, token tidak boleh lagi membuka PII guest.
+ * P0.1: token checkout (status page + confirm-done) bukan bearer permanen untuk
+ * PII guest TANPA sesi berbayar. Link expired + unpaid → 410. Namun link yang
+ * sudah menghasilkan sesi BERBAYAR tetap bisa dibuka (dual-confirm §9.1:
+ * sesi bisa terjadi hari-kedua, jauh setelah expiry 1 jam — customer harus
+ * tetap bisa confirm-done).
  */
 class CheckoutTokenExpiryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeLink(\DateTimeInterface $expiresAt): CheckoutLink
+    private function makeLink(\DateTimeInterface $expiresAt, string $paymentStatus = ConsultationSession::PAYMENT_STATUS_VERIFIED): CheckoutLink
     {
         $klinik = Klinik::create(['name' => 'Klinik E', 'brand' => 'Klinik E', 'total_rate' => 1_000_000]);
         $konsultan = Consultant::factory()->create(['status' => 'accept']);
@@ -45,28 +48,45 @@ class CheckoutTokenExpiryTest extends TestCase
             'klinik_id' => $klinik->id,
             'checkout_link_id' => $link->id,
             'order_number' => 'T-' . uniqid(),
-            'payment' => '275000',
+            'payment' => $paymentStatus === ConsultationSession::PAYMENT_STATUS_VERIFIED ? '275000' : '0',
             'amount' => 275_000,
             'order_at' => now(),
-            'payment_status' => ConsultationSession::PAYMENT_STATUS_VERIFIED,
-            'status' => ConsultationSession::STATUS_SCHEDULED,
+            'payment_status' => $paymentStatus,
+            'status' => $paymentStatus === ConsultationSession::PAYMENT_STATUS_VERIFIED
+                ? ConsultationSession::STATUS_SCHEDULED
+                : ConsultationSession::STATUS_WAITING,
         ]);
 
         return $link;
     }
 
-    public function test_status_page_gone_setelah_token_expired()
+    public function test_status_page_gone_setelah_token_expired_tanpa_pembayaran()
     {
-        $link = $this->makeLink(now()->subMinute());
+        $link = $this->makeLink(now()->subMinute(), ConsultationSession::PAYMENT_STATUS_WAITING);
 
         $this->get(route('checkout.status', $link->token))->assertStatus(410);
     }
 
-    public function test_confirm_done_gone_setelah_token_expired()
+    public function test_confirm_done_gone_setelah_token_expired_tanpa_pembayaran()
+    {
+        $link = $this->makeLink(now()->subMinute(), ConsultationSession::PAYMENT_STATUS_WAITING);
+
+        $this->post(route('checkout.confirmDone', $link->token))->assertStatus(410);
+    }
+
+    public function test_status_page_ok_setelah_token_expired_dengan_sesi_berbayar()
     {
         $link = $this->makeLink(now()->subMinute());
 
-        $this->post(route('checkout.confirmDone', $link->token))->assertStatus(410);
+        $this->get(route('checkout.status', $link->token))->assertOk();
+    }
+
+    public function test_confirm_done_ok_setelah_token_expired_dengan_sesi_berbayar()
+    {
+        $link = $this->makeLink(now()->subMinute());
+
+        $this->post(route('checkout.confirmDone', $link->token))
+            ->assertSessionHas('success');
     }
 
     public function test_status_page_200_untuk_token_valid()

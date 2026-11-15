@@ -239,8 +239,10 @@ PROMPT;
 
     /**
      * Redaksi PII — paritas sourceRedactor TVS.
-     * ponytail: nama orang dideteksi via pola umum (Title Case berurutan +
-     * panggilan umum), BUKAN NER — nama non-kapitalisasi/exotic bisa lolos.
+     * ponytail: deteksi nama HANYA ber-anchor honorific (Pak|Bu|Ibu|...).
+     * Regex Title-Case polos dihapus — over-redact frasa legit ("Paket Klinik
+     * Dasar", "Transfer Bank BCA") dan merusak konteks AI (QA blocker).
+     * Konsekuensi: nama orang TANPA honorific bisa lolos ke konteks AI.
      * Upgrade path: NER model atau tokenisasi nama dari master data.
      */
     public static function redact(string $text): string
@@ -249,9 +251,6 @@ PROMPT;
         $text = preg_replace('/(?:\+62|08)[\d\s-]{7,}\d/', '[kontak dihapus]', $text) ?? $text;
         // Panggilan umum diikuti nama (Pak Budi, Bu Siti, Saudara Andi, dst).
         $text = preg_replace('/\b(?:Pak|Bu|Ibu|Bapak|Mas|Mbak|Bang|Kak|Sdr|Saudara|Tn|Ny)\.?\s+[A-Z][a-zA-Z.]+(?:\s+[A-Z][a-zA-Z.]+){0,2}/u', '[nama dihapus]', $text) ?? $text;
-        // Nama Title Case 2+ kata (Bayu Wirawan) — heuristik umum nama orang Indonesia.
-        // Skip kata pertama kalimat? Trade-off: lebih baik over-redact untuk PII.
-        $text = preg_replace('/\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})+\b/u', '[nama dihapus]', $text) ?? $text;
         return $text;
     }
 }
