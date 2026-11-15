@@ -35,9 +35,9 @@
             </div>
 
             <div class="login-rise mt-14 max-w-md">
-                <div class="mb-5 flex items-center gap-3"><span class="h-px w-10 bg-terra-400"></span><p class="text-xs font-semibold uppercase tracking-[.22em] text-pine-200">Portal B2B Klinik</p></div>
+                <div class="mb-5 flex items-center gap-3"><span class="h-px w-10 bg-terra-400"></span><p class="text-xs font-semibold uppercase tracking-[.22em] text-pine-200">Portal Soluusi Mitra</p></div>
                 <h1 class="text-[2.6rem] font-semibold leading-[1.03] tracking-[-.045em] sm:text-5xl">Selamat datang<br><span class="text-pine-200">kembali.</span></h1>
-                <p class="mt-6 max-w-sm text-[15px] leading-7 text-white/70">Masuk untuk mengelola jadwal, konsultan, dan layanan kesehatan mental di fasilitas Anda.</p>
+                <p class="mt-6 max-w-sm text-[15px] leading-7 text-white/70">Masuk untuk mengelola program wellbeing Anda — jadwal, konsultan, dan sesi di satu tempat.</p>
             </div>
 
             <div class="mt-9 flex flex-wrap gap-x-6 gap-y-2 border-t border-white/10 pt-5 text-[11px] text-white/45">
@@ -59,7 +59,7 @@
                 @csrf
                 <div>
                     <label for="email" class="mb-2 block text-sm font-medium text-[#26342e]">Email <span class="text-terra-600">*</span></label>
-                    <input id="email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email" inputmode="email" placeholder="nama@klinik.com" class="login-field @error('email') is-invalid @enderror">
+                    <input id="email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email" inputmode="email" placeholder="nama@perusahaan.com" class="login-field @error('email') is-invalid @enderror">
                     @error('email')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -93,7 +93,7 @@
                 </a>
             </div>
 
-            <p class="mt-8 text-center text-xs text-[#7c827f]">Belum punya akun? <a href="{{ route('partner.register') }}" class="font-semibold text-pine-700 underline decoration-pine-200 underline-offset-4 hover:text-pine-900">Daftarkan klinik</a></p>
+            <p class="mt-8 text-center text-xs text-[#7c827f]">Belum punya akun? <a href="{{ route('partner.register') }}" class="font-semibold text-pine-700 underline decoration-pine-200 underline-offset-4 hover:text-pine-900">Daftar sebagai mitra</a></p>
         </div>
     </section>
 </div>
