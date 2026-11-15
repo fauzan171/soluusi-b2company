@@ -23,6 +23,9 @@ class Kernel extends ConsoleKernel
         // F1.4: auto-cancel scheduled B2B sessions tanpa check-in, restore kuota.
         $schedule->command('sessions:cancel-expired')->hourly();
 
+        // Retensi privasi: hapus transkrip chat untuk sesi done ≥24 jam.
+        $schedule->command('chat:purge-ended')->daily();
+
         // Dual-confirm fallback (Spec §9.1): konsultan done >24h tanpa customer
         // confirm → flag ops review (anti fake sesi). Tidak auto-complete.
         $schedule->call(function () {

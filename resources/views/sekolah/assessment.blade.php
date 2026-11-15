@@ -3,7 +3,7 @@
 @section('title', 'Asesmen WHO-5 — ' . $sekolah->brand)
 
 @section('content')
-<div class="max-w-2xl mx-auto">
+<div class="max-w-3xl">
     <h1 class="text-xl font-bold text-pine-900">Asesmen Kesejahteraan (WHO-5)</h1>
     <p class="text-sm text-gray-500 mt-1 mb-6">5 pertanyaan tentang 2 minggu terakhir. Jawaban kamu rahasia — sekolah hanya melihat data agregat.</p>
 

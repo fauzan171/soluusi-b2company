@@ -25,9 +25,45 @@ class CancelExpiredSessions extends Command
             $total += $this->sweepStalePendingRequests($vertical, $model, $pendingCutoff);
         }
 
-        $this->info("Total: {$total} session(s) auto-cancelled.");
+        $total += $this->sweepZombieCheckedIn();
+
+        $this->info("Total: {$total} session(s) auto-cancelled/closed.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Zombie: sesi perusahaan yang sudah check-in (consultantStart) tapi tidak
+     * pernah diakhiri > 4 jam lewat jadwal → auto-complete ke done.
+     * Kuota TIDAK di-restore: sesi benar-benar terjadi. Chat room ikut tertutup
+     * karena canSend bergantung pada status === 'scheduled'.
+     */
+    private function sweepZombieCheckedIn(): int
+    {
+        $cutoff = now()->subHours(4);
+
+        return DB::transaction(function () use ($cutoff) {
+            $sessions = PerusahaanSession::where('status', 'scheduled')
+                ->whereNotNull('checked_in_at')
+                ->whereNotNull('scheduled_at')
+                ->where('scheduled_at', '<', $cutoff)
+                ->lockForUpdate()
+                ->get();
+
+            $sessions = $sessions->filter(fn ($s) => $s->status === 'scheduled' && $s->checked_in_at !== null);
+
+            if ($sessions->isEmpty()) {
+                return 0;
+            }
+
+            foreach ($sessions as $session) {
+                $session->update(['status' => 'done', 'completed_at' => now()]);
+            }
+
+            $this->info("perusahaan: {$sessions->count()} zombie session(s) auto-completed (no end after check-in).");
+
+            return $sessions->count();
+        });
     }
 
     /**

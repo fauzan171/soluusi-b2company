@@ -4,7 +4,7 @@
 <h1 class="text-xl font-bold mb-1">Konsultan per Mitra Klinik — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
 <p class="text-sm text-gray-500 mb-6">Jumlah konsultasi tiap konsultan, dikelompokkan per klinik. Urut: completed terbanyak.</p>
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th>
         <th class="p-3">Konsultan</th>
@@ -34,5 +34,5 @@
         <tr><td colspan="7" class="p-3 text-gray-400">Belum ada sesi dari mitra klinik.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 @endsection

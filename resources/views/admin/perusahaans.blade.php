@@ -44,7 +44,7 @@
     </button>
 </form>
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Perusahaan</th>
         <th class="p-3">HR</th>
@@ -78,5 +78,5 @@
             <tr><td class="p-3 text-gray-400" colspan="6">Belum ada perusahaan. Buat lewat form di atas.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 @endsection

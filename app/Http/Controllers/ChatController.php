@@ -64,6 +64,8 @@ class ChatController extends Controller
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
 
+        \App\Jobs\GenerateSessionSummary::dispatch($session->id);
+
         return redirect()->route('consultant.chat', $session)->with('success', 'Sesi diakhiri.');
     }
 
@@ -72,12 +74,14 @@ class ChatController extends Controller
     {
         $this->authorize('end', $session);
 
-        abort_if($session->status === 'done', 422, 'Sesi sudah selesai.');
+        abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
 
         $session->update([
             'status' => 'done',
             'completed_at' => now(),
         ]);
+
+        \App\Jobs\GenerateSessionSummary::dispatch($session->id);
 
         return redirect()->route('perusahaan.chat', $session)
             ->with('success', 'Sesi diakhiri. Silakan beri rating.');
@@ -104,6 +108,18 @@ class ChatController extends Controller
             return response()->json($this->payload($session, (int) request('after', 0), $peerLabel));
         }
 
+        // Summary per-sesi (pasca done): konsultan lihat `summary`, karyawan lihat `client_advice`.
+        // HR tidak pernah melihat ini — hanya agregat via AiInsightService.
+        $sessionSummary = null;
+        if ($session->status === 'done') {
+            $row = \App\Models\SessionSummary::where('perusahaan_session_id', $session->id)
+                ->where('status', 'completed')
+                ->first();
+            if ($row) {
+                $sessionSummary = $isEmployee ? $row->client_advice : $row->summary;
+            }
+        }
+
         return view('chat.room', [
             'session' => $session,
             'peerLabel' => $peerLabel,
@@ -112,6 +128,7 @@ class ChatController extends Controller
             'canSend' => $this->canSend($session),
             'backUrl' => $backUrl,
             'isEmployee' => $isEmployee,
+            'sessionSummary' => $sessionSummary,
         ]);
     }
 
@@ -154,14 +171,18 @@ class ChatController extends Controller
             && $session->scheduled_at !== null;
     }
 
-    /** Pesan sejak id tertentu, maksimal 200 (poll incremental). Nama peserta tidak dikirim: karyawan anonim. */
+    /**
+     * Pesan sejak id tertentu, maksimal 200 (poll incremental) + state sesi
+     * supaya UI yang kebuka ikut nutup begitu pihak lain mengakhiri.
+     * Nama peserta tidak dikirim: karyawan anonim.
+     */
     private function payload(PerusahaanSession $session, int $after, string $peerLabel)
     {
         $me = auth()->user();
         $myId = $me->id;
         $myName = trim($me->firstname.' '.$me->lastname);
 
-        return $session->chatMessages()
+        $messages = $session->chatMessages()
             ->where('id', '>', $after)
             ->orderBy('id')
             ->limit(200)
@@ -173,5 +194,11 @@ class ChatController extends Controller
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
             ]);
+
+        return [
+            'messages' => $messages,
+            'status' => $session->status,
+            'can_send' => $this->canSend($session),
+        ];
     }
 }

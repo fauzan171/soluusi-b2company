@@ -26,7 +26,7 @@
     <button class="bg-emerald-700 text-white rounded px-4 py-2 text-sm font-semibold">Filter</button>
 </form>
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Klinik</th>
         <th class="p-3">Konsultan</th>
@@ -49,7 +49,7 @@
         <tr><td colspan="6" class="p-3 text-gray-400">Belum ada sesi yang di-tag.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <div class="mt-4">{{ $sessions->links() }}</div>
 @endsection

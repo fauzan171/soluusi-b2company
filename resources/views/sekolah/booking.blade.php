@@ -3,7 +3,7 @@
 @section('title', 'Booking Konseling — ' . $sekolah->brand)
 
 @section('content')
-<div class="max-w-2xl mx-auto">
+<div class="max-w-3xl">
     <h1 class="text-xl font-bold text-pine-900">Booking Konseling</h1>
     <p class="text-sm text-gray-500 mt-1 mb-6">Pilih jenis konsultan dan slot; mode mengikuti slot. Sisa kuota kamu: <b>{{ $quotaLeft }}</b> sesi bulan ini.</p>
 

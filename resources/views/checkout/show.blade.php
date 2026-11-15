@@ -8,7 +8,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
-    <main class="max-w-lg mx-auto p-6">
+    <main class="max-w-lg mx-auto px-4 py-6 sm:px-6">
         <div class="text-xl font-bold text-emerald-700 mb-6">{{ $brand }}</div>
 
         @if(session('error'))

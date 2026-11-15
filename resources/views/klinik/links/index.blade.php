@@ -40,7 +40,7 @@
 </section>
 @endif
 
-<table class="w-full bg-white border rounded-lg text-sm">
+<div class="overflow-x-auto bg-white border rounded-lg"><table class="w-full text-sm">
     <thead><tr class="border-b text-left text-gray-500">
         <th class="p-3">Konsultan</th><th class="p-3">Jadwal</th><th class="p-3">Paket</th><th class="p-3">Harga</th><th class="p-3">Status</th><th class="p-3">Link customer</th>
     </tr></thead>
@@ -71,7 +71,7 @@
         <tr><td colspan="6" class="p-3 text-gray-400">Belum ada link.</td></tr>
         @endforelse
     </tbody>
-</table>
+</table></div>
 
 <div class="mt-4">{{ $links->links() }}</div>
 @endsection

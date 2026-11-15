@@ -100,6 +100,13 @@ class EmployeeController extends Controller
             ->where('status', 'scheduled')->whereNull('scheduled_at')
             ->latest('id')->first();
 
+        // Saran AI per sesi (karyawan lihat miliknya sendiri saja).
+        $sessionIds = $history->pluck('id');
+        $advices = \App\Models\SessionSummary::whereIn('perusahaan_session_id', $sessionIds)
+            ->where('status', 'completed')
+            ->get(['perusahaan_session_id', 'client_advice'])
+            ->keyBy('perusahaan_session_id');
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -113,6 +120,7 @@ class EmployeeController extends Controller
             'needsAssessment' => $needsAssessment,
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
+            'advices' => $advices,
         ]);
     }
 

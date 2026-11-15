@@ -20,11 +20,13 @@ class Sekolah extends Model
         'associate_id',
         'mou_at',
         'is_active',
+        'ai_enabled',
     ];
 
     protected $casts = [
         'mou_at' => 'datetime',
         'is_active' => 'boolean',
+        'ai_enabled' => 'boolean',
     ];
 
     public function associate()

@@ -14,7 +14,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        $this->app->bind(\App\Contracts\AIService::class, function () {
+            $provider = (string) config('ai.provider', 'null');
+            $map = (array) config('ai.providers', []);
+            $class = $map[$provider] ?? \App\Services\AI\NullAIService::class;
+            return new $class();
+        });
     }
 
     /**

@@ -23,6 +23,7 @@ class Klinik extends Model
         'total_rate',
         'mou_at',
         'is_active',
+        'ai_enabled',
         'regency_id',
         'approved_at',
         'terms_agreed_at',
@@ -38,6 +39,7 @@ class Klinik extends Model
         'approved_at' => 'datetime',
         'terms_agreed_at' => 'datetime',
         'is_active' => 'boolean',
+        'ai_enabled' => 'boolean',
     ];
 
     protected static function booted()

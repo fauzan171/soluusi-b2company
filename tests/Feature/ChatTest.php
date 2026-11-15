@@ -213,4 +213,34 @@ class ChatTest extends TestCase
         $this->actingAs($docUser)->postJson(route('consultant.chat.store', $session), ['body' => 'iya']);
         \Illuminate\Support\Facades\Mail::assertNothingSent();
     }
+
+    public function test_employee_end_rejects_cancelled_session()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+        $session->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => 'test']);
+
+        $this->actingAs($owner)->post(route('perusahaan.chat.end', $session))
+            ->assertStatus(422);
+
+        $this->assertSame('cancelled', $session->fresh()->status);
+    }
+
+    public function test_poll_payload_includes_session_status()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+
+        $this->actingAs($owner)->getJson(route('perusahaan.chat', $session, ['after' => 0]))
+            ->assertOk()
+            ->assertJsonPath('status', 'scheduled')
+            ->assertJsonPath('can_send', true);
+
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        $this->actingAs($owner)->getJson(route('perusahaan.chat', $session, ['after' => 0]))
+            ->assertOk()
+            ->assertJsonPath('status', 'done')
+            ->assertJsonPath('can_send', false);
+    }
 }
