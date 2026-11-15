@@ -48,6 +48,37 @@ class SessionExpirySweepTest extends TestCase
         return [$s, $student];
     }
 
+    public function test_zombie_checked_in_sessions_auto_completed_after_4h()
+    {
+        config()->set('booking.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        // Zombie: check-in tapi tidak pernah diakhiri, 5 jam lewat jadwal.
+        $zombie = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(5),
+            'checked_in_at' => now()->subHours(5),
+        ]);
+        // Sesi check-in baru (1 jam lalu) — tidak boleh disentuh.
+        $fresh = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHour(),
+            'checked_in_at' => now()->subHour(),
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $zombie->refresh();
+        $this->assertSame('done', $zombie->status);
+        $this->assertNotNull($zombie->completed_at);
+        // Sesi terjadi → kuota TETAP terpakai (sweep tidak me-restore).
+        $this->assertTrue((bool) $zombie->quota_consumed);
+
+        $this->assertSame('scheduled', $fresh->refresh()->status);
+    }
+
     public function test_expired_scheduled_sessions_are_auto_cancelled_and_quota_restored()
     {
         config()->set('booking.auto_cancel_hours', 24);
@@ -120,7 +151,9 @@ class SessionExpirySweepTest extends TestCase
 
         $this->artisan('sessions:cancel-expired')->assertSuccessful();
 
-        $this->assertSame('scheduled', $checkedIn->refresh()->status);
+        // Checked-in lama: tidak di-cancel, tapi auto-complete (zombie sweep).
+        $this->assertSame('done', $checkedIn->refresh()->status);
+        $this->assertNull($checkedIn->cancel_reason);
         $this->assertSame('done', $done->refresh()->status);
         $this->assertSame('scheduled', $awaitingAcc->refresh()->status);
     }
@@ -164,7 +197,8 @@ class SessionExpirySweepTest extends TestCase
         $this->artisan('sessions:cancel-expired')->assertSuccessful();
 
         $session->refresh();
-        $this->assertSame('scheduled', $session->status);
+        // Bukan cancelled: sudah check-in. Zombie sweep menutup sebagai done.
+        $this->assertSame('done', $session->status);
         $this->assertNull($session->cancel_reason);
     }
 
