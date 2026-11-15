@@ -111,7 +111,9 @@ class SessionController extends Controller
             ->whereDoesntHave('consultationSession', fn ($q) => $q->whereIn('status', ['scheduled', 'done']))
             ->firstOrFail();
 
-        $session->update(['schedule_id' => $slot->id, 'scheduled_at' => $slot->started_at]);
+        $session->update(['schedule_id' => $slot->id]);
+        // Lewat state machine: set schedule_version=1 + ended_at (konsisten dengan flow confirmSlot).
+        \App\Support\SessionStateMachine::schedule($session, $slot->started_at, $slot->ended_at);
         return back()->with('success', 'Jadwal di-set.');
     }
 }
