@@ -21,11 +21,13 @@ class Perusahaan extends Model
         'employee_count',
         'nps_score',
         'is_active',
+        'ai_enabled',
     ];
 
     protected $casts = [
         'mou_at' => 'datetime',
         'is_active' => 'boolean',
+        'ai_enabled' => 'boolean',
     ];
 
     public function associate()
