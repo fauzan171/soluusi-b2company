@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Consultant;
 
 use App\Http\Controllers\Controller;
-use App\Models\ConsultationSession;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Models\SessionSlotProposal;
+use App\Support\SlotOverlap;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -43,7 +43,7 @@ class SlotProposalController extends Controller
 
         // Tolak bila ada slot yang overlap dengan booking existing konsultan.
         foreach ($slots as $slot) {
-            if ($this->overlapsExisting($consultant->id, $slot['start'], $slot['end'])) {
+            if (SlotOverlap::exists($consultant->id, $slot['start'], $slot['end'])) {
                 throw ValidationException::withMessages([
                     'slots' => 'Slot ' . $slot['start']->format('d M Y H:i') . ' bentrok dengan jadwal kamu yang lain.',
                 ]);
@@ -77,26 +77,4 @@ class SlotProposalController extends Controller
         return $consultant;
     }
 
-    /** Overlap vs sesi perusahaan (scheduled/done) dan sesi B2C blocking milik konsultan. */
-    private function overlapsExisting(int $consultantId, Carbon $start, Carbon $end): bool
-    {
-        $perusahaanHit = PerusahaanSession::where('consultant_id', $consultantId)
-            ->whereIn('status', ['scheduled', 'done'])
-            ->whereNotNull('scheduled_at')
-            ->where('scheduled_at', '<', $end)
-            ->where(fn ($q) => $q->where('ended_at', '>', $start)
-                // ponytail: ended_at NULL dianggap durasi 1 jam (pattern BookingService::blocked)
-                ->orWhere(fn ($q2) => $q2->whereNull('ended_at')
-                    ->where('scheduled_at', '>', $start->copy()->subHour())))
-            ->exists();
-
-        if ($perusahaanHit) {
-            return true;
-        }
-
-        return ConsultationSession::where('consultant_id', $consultantId)
-            ->blocking()
-            ->whereHas('schedule', fn ($q) => $q->where('started_at', '<', $end)->where('ended_at', '>', $start))
-            ->exists();
-    }
 }

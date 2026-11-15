@@ -125,9 +125,24 @@ class EmployeeController extends Controller
         $slot = $proposal->slots[$data['slot_index']];
 
         DB::transaction(function () use ($proposal, $session, $slot) {
-            $session->update([
-                'scheduled_at' => $slot['start'],
-                'ended_at' => $slot['end'],
+            // Re-fetch + lock: mencegah double-book race vs booking lain konsultan.
+            $lockedSession = PerusahaanSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedSession->status === 'scheduled' && $lockedSession->scheduled_at === null,
+                422, 'Slot sudah tidak berlaku.');
+
+            $start = \Illuminate\Support\Carbon::parse($slot['start']);
+            $end = \Illuminate\Support\Carbon::parse($slot['end']);
+
+            // Slot di masa lalu tidak bisa di-book (stale proposal).
+            abort_unless($start->isFuture(), 422, 'Slot sudah lewat. Minta konsultan mengirim opsi baru.');
+
+            // Re-check overlap: konsultan mungkin sudah ke-book antara propose dan confirm.
+            abort_if(\App\Support\SlotOverlap::exists($lockedSession->consultant_id, $start, $end),
+                422, 'Slot bentrok dengan jadwal konsultan. Minta konsultan mengirim opsi baru.');
+
+            $lockedSession->update([
+                'scheduled_at' => $start,
+                'ended_at' => $end,
             ]);
             $proposal->update(['status' => 'accepted']);
             // Auto-reject proposal lain yang masih pending untuk sesi ini.

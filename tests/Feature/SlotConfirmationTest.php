@@ -140,4 +140,43 @@ class SlotConfirmationTest extends TestCase
 
         $this->assertNull($session->fresh()->scheduled_at);
     }
+
+    public function test_confirm_rejects_past_slot()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+
+        // Mutasi proposal agar berisi slot di masa lalu (stale).
+        $past = now()->subHours(2);
+        $proposal->update(['slots' => [
+            ['start' => $past->toDateTimeString(), 'end' => $past->copy()->addHour()->toDateTimeString()],
+        ]]);
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal->fresh()), [
+            'slot_index' => 0,
+        ])->assertStatus(422);
+
+        $this->assertNull($session->fresh()->scheduled_at);
+        $this->assertSame('pending', $proposal->fresh()->status);
+    }
+
+    public function test_confirm_rejects_when_consultant_booked_between_propose_and_confirm()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+
+        // Simulasi double-book race: konsultan ke-book di slot yang sama setelah proposal dikirim.
+        $overlapStart = now()->addDay()->setTime(9, 30);
+        PerusahaanSession::create([
+            'perusahaan_id' => $session->perusahaan_id, 'employee_id' => $emp->id,
+            'consultant_id' => $proposal->consultant_id, 'konsultan_type' => 'psikolog',
+            'status' => 'scheduled', 'scheduled_at' => $overlapStart,
+            'ended_at' => $overlapStart->copy()->addHour(),
+        ]);
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertStatus(422);
+
+        $this->assertNull($session->fresh()->scheduled_at);
+        $this->assertSame('pending', $proposal->fresh()->status);
+    }
 }

@@ -35,6 +35,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Pending Request Cancel Hours (stale HR review sweep, F1.4)
+    |--------------------------------------------------------------------------
+    |
+    | Pending consultation requests (status scheduled, no slot, no consultant)
+    | stuck awaiting HR review longer than this are auto-cancelled by
+    | `sessions:cancel-expired`, quota restored, proposals rejected.
+    |
+    */
+
+    'pending_cancel_hours' => (int) env('SESSION_PENDING_CANCEL_HOURS', 72),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session Lifetime
     |--------------------------------------------------------------------------
     |

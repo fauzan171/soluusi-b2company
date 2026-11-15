@@ -147,4 +147,112 @@ class SessionExpirySweepTest extends TestCase
         $this->assertSame(0, DB::table('booking_claims')
             ->where('owner_type', 'perusahaan')->where('owner_id', $session->id)->count());
     }
+
+    public function test_sweep_does_not_cancel_session_checked_in_after_cutoff_race()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        // Sesi melewati cutoff TAPI sudah check-in — harus tidak tersentuh.
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(30),
+            'checked_in_at' => now()->subHours(30)->addMinutes(5),
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $session->refresh();
+        $this->assertSame('scheduled', $session->status);
+        $this->assertNull($session->cancel_reason);
+    }
+
+    public function test_sweep_rejects_pending_proposals_of_cancelled_sessions()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        $consultant = \App\Models\Consultant::factory()->create();
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(25),
+        ]);
+        $proposal = \App\Models\SessionSlotProposal::create([
+            'session_id' => $session->id,
+            'consultant_id' => $consultant->id,
+            'proposed_at' => now()->subHours(20),
+            'slots' => [['start' => now()->addDay()->toDateTimeString(), 'end' => now()->addDay()->addHour()->toDateTimeString()]],
+            'status' => 'pending',
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $this->assertSame('cancelled', $session->fresh()->status);
+        $this->assertSame('rejected', $proposal->fresh()->status);
+    }
+
+    public function test_stale_pending_request_auto_cancelled_after_72h()
+    {
+        config()->set('session.pending_cancel_hours', 72);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        // Pending request macet > 72 jam (scheduled + no slot + no consultant).
+        $stale = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => null,
+            'quota_consumed' => true,
+        ]);
+        // Backdate created_at melewati cutoff.
+        DB::table('perusahaan_sessions')->where('id', $stale->id)
+            ->update(['created_at' => now()->subHours(80)]);
+
+        // Pending request baru — tidak boleh tersentuh.
+        $fresh = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => null,
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $stale->refresh();
+        $this->assertSame('cancelled', $stale->status);
+        $this->assertFalse((bool) $stale->quota_consumed);
+        $this->assertStringContainsString('kedaluwarsa', $stale->cancel_reason);
+        $this->assertSame('scheduled', $fresh->refresh()->status);
+    }
+
+    public function test_stale_pending_request_rejects_pending_proposals()
+    {
+        config()->set('session.pending_cancel_hours', 72);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        $consultant = \App\Models\Consultant::factory()->create();
+        $stale = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => null,
+        ]);
+        DB::table('perusahaan_sessions')->where('id', $stale->id)
+            ->update(['created_at' => now()->subHours(80)]);
+        $proposal = \App\Models\SessionSlotProposal::create([
+            'session_id' => $stale->id,
+            'consultant_id' => $consultant->id,
+            'proposed_at' => now()->subHours(70),
+            'slots' => [['start' => now()->addDay()->toDateTimeString(), 'end' => now()->addDay()->addHour()->toDateTimeString()]],
+            'status' => 'pending',
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $this->assertSame('cancelled', $stale->fresh()->status);
+        $this->assertSame('rejected', $proposal->fresh()->status);
+    }
 }
