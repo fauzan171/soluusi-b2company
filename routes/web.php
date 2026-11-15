@@ -131,6 +131,8 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sessions/{session}/check-in', [\App\Http\Controllers\Klinik\SessionController::class, 'checkIn'])->name('sessions.checkIn');
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
     Route::post('/sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'schedulePerusahaan'])->name('sessions.schedule');
+    Route::get('/sessions/{session}/propose-slots', [\App\Http\Controllers\Consultant\SlotProposalController::class, 'create'])->name('sessions.propose-slots.form');
+    Route::post('/sessions/{session}/propose-slots', [\App\Http\Controllers\Consultant\SlotProposalController::class, 'store'])->name('sessions.propose-slots');
     Route::get('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultant'])->name('chat');
     Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('chat.store');
     Route::post('/sessions/{session}/start', [\App\Http\Controllers\ChatController::class, 'consultantStart'])->name('chat.start');
