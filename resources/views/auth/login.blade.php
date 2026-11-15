@@ -71,6 +71,7 @@
                         </button>
                     </div>
                     @error('password')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                    <p class="mt-2 text-right"><a href="{{ route('password.request') }}" class="text-xs font-semibold text-pine-700 underline decoration-pine-200 underline-offset-4 hover:text-pine-900">Lupa password?</a></p>
                 </div>
 
                 <div class="border-t border-[#e5e0d6] pt-7">

@@ -30,6 +30,14 @@ Route::controller(\App\Http\Controllers\AuthController::class)->group(function (
     Route::post('/logout', 'logout')->name('logout')->middleware('auth');
 });
 
+// --- Password reset (T5.5, broker bawaan Laravel) ---
+Route::controller(\App\Http\Controllers\Auth\PasswordResetController::class)->group(function () {
+    Route::get('/forgot-password', 'requestForm')->name('password.request');
+    Route::post('/forgot-password', 'sendResetLink')->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}', 'resetForm')->name('password.reset');
+    Route::post('/reset-password', 'update')->middleware('throttle:5,1')->name('password.update');
+});
+
 // --- Landing page B2B (public) + vertical detail pages ---
 Route::get('/', [\App\Http\Controllers\LandingController::class, 'index'])->name('landing');
 Route::get('/klinik', fn () => view('verticals.klinik'))->name('landing.klinik');
