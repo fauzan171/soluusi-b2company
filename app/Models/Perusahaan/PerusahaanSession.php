@@ -5,11 +5,17 @@ namespace App\Models\Perusahaan;
 use App\Models\Consultant;
 use App\Models\Departement;
 use App\Models\Model;
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PerusahaanSession extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope('perusahaan'));
+    }
 
     protected $fillable = [
         'perusahaan_id',

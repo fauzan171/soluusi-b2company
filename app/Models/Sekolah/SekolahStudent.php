@@ -3,12 +3,18 @@
 namespace App\Models\Sekolah;
 
 use App\Models\Model;
+use App\Models\Scopes\TenantScope;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SekolahStudent extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope('sekolah'));
+    }
 
     protected $fillable = [
         'sekolah_id',
