@@ -38,7 +38,7 @@
       <a href="{{ route('landing.sekolah') }}" class="hover:text-[#0c3b2e]">Sekolah</a>
       <a href="{{ route('landing.perusahaan') }}" class="hover:text-[#0c3b2e]">Perusahaan</a>
     </div>
-    <a href="{{ route('landing') }}#kontak" class="bg-[#0c3b2e] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#0d7a5f] transition-colors">Jadi Mitra</a>
+    <a href="{{ route('partner.register') }}" class="bg-[#0c3b2e] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#0d7a5f] transition-colors">Jadi Mitra</a>
   </div>
 </nav>
 
@@ -61,7 +61,7 @@
           <span>3 profesi kesehatan</span>
         </div>
         <div class="reveal mt-10 flex flex-wrap gap-4">
-          <a href="{{ route('landing') }}#kontak" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
+          <a href="{{ route('partner.register') }}" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
           <a href="#skema" class="border border-[#0c3b2e]/25 text-[#0c3b2e] font-semibold px-8 py-4 rounded-full hover:border-[#0c3b2e] transition-colors">Lihat Skema</a>
         </div>
       </div>
@@ -261,7 +261,7 @@
     <h2 class="reveal font-display text-4xl md:text-5xl font-medium tracking-tight">Siap menambah layanan klinik?</h2>
     <p class="reveal mt-6 text-[#1a2420]/70 text-lg leading-relaxed">Diskusi 30 menit tanpa komitmen. Tim kami akan siapkan proposal 1-pager sesuai skala klinik — termasuk skema komisi yang angkanya tidak kami taruh di sini.</p>
     <div class="reveal mt-10 flex flex-wrap justify-center gap-4">
-      <a href="{{ route('landing') }}#kontak" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
+      <a href="{{ route('partner.register') }}" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
       <a href="{{ route('landing.sekolah') }}" class="border border-[#0c3b2e]/25 text-[#0c3b2e] font-semibold px-8 py-4 rounded-full hover:border-[#0c3b2e] transition-colors">Lihat vertikal lain</a>
     </div>
   </div>

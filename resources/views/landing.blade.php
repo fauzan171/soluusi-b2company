@@ -50,7 +50,7 @@
       <a href="#cara" class="hover:text-[#0c3b2e]">Cara Kerja</a>
       <a href="{{ route('landing') }}#kontak" class="hover:text-[#0c3b2e]">Kontak</a>
     </div>
-    <a href="{{ route('landing') }}#kontak" class="bg-[#0c3b2e] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#0d7a5f] transition-colors">Jadi Mitra</a>
+    <a href="{{ route('partner.register') }}" class="bg-[#0c3b2e] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#0d7a5f] transition-colors">Jadi Mitra</a>
   </div>
 </nav>
 
@@ -69,7 +69,7 @@
           Satu platform untuk <strong>klinik</strong>, <strong>sekolah</strong>, dan <strong>perusahaan</strong>. Akses psikolog, nutrisionis, fisioterapis & konsultan karir — online & offline, tanpa biaya tetap.
         </p>
         <div class="reveal mt-10 flex flex-wrap gap-4" style="transition-delay:.24s">
-          <a href="{{ route('landing') }}#kontak" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
+          <a href="{{ route('partner.register') }}" class="bg-[#0c3b2e] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#0d7a5f] transition-colors">Diskusi Kemitraan →</a>
           <a href="{{ route('landing') }}#vertikal" class="border border-[#0c3b2e]/25 text-[#0c3b2e] font-semibold px-8 py-4 rounded-full hover:border-[#0c3b2e] transition-colors">Lihat Solusi</a>
         </div>
       </div>
