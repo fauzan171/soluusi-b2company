@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
  * Paritas TVS:
  * - Model gateway glm-5.3-flash via endpoint OpenAI-compatible (9inference).
  * - Sumber = AGREGAT tanpa identitas: topik anonim, band risiko, utilisasi,
- *   partisipasi, catatan konsultan ter-redaksi (nama/email/telepon dihapus).
+ *   partisipasi, catatan konsultan ter-redaksi (pola nama/email/telepon dihapus).
  * - System prompt: anti-halusinasi, tanpa diagnosis/kausalitas, tindakan HR
  *   terpisah dari rekomendasi klinis ahli, angka hanya dari bukti.
  * - Output JSON tervalidasi: summary, findings[], dataGaps[].
@@ -237,11 +237,21 @@ PROMPT;
         return json_encode($context, JSON_UNESCAPED_UNICODE);
     }
 
-    /** Redaksi PII — paritas sourceRedactor TVS. */
+    /**
+     * Redaksi PII — paritas sourceRedactor TVS.
+     * ponytail: nama orang dideteksi via pola umum (Title Case berurutan +
+     * panggilan umum), BUKAN NER — nama non-kapitalisasi/exotic bisa lolos.
+     * Upgrade path: NER model atau tokenisasi nama dari master data.
+     */
     public static function redact(string $text): string
     {
         $text = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', '[email dihapus]', $text) ?? $text;
         $text = preg_replace('/(?:\+62|08)[\d\s-]{7,}\d/', '[kontak dihapus]', $text) ?? $text;
+        // Panggilan umum diikuti nama (Pak Budi, Bu Siti, Saudara Andi, dst).
+        $text = preg_replace('/\b(?:Pak|Bu|Ibu|Bapak|Mas|Mbak|Bang|Kak|Sdr|Saudara|Tn|Ny)\.?\s+[A-Z][a-zA-Z.]+(?:\s+[A-Z][a-zA-Z.]+){0,2}/u', '[nama dihapus]', $text) ?? $text;
+        // Nama Title Case 2+ kata (Bayu Wirawan) — heuristik umum nama orang Indonesia.
+        // Skip kata pertama kalimat? Trade-off: lebih baik over-redact untuk PII.
+        $text = preg_replace('/\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})+\b/u', '[nama dihapus]', $text) ?? $text;
         return $text;
     }
 }
