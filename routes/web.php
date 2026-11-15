@@ -15,8 +15,8 @@ Route::get('/booking/klinik/{klinik:uuid}', [\App\Http\Controllers\CheckoutContr
 Route::post('/booking/klinik/{klinik:uuid}/pay', [\App\Http\Controllers\CheckoutController::class, 'clinicPay'])->name('checkout.klinik.pay');
 Route::get('/checkout/{token}', [\App\Http\Controllers\CheckoutController::class, 'show'])->name('checkout.show');
 Route::post('/checkout/{token}/pay', [\App\Http\Controllers\CheckoutController::class, 'pay'])->name('checkout.pay');
-Route::get('/checkout/{token}/dummy-payment', [\App\Http\Controllers\CheckoutController::class, 'dummyPayment'])->name('checkout.dummyPayment');
-Route::post('/checkout/{token}/dummy-payment/success', [\App\Http\Controllers\CheckoutController::class, 'dummyPaymentSuccess'])->name('checkout.dummyPayment.success');
+Route::get('/checkout/{token}/dummy-payment', [\App\Http\Controllers\CheckoutController::class, 'dummyPayment'])->middleware('notprod')->name('checkout.dummyPayment');
+Route::post('/checkout/{token}/dummy-payment/success', [\App\Http\Controllers\CheckoutController::class, 'dummyPaymentSuccess'])->middleware('notprod')->name('checkout.dummyPayment.success');
 Route::get('/checkout/{token}/status', [\App\Http\Controllers\CheckoutController::class, 'status'])->name('checkout.status');
 Route::post('/checkout/{token}/confirm-done', [\App\Http\Controllers\CheckoutController::class, 'confirmDone'])->name('checkout.confirmDone');
 
