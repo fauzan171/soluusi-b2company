@@ -6,7 +6,12 @@ use App\Models\Perusahaan\PerusahaanSession;
 
 class ChatMessage extends Model
 {
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'perusahaan_session_id',
+        'sender_id',
+        'body',
+        'read_at',
+    ];
 
     protected $casts = ['read_at' => 'datetime'];
 

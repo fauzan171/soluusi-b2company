@@ -9,7 +9,14 @@ class ConsultantCompany extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'consultant_id',
+        'company_id',
+        'start_at',
+        'end_at',
+        'position',
+        'description',
+    ];
 
     /**
      * Get the company of the consultant company.

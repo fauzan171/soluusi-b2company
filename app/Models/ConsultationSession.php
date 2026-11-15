@@ -23,7 +23,56 @@ class ConsultationSession extends Model
     const PAYMENT_STATUS_FAILED = 'failed';
     const PAYMENT_STATUS_REFUNDED = 'refunded';
 
-    protected $guarded = ['id'];
+    // NOTE: payment/payment_status/payment_at mass-assignable karena flow existing
+    // (CheckoutController::createWaitingSession, MidtransController expiry sweep,
+    // webhook). Semua call-site memakai input tervalidasi/server-side. Risiko
+    // dicatat di T2.1 — hardening assign-eksplisit = task terpisah.
+    protected $fillable = [
+        'schedule_id',
+        'user_id',
+        'status',
+        'order_number',
+        'payment',
+        'va_number',
+        'payment_status',
+        'rating',
+        'order_at',
+        'payment_at',
+        'consultant_id',
+        'amount',
+        'consultant_package_id',
+        'payment_method',
+        'link_meeting',
+        'note',
+        'voucher_id',
+        'snaptoken',
+        'expired_at',
+        'url_snap',
+        'review_text',
+        'solution',
+        'google_calendar_event_id',
+        'complaint',
+        'package_price',
+        'voucher_amount',
+        'completed_at',
+        'klinik_id',
+        'checkout_link_id',
+        'customer_name',
+        'customer_email',
+        'customer_phone',
+        'customer_dob',
+        'customer_regency_id',
+        'customer_gender',
+        'konsultan_done_at',
+        'customer_confirmed_at',
+        'completion_verified_at',
+        'needs_ops_review',
+        'konsultan_checked_in_at',
+        'customer_checked_in_at',
+        'no_show_at',
+        'cancel_reason',
+        'hap_pervorma_stage',
+    ];
 
     /**
      * Get the schedule of the consultation session.

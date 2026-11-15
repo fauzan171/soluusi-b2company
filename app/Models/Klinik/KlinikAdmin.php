@@ -10,7 +10,11 @@ class KlinikAdmin extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'klinik_id',
+        'user_id',
+        'role',
+    ];
 
     public function klinik()
     {

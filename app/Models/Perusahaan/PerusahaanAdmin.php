@@ -10,7 +10,11 @@ class PerusahaanAdmin extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'perusahaan_id',
+        'user_id',
+        'role',
+    ];
 
     public function perusahaan()
     {

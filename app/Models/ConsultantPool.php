@@ -14,7 +14,11 @@ class ConsultantPool extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'consultant_id',
+        'sekolah_id',
+        'perusahaan_id',
+    ];
 
     public function consultant()
     {

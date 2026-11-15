@@ -12,7 +12,17 @@ class HapPervorma extends Model
 
     protected $table = 'hap_pervormas';
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'klinik_id',
+        'associate_id',
+        'stage',
+        'amount',
+        'status',
+        'due_at',
+        'paid_at',
+        'requested_at',
+        'requested_by',
+    ];
 
     protected $casts = [
         'due_at' => 'datetime',

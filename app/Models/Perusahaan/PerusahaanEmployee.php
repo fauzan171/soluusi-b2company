@@ -11,7 +11,14 @@ class PerusahaanEmployee extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'perusahaan_id',
+        'departement_id',
+        'user_id',
+        'name',
+        'email',
+        'consent_at',
+    ];
 
     protected $casts = [
         'consent_at' => 'datetime',

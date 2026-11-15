@@ -10,7 +10,20 @@ class PerusahaanAssessment extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'perusahaan_id',
+        'employee_id',
+        'departement_id',
+        'answers',
+        'score',
+        'taken_at',
+        'section',
+        'status',
+        'consultant_id',
+        'notes',
+        'conclusion',
+        'concluded_at',
+    ];
 
     protected $casts = [
         'answers' => 'array',

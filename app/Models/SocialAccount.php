@@ -10,7 +10,14 @@ class SocialAccount extends Model
     use HasFactory;
 
     
-    protected $guarded = [];
+    // ponytail: provider_token dipersist oleh AuthController tapi kolom belum
+    // dimigrasi — ditulis tanpa error sejak guarded=[]. Fillable ini menegaskan
+    // skema DB yang ada. Upgrade: migrasi add provider_token.
+    protected $fillable = [
+        'user_id',
+        'provider',
+        'provider_id',
+    ];
 
     public function user()
     {

@@ -11,7 +11,27 @@ class Klinik extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'uuid',
+        'name',
+        'brand',
+        'domain',
+        'logo',
+        'from_email',
+        'gcal_id',
+        'associate_id',
+        'total_rate',
+        'mou_at',
+        'is_active',
+        'regency_id',
+        'approved_at',
+        'terms_agreed_at',
+        'facility_type',
+        'branch_name',
+        'address',
+        'service_interest',
+        'estimated_monthly_sessions',
+    ];
 
     protected $casts = [
         'mou_at' => 'datetime',

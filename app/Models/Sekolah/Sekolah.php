@@ -10,7 +10,17 @@ class Sekolah extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'name',
+        'brand',
+        'logo',
+        'tingkat',
+        'student_count',
+        'sessions_per_student_month',
+        'associate_id',
+        'mou_at',
+        'is_active',
+    ];
 
     protected $casts = [
         'mou_at' => 'datetime',

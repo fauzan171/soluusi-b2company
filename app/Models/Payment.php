@@ -9,7 +9,14 @@ class Payment extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'paymentcode',
+        'paymentname',
+        'biaya_admin',
+        'biaya_tambahan',
+        'type',
+        'order',
+    ];
 
     /**
      * 

@@ -9,7 +9,11 @@ class ConsultantRating extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'consultant_id',
+        'user_id',
+        'rating',
+    ];
 
     /**
      * Get the consultant of the rating.

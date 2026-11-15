@@ -11,7 +11,14 @@ class KlinikPackage extends Model
 
     protected $table = 'klinik_packages';
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'klinik_id',
+        'name',
+        'description',
+        'price',
+        'duration_minutes',
+        'mode',
+    ];
 
     public function klinik()
     {

@@ -10,7 +10,11 @@ class MarkupRule extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'klinik_id',
+        'consultant_package_id',
+        'markup_amount',
+    ];
 
     public function klinik()
     {

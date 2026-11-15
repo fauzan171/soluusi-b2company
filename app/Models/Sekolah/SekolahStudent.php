@@ -10,7 +10,16 @@ class SekolahStudent extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'sekolah_id',
+        'kelas',
+        'user_id',
+        'name',
+        'email',
+        'parent_name',
+        'parent_consent_at',
+        'consent_at',
+    ];
 
     protected $casts = [
         'consent_at' => 'datetime',

@@ -11,7 +11,12 @@ class ConsultantFee extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'consultant_id',
+        'consultant_package_id',
+        'net_fee',
+        'effective_at',
+    ];
 
     protected $casts = [
         'effective_at' => 'datetime',

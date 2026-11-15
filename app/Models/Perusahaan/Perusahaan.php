@@ -10,7 +10,18 @@ class Perusahaan extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'name',
+        'brand',
+        'logo',
+        'associate_id',
+        'mou_at',
+        'pepm_rate',
+        'sessions_per_employee_month',
+        'employee_count',
+        'nps_score',
+        'is_active',
+    ];
 
     protected $casts = [
         'mou_at' => 'datetime',

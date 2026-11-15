@@ -14,7 +14,19 @@ class CheckoutLink extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'token',
+        'klinik_id',
+        'consultant_id',
+        'schedule_id',
+        'consultant_package_id',
+        'net_price',
+        'markup_amount',
+        'final_price',
+        'created_by',
+        'expires_at',
+        'used_at',
+    ];
 
     protected $casts = [
         'expires_at' => 'datetime',

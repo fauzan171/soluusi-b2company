@@ -9,7 +9,20 @@ class SekolahAssessment extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'sekolah_id',
+        'student_id',
+        'kelas',
+        'answers',
+        'score',
+        'taken_at',
+        'section',
+        'status',
+        'consultant_id',
+        'notes',
+        'conclusion',
+        'concluded_at',
+    ];
 
     protected $casts = [
         'answers' => 'array',

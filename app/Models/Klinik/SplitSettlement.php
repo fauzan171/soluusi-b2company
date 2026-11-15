@@ -10,7 +10,14 @@ class SplitSettlement extends Model
 {
     use HasFactory;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'session_id',
+        'klinik_id',
+        'net_amount',
+        'klinik_margin',
+        'status',
+        'settled_at',
+    ];
 
     protected $casts = [
         'settled_at' => 'datetime',
