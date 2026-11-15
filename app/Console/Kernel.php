@@ -20,6 +20,9 @@ class Kernel extends ConsoleKernel
             (new \App\Http\Controllers\MidtransController)->updateExpiredPayments();
         })->everyFiveMinutes();
 
+        // F1.4: auto-cancel scheduled B2B sessions tanpa check-in, restore kuota.
+        $schedule->command('sessions:cancel-expired')->hourly();
+
         // Dual-confirm fallback (Spec §9.1): konsultan done >24h tanpa customer
         // confirm → flag ops review (anti fake sesi). Tidak auto-complete.
         $schedule->call(function () {

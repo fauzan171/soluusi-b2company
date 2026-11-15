@@ -1,0 +1,150 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Perusahaan\Perusahaan;
+use App\Models\Perusahaan\PerusahaanEmployee;
+use App\Models\Perusahaan\PerusahaanSession;
+use App\Models\Sekolah\Sekolah;
+use App\Models\Sekolah\SekolahSession;
+use App\Models\Sekolah\SekolahStudent;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\TestCase;
+
+class SessionExpirySweepTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function perusahaanFixture(): array
+    {
+        $p = Perusahaan::create([
+            'name' => 'PT Sweep', 'brand' => 'SweepCo', 'sessions_per_employee_month' => 2,
+            'employee_count' => 3, 'is_active' => true,
+        ]);
+        $user = User::factory()->create(['email' => 'sweep@test.local']);
+        $emp = PerusahaanEmployee::create([
+            'perusahaan_id' => $p->id, 'user_id' => $user->id,
+            'name' => 'Emp', 'email' => 'sweep@test.local', 'consent_at' => now(),
+        ]);
+
+        return [$p, $emp];
+    }
+
+    private function sekolahFixture(): array
+    {
+        $s = Sekolah::create([
+            'name' => 'SMA Sweep', 'brand' => 'SweepSchool', 'sessions_per_student_month' => 2,
+            'student_count' => 3, 'is_active' => true,
+        ]);
+        $user = User::factory()->create(['email' => 'sweep-sekolah@test.local']);
+        $student = SekolahStudent::create([
+            'sekolah_id' => $s->id, 'user_id' => $user->id,
+            'name' => 'Siswa', 'email' => 'sweep-sekolah@test.local',
+            'kelas' => 'XII-1', 'parent_consent_at' => now(),
+        ]);
+
+        return [$s, $student];
+    }
+
+    public function test_expired_scheduled_sessions_are_auto_cancelled_and_quota_restored()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+        [$s, $student] = $this->sekolahFixture();
+
+        $expiredPerusahaan = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(25),
+        ]);
+        $expiredSekolah = SekolahSession::create([
+            'sekolah_id' => $s->id, 'student_id' => $student->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(25),
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $expiredPerusahaan->refresh();
+        $expiredSekolah->refresh();
+        $this->assertSame('cancelled', $expiredPerusahaan->status);
+        $this->assertSame('cancelled', $expiredSekolah->status);
+        $this->assertSame('Auto-cancelled: no check-in', $expiredPerusahaan->cancel_reason);
+        $this->assertSame('Auto-cancelled: no check-in', $expiredSekolah->cancel_reason);
+        // Quota restored: auto-cancel bukan late-cancel, kuota tidak terpakai.
+        $this->assertFalse((bool) $expiredPerusahaan->quota_consumed);
+        $this->assertFalse((bool) $expiredSekolah->quota_consumed);
+        $this->assertNotNull($expiredPerusahaan->cancelled_at);
+        $this->assertNotNull($expiredSekolah->cancelled_at);
+    }
+
+    public function test_recent_scheduled_sessions_are_not_cancelled()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        $recent = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(2),
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $recent->refresh();
+        $this->assertSame('scheduled', $recent->status);
+    }
+
+    public function test_checked_in_or_terminal_sessions_are_not_cancelled()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        $checkedIn = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(30), 'checked_in_at' => now()->subHours(30),
+        ]);
+        $done = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'done',
+            'scheduled_at' => now()->subHours(30),
+        ]);
+        $awaitingAcc = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => null,
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $this->assertSame('scheduled', $checkedIn->refresh()->status);
+        $this->assertSame('done', $done->refresh()->status);
+        $this->assertSame('scheduled', $awaitingAcc->refresh()->status);
+    }
+
+    public function test_booking_claims_are_released_for_cancelled_sessions()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+
+        $consultant = \App\Models\Consultant::factory()->create();
+        $slot = \App\Models\Schedule::factory()->create(['consultant_id' => $consultant->id]);
+        $session = PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(25),
+        ]);
+        DB::table('booking_claims')->insert([
+            'schedule_id' => $slot->id, 'owner_type' => 'perusahaan', 'owner_id' => $session->id,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $this->assertSame(0, DB::table('booking_claims')
+            ->where('owner_type', 'perusahaan')->where('owner_id', $session->id)->count());
+    }
+}

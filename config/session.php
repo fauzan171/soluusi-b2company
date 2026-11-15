@@ -22,6 +22,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Auto-cancel Hours (B2B session sweep, F1.4)
+    |--------------------------------------------------------------------------
+    |
+    | Scheduled B2B sessions (perusahaan/sekolah) older than this many hours
+    | without check-in are auto-cancelled by `sessions:cancel-expired` and
+    | their quota is restored (quota_consumed = false).
+    |
+    */
+
+    'auto_cancel_hours' => (int) env('SESSION_AUTO_CANCEL_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session Lifetime
     |--------------------------------------------------------------------------
     |
