@@ -85,9 +85,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');
         Route::post('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
         Route::get('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingForm'])->name('booking');
-        Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->name('booking.store');
-        Route::post('/siswa/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingCancel'])->name('booking.cancel');
-        Route::post('/siswa/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingReschedule'])->name('booking.reschedule');
+        Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
+        Route::post('/siswa/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
+        Route::post('/siswa/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');
     });
 });
 
@@ -111,12 +111,12 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
         Route::get('/employee/consultants', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'consultants'])->name('consultants');
         Route::post('/employee/consultants/{consultant}/start-chat', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'startChat'])->name('consultants.start-chat');
         Route::get('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingForm'])->name('booking');
-        Route::post('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingStore'])->name('booking.store');
-        Route::post('/employee/request-consultation', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'requestConsultation'])->name('request-consultation');
-        Route::post('/employee/sessions/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingCancel'])->name('booking.cancel');
-        Route::post('/employee/sessions/{session}/reschedule', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingReschedule'])->name('booking.reschedule');
+        Route::post('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
+        Route::post('/employee/request-consultation', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('request-consultation');
+        Route::post('/employee/sessions/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
+        Route::post('/employee/sessions/{session}/reschedule', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');
         Route::get('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employee'])->name('chat');
-        Route::post('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employeeStore'])->name('chat.store');
+        Route::post('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employeeStore'])->middleware('throttle:60,1')->name('chat.store');
         Route::post('/employee/sessions/{session}/end', [\App\Http\Controllers\ChatController::class, 'employeeEnd'])->name('chat.end');
         Route::post('/employee/sessions/{session}/rate', [\App\Http\Controllers\ChatController::class, 'employeeRate'])->name('chat.rate');
     });
@@ -129,7 +129,7 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
     Route::post('/sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'schedulePerusahaan'])->name('sessions.schedule');
     Route::get('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultant'])->name('chat');
-    Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->name('chat.store');
+    Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('chat.store');
     Route::post('/sessions/{session}/start', [\App\Http\Controllers\ChatController::class, 'consultantStart'])->name('chat.start');
     Route::post('/sessions/{session}/end', [\App\Http\Controllers\ChatController::class, 'consultantEnd'])->name('chat.end');
 });
