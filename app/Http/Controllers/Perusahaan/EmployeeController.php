@@ -9,6 +9,7 @@ use App\Models\Perusahaan\PerusahaanAssessment;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Portal karyawan (end-user wellbeing). Branded white-label — zero Soluusi.
@@ -84,6 +85,14 @@ class EmployeeController extends Controller
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
         $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
+        // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.
+        $pendingProposals = \App\Models\SessionSlotProposal::where('status', 'pending')
+            ->whereHas('session', fn ($q) => $q->where('employee_id', $employee->id)
+                ->where('status', 'scheduled')->whereNull('scheduled_at'))
+            ->with('session.consultant.user')
+            ->latest('proposed_at')
+            ->get();
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -95,7 +104,43 @@ class EmployeeController extends Controller
             'assessment' => $latest,
             'assessmentTrend' => $trend,
             'needsAssessment' => $needsAssessment,
+            'pendingProposals' => $pendingProposals,
         ]);
+    }
+
+    /** F1.3: karyawan pilih 1 slot dari proposal → sesi ter-book, proposal lain di-reject. */
+    public function confirmSlot(Request $r, \App\Models\SessionSlotProposal $proposal)
+    {
+        $employee = $this->resolveEmployee();
+        $session = $proposal->session;
+        abort_unless($session && $session->employee_id === $employee->id, 403);
+        abort_unless($proposal->status === 'pending'
+            && $session->status === 'scheduled' && $session->scheduled_at === null,
+            422, 'Slot sudah tidak berlaku.');
+
+        $data = $r->validate([
+            'slot_index' => ['required', 'integer', 'min:0', 'max:' . (count($proposal->slots) - 1)],
+        ]);
+
+        $slot = $proposal->slots[$data['slot_index']];
+
+        DB::transaction(function () use ($proposal, $session, $slot) {
+            $session->update([
+                'scheduled_at' => $slot['start'],
+                'ended_at' => $slot['end'],
+            ]);
+            $proposal->update(['status' => 'accepted']);
+            // Auto-reject proposal lain yang masih pending untuk sesi ini.
+            \App\Models\SessionSlotProposal::where('session_id', $session->id)
+                ->where('id', '!=', $proposal->id)
+                ->where('status', 'pending')
+                ->update(['status' => 'rejected']);
+        });
+
+        // ponytail: notifikasi ke konsultan belum ada — tambah saat notification channel diputuskan.
+
+        return redirect()->route('perusahaan.employee')
+            ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
     }
 
     public function assessmentForm()

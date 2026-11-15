@@ -169,6 +169,35 @@
         </div>
     </div>
 
+    {{-- Pilih jadwal dari proposal konsultan (F1.3) --}}
+    @if($pendingProposals->isNotEmpty())
+    <section class="portal-card p-5 mb-6 border-amber-300 bg-amber-50/50">
+        <h3 class="dash-section-title">Pilih Jadwal</h3>
+        <p class="text-xs text-gray-500 mt-1 mb-3">Konsultan kamu mengirim beberapa opsi jadwal. Pilih satu yang paling pas.</p>
+        <div class="space-y-4">
+            @foreach($pendingProposals as $proposal)
+            @php $s = $proposal->session; @endphp
+            <form method="POST" action="{{ route('perusahaan.slots.confirm', $proposal) }}" class="rounded-xl border border-amber-200 bg-white p-4">
+                @csrf
+                <p class="text-sm font-medium text-pine-900 mb-2">
+                    {{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}
+                    @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
+                </p>
+                <div class="space-y-2">
+                    @foreach($proposal->slots as $i => $slot)
+                    <label class="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="radio" name="slot_index" value="{{ $i }}" required class="text-pine-700 focus:ring-pine-500">
+                        <span>{{ \Illuminate\Support\Carbon::parse($slot['start'])->translatedFormat('l, d M Y, H.i') }}–{{ \Illuminate\Support\Carbon::parse($slot['end'])->translatedFormat('H.i') }} WIB</span>
+                    </label>
+                    @endforeach
+                </div>
+                <button type="submit" class="mt-3 rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2 hover:bg-pine-800">Konfirmasi jadwal ini</button>
+            </form>
+            @endforeach
+        </div>
+    </section>
+    @endif
+
     {{-- Jadwal mendatang + Google Calendar --}}
     @php $upcoming = $history->where('status', 'scheduled')->filter(fn ($s) => $s->scheduled_at?->isFuture()); @endphp
     @if($upcoming->isNotEmpty())
