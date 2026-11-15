@@ -189,4 +189,9 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
 
     // Ops manual verify (dual-confirm fallback, Spec §9.1 step 4)
     Route::post('/sessions/{session}/verify', [\App\Http\Controllers\Admin\SessionVerificationController::class, 'store'])->name('sessions.verify');
+
+    // F2.2: view-as superadmin — lihat portal seolah-olah employee target.
+    Route::post('/view-as/start', [\App\Http\Controllers\Admin\ViewAsController::class, 'start'])->name('view-as.start');
+    Route::post('/view-as/stop', [\App\Http\Controllers\Admin\ViewAsController::class, 'stop'])->name('view-as.stop');
+
 });

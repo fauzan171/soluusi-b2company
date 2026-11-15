@@ -147,6 +147,14 @@
             </details>
             <main class="w-full px-6 py-6 lg:px-8">
                 <div class="w-full">
+                @if(!empty($viewAs))
+                    <div class="mb-4 p-3 rounded-xl bg-amber-100 text-amber-900 text-sm flex items-center justify-between gap-3" role="status">
+                        <span>Anda sedang melihat sebagai <strong>{{ $viewAs['name'] }}</strong> (mode view-as superadmin, read-only).</span>
+                        <form method="POST" action="{{ route('admin.view-as.stop') }}">@csrf
+                            <button class="text-xs font-semibold underline hover:no-underline">Berhenti</button>
+                        </form>
+                    </div>
+                @endif
                 @if(session('success'))
                     <div class="mb-4 p-3 rounded-xl bg-pine-100 text-pine-800 text-sm break-all">{{ session('success') }}</div>
                 @endif
