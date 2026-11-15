@@ -55,7 +55,7 @@ class RequestConsultationTest extends TestCase
         return [$p, $user, $emp, $docUser, $consultant];
     }
 
-    public function test_employee_can_request_consultation_and_get_assigned_consultant()
+    public function test_employee_can_request_consultation_and_enters_hr_review()
     {
         [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
 
@@ -66,8 +66,9 @@ class RequestConsultationTest extends TestCase
         ]);
 
         $session = PerusahaanSession::first();
-        $response->assertRedirect();
-        $this->assertSame($consultant->id, $session->consultant_id);
+        $response->assertRedirect(route('perusahaan.employee'));
+        // F1.1: konsultan belum di-assign — menunggu review HR.
+        $this->assertNull($session->consultant_id);
         $this->assertSame('scheduled', $session->status);
         $this->assertNull($session->scheduled_at);
         $this->assertSame(0, $session->chatMessages()->count());
@@ -112,7 +113,7 @@ class RequestConsultationTest extends TestCase
         $this->assertSame(1, PerusahaanSession::count());
     }
 
-    public function test_employee_cannot_request_if_no_consultant_in_pool()
+    public function test_employee_can_request_even_if_pool_empty_reviewed_by_hr()
     {
         $p = Perusahaan::create([
             'name' => 'PT Test', 'brand' => 'TestCo', 'sessions_per_employee_month' => 2,
@@ -124,12 +125,14 @@ class RequestConsultationTest extends TestCase
             'name' => 'Emp', 'email' => 'emp@test.local', 'consent_at' => now(),
         ]);
 
+        // Pool kosong bukan masalah di sisi employee — request masuk antrean HR.
         $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
             'body' => 'Tidak ada konsultan.',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertRedirect(route('perusahaan.employee'));
+        $this->assertNull(PerusahaanSession::first()->consultant_id);
     }
 
     public function test_consultant_can_schedule_unscheduled_session()

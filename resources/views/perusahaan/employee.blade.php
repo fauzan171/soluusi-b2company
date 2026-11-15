@@ -87,7 +87,7 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h3 class="font-semibold text-pine-900">Minta Konsultasi</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">Sistem carikan konsultan yang paling siap. Kamu langsung bisa chat.</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Request kamu direview HR dulu. Setelah disetujui, sistem carikan konsultan yang paling siap.</p>
                 </div>
                 <button type="button" @click="requestConsult = false" aria-label="Tutup" class="text-gray-400 hover:text-gray-700 text-lg leading-none">&times;</button>
             </div>
@@ -163,7 +163,7 @@
 
                 <button type="submit"
                     class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-3 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
-                    Kirim &amp; Mulai Chat
+                    Kirim Request
                 </button>
             </form>
         </div>
@@ -219,7 +219,7 @@
                         'topik' => $s->topic_category ?? 'Belum ditentukan',
                         'jenis' => ($s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '') . ($typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type)),
                         'status' => $s->status,
-                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
+                        'statusLabel' => match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : ($s->consultant_id ? 'Menunggu ACC konsultan' : 'Menunggu review HR'), 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' },
                         'cancelUrl' => route('perusahaan.booking.cancel', $s),
                         'rescheduleUrl' => route('perusahaan.booking.reschedule', $s),
                         'chatUrl' => $s->consultant_id && in_array($s->status, ['scheduled', 'done']) ? route('perusahaan.chat', $s) : null,
@@ -231,7 +231,7 @@
                     <td class="p-3">{{ $s->consultant?->user?->fullname ? $s->consultant->user->fullname . ' — ' : '' }}{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</td>
                     <td class="p-3">
                         <span class="text-xs px-2 py-0.5 rounded-lg {{ $s->status === 'done' ? 'bg-pine-100 text-pine-800' : ($s->status === 'scheduled' ? ($s->scheduled_at ? 'bg-terra-100 text-terra-800' : 'bg-amber-100 text-amber-800') : 'bg-gray-100 text-gray-500') }}">
-                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : 'Menunggu ACC konsultan', 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
+                            {{ match($s->status) { 'done' => 'Selesai', 'scheduled' => $s->scheduled_at ? 'Terjadwal' : ($s->consultant_id ? 'Menunggu ACC konsultan' : 'Menunggu review HR'), 'cancelled' => 'Dibatalkan', default => 'Tidak hadir' } }}
                         </span>
                         @if($s->rating)
                         <span class="block text-[11px] text-amber-500 mt-0.5">{{ str_repeat('★', $s->rating) . str_repeat('☆', 5 - $s->rating) }}</span>

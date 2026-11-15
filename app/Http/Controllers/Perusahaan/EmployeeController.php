@@ -261,7 +261,7 @@ class EmployeeController extends Controller
             ->with('error', 'Pilih jadwal konsultasi dulu sebelum chat.');
     }
 
-    /** Minta konsultasi tanpa pilih slot: assign 1 konsultan pool terdekat beban. */
+    /** Minta konsultasi tanpa pilih slot: masuk antrean review HR (F1.1), bukan auto-assign. */
     public function requestConsultation(Request $r)
     {
         $employee = $this->resolveEmployee();
@@ -273,7 +273,7 @@ class EmployeeController extends Controller
 
         $perusahaan = $employee->perusahaan;
         abort_if($employee->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
-            422, 'Masih ada permintaan menunggu ACC.');
+            422, 'Masih ada permintaan menunggu review.');
 
         $monthStart = now()->startOfMonth();
         $usedMonth = $employee->sessions()
@@ -281,29 +281,21 @@ class EmployeeController extends Controller
             ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))->count();
         abort_if($usedMonth >= $perusahaan->sessions_per_employee_month, 422, 'Kuota bulan ini habis.');
 
-        // Assign konsultan dari pool: tipe cocok, beban scheduled terendah.
-        $pool = ConsultantPool::poolFor('perusahaan', $perusahaan->id);
-        $candidates = $pool->where('type', $r->konsultan_type);
-        abort_if($candidates->isEmpty(), 422, 'Tidak ada konsultan tipe ini di program kamu.');
-
-        $assigned = $candidates->sortBy(fn ($c) => PerusahaanSession::where('consultant_id', $c['id'])
-            ->where('status', 'scheduled')
-            ->count())->first();
-
-        // Gate ACC: status 'scheduled' + scheduled_at NULL = menunggu konsultan set jadwal
+        // Gate review HR: 'scheduled' + scheduled_at NULL + consultant_id NULL
         // (nilai 'pending' tidak lolos CHECK constraint status — lihat migrasi 2026_10_21).
-        $session = PerusahaanSession::create([
+        // HR approve → consultant di-assign; HR reject → 'cancelled' + alasan.
+        PerusahaanSession::create([
             'perusahaan_id' => $perusahaan->id,
             'employee_id' => $employee->id,
             'departement_id' => $employee->departement_id,
-            'consultant_id' => $assigned['id'],
+            'consultant_id' => null,
             'konsultan_type' => $r->konsultan_type,
             'topic_category' => $r->topic_category,
             'status' => 'scheduled',
             'scheduled_at' => null,
         ]);
 
-        return redirect()->route('perusahaan.chat', $session)
-            ->with('success', 'Permintaan terkirim. Chat aktif setelah konsultan menyetujui jadwal.');
+        return redirect()->route('perusahaan.employee')
+            ->with('success', 'Permintaan terkirim. Menunggu review HR — kamu dapat kabar setelah disetujui.');
     }
 }
