@@ -369,12 +369,14 @@ class CheckoutController extends Controller
         ];
     }
 
-    /** White-label finish/status page (guest, token = credential). */
+    /** White-label finish/status page (guest, token = credential, expiry-bound). */
     public function status(string $token)
     {
         $link = CheckoutLink::where('token', $token)
             ->with(['klinik', 'consultant.user', 'consultant.categories', 'schedule', 'package'])
             ->firstOrFail();
+
+        abort_unless($link->expires_at->isFuture(), 410, 'Link sudah kedaluwarsa.');
         $session = $this->latestSessionForLink($link);
 
         return view('checkout.status', [
@@ -436,6 +438,8 @@ class CheckoutController extends Controller
     public function confirmDone(string $token)
     {
         $link = CheckoutLink::where('token', $token)->firstOrFail();
+
+        abort_unless($link->expires_at->isFuture(), 410, 'Link sudah kedaluwarsa.');
         $session = ConsultationSession::where('checkout_link_id', $link->id)->latest('id')->firstOrFail();
 
         abort_unless($session->payment_status === 'verified', 422, 'Sesi belum dibayar.');
