@@ -64,7 +64,7 @@ Route::get('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::clas
 Route::post('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::class, 'store'])->middleware(['signed', 'throttle:10,1'])->name('selfregister.store');
 
 // Status pengembangan — untuk presentasi. Hapus saat tidak dipakai.
-Route::get('/progress', [\App\Http\Controllers\ProgressController::class, 'index'])->name('progress');
+Route::get('/progress', [\App\Http\Controllers\ProgressController::class, 'index'])->middleware(['auth', 'role:admin'])->name('progress');
 
 // --- Sekolah portal (BK coordinator + siswa) ---
 Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(function () {
