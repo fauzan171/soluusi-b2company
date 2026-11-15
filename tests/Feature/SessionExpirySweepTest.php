@@ -255,4 +255,45 @@ class SessionExpirySweepTest extends TestCase
         $this->assertSame('cancelled', $stale->fresh()->status);
         $this->assertSame('rejected', $proposal->fresh()->status);
     }
+
+    public function test_sekolah_sweep_does_not_reject_perusahaan_proposals_with_same_id()
+    {
+        config()->set('session.auto_cancel_hours', 24);
+        [$p, $emp] = $this->perusahaanFixture();
+        [$s, $student] = $this->sekolahFixture();
+
+        $consultant = \App\Models\Consultant::factory()->create();
+
+        // Sesi sekolah expired yang id-nya akan sama dengan sesi perusahaan.
+        $expiredSekolah = SekolahSession::create([
+            'sekolah_id' => $s->id, 'student_id' => $student->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->subHours(25),
+        ]);
+
+        // Sesi perusahaan sehat dengan id numerik sama + proposal pending.
+        // Samakan id secara eksplisit untuk membuktikan tidak ada cross-vertical collision.
+        DB::table('perusahaan_sessions')->insert([
+            'id' => $expiredSekolah->id,
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => $consultant->id,
+            'konsultan_type' => 'psikolog', 'status' => 'scheduled',
+            'scheduled_at' => now()->addDay(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $proposal = \App\Models\SessionSlotProposal::create([
+            'session_id' => $expiredSekolah->id,
+            'consultant_id' => $consultant->id,
+            'proposed_at' => now(),
+            'slots' => [['start' => now()->addDay()->toDateTimeString(), 'end' => now()->addDay()->addHour()->toDateTimeString()]],
+            'status' => 'pending',
+        ]);
+
+        $this->artisan('sessions:cancel-expired')->assertSuccessful();
+
+        $this->assertSame('cancelled', $expiredSekolah->fresh()->status);
+        // Proposal milik sesi perusahaan TIDAK boleh ikut ke-reject.
+        $this->assertSame('pending', $proposal->fresh()->status);
+        $this->assertSame('scheduled', PerusahaanSession::find($expiredSekolah->id)->status);
+    }
 }

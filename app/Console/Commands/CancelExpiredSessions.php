@@ -59,7 +59,11 @@ class CancelExpiredSessions extends Command
 
             $ids = $sessions->pluck('id');
             DB::table('booking_claims')->where('owner_type', $vertical)->whereIn('owner_id', $ids)->delete();
-            $this->rejectPendingProposals($ids);
+            // Proposal hanya milik perusahaan_sessions — jangan sentuh saat sweep sekolah
+            // (id numerik bisa tabrakan lintas vertikal).
+            if ($vertical === 'perusahaan') {
+                $this->rejectPendingProposals($ids);
+            }
 
             $this->info("{$vertical}: {$sessions->count()} session(s) auto-cancelled (no check-in).");
 
@@ -97,7 +101,9 @@ class CancelExpiredSessions extends Command
 
             $ids = $sessions->pluck('id');
             DB::table('booking_claims')->where('owner_type', $vertical)->whereIn('owner_id', $ids)->delete();
-            $this->rejectPendingProposals($ids);
+            if ($vertical === 'perusahaan') {
+                $this->rejectPendingProposals($ids);
+            }
 
             $this->info("{$vertical}: {$sessions->count()} pending request(s) auto-cancelled (stale review).");
 
