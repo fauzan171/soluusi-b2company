@@ -33,6 +33,7 @@ class PerusahaanSession extends Model
         'delivery_status',
         'no_show_party',
         'request_notes',
+        'schedule_version',
     ];
 
     protected $casts = [

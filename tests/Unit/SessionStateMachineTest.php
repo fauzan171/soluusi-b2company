@@ -163,6 +163,56 @@ class SessionStateMachineTest extends TestCase
         $this->assertTrue((bool) $s->fresh()->quota_consumed);
     }
 
+    public function test_schedule_sets_version_one(): void
+    {
+        $emp = $this->employee();
+        $consultant = $this->consultant();
+        $s = $this->makeSession($emp, ['consultant_id' => $consultant->id]);
+
+        SessionStateMachine::schedule($s, now()->addDay(), now()->addDay()->addHour());
+
+        $this->assertSame(1, $s->fresh()->schedule_version);
+    }
+
+    public function test_reschedule_increments_version_up_to_max(): void
+    {
+        $emp = $this->employee();
+        $consultant = $this->consultant();
+        $s = $this->makeSession($emp, [
+            'consultant_id' => $consultant->id,
+            'scheduled_at' => now()->addDay(),
+            'schedule_version' => 1,
+        ]);
+
+        SessionStateMachine::reschedule($s, now()->addDays(2), now()->addDays(2)->addHour());
+        $this->assertSame(2, $s->fresh()->schedule_version);
+
+        SessionStateMachine::reschedule($s->fresh(), now()->addDays(3), now()->addDays(3)->addHour());
+        $this->assertSame(3, $s->fresh()->schedule_version);
+    }
+
+    public function test_reschedule_beyond_max_throws_422(): void
+    {
+        $emp = $this->employee();
+        $consultant = $this->consultant();
+        $s = $this->makeSession($emp, [
+            'consultant_id' => $consultant->id,
+            'scheduled_at' => now()->addDay(),
+            'schedule_version' => 3, // max (ADR 001: total 3 jadwal)
+        ]);
+
+        $this->expect422(fn () => SessionStateMachine::reschedule($s, now()->addDays(2), now()->addDays(2)->addHour()));
+        $this->assertSame(3, $s->fresh()->schedule_version);
+    }
+
+    public function test_reschedule_requires_scheduled_session(): void
+    {
+        $emp = $this->employee();
+        $s = $this->makeSession($emp); // scheduled_at NULL
+
+        $this->expect422(fn () => SessionStateMachine::reschedule($s, now()->addDay(), now()->addDay()->addHour()));
+    }
+
     public function test_cancel_forbidden_from_done(): void
     {
         $emp = $this->employee();

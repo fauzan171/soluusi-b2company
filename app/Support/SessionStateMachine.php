@@ -44,7 +44,38 @@ class SessionStateMachine
             'Sesi tidak bisa dijadwalkan dari status saat ini.'
         );
 
-        $s->update(['scheduled_at' => $start, 'ended_at' => $end]);
+        $s->update([
+            'scheduled_at' => $start,
+            'ended_at' => $end,
+            'schedule_version' => 1,
+        ]);
+
+        return $s;
+    }
+
+    /**
+     * ADR 001 (opsi A): reschedule = pindah ke slot baru, max
+     * config('session.max_schedules_per_session') jadwal total per sesi.
+     * Jadwal awal = version 1 → reschedule ke-2 ditolak saat max=3.
+     */
+    public static function reschedule(PerusahaanSession $s, Carbon $start, Carbon $end): PerusahaanSession
+    {
+        self::require(
+            $s->status === 'scheduled' && $s->scheduled_at !== null,
+            'Hanya sesi terjadwal yang bisa diubah jadwalnya.'
+        );
+
+        $max = (int) config('session.max_schedules_per_session', 3);
+        self::require(
+            $s->schedule_version < $max,
+            "Maksimal {$max} jadwal per sesi tercapai. Batalkan sesi dan buat yang baru."
+        );
+
+        $s->update([
+            'scheduled_at' => $start,
+            'ended_at' => $end,
+            'schedule_version' => $s->schedule_version + 1,
+        ]);
 
         return $s;
     }

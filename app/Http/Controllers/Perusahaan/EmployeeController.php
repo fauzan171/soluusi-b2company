@@ -237,6 +237,12 @@ class EmployeeController extends Controller
         abort_unless($session->employee_id === $employee->id, 403);
         abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa diubah.');
 
+        // ADR 001: max 3 jadwal total per sesi. Enforced di perusahaan flow;
+        // ponytail: sekolah/BookingService belum — samakan saat reschedule mereka dimigrasi.
+        $max = (int) config('session.max_schedules_per_session', 3);
+        abort_if($session->schedule_version >= $max, 422,
+            "Maksimal {$max} jadwal per sesi tercapai. Batalkan sesi dan buat yang baru.");
+
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
         \App\Services\BookingService::reschedule('perusahaan', $employee, $session, $r->integer('schedule_id'));
 

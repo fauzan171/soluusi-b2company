@@ -48,6 +48,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Max Schedules Per Session (ADR 001, opsi A)
+    |--------------------------------------------------------------------------
+    |
+    | Total jadwal berbeda yang boleh dimiliki satu sesi sepanjang hidupnya:
+    | 1 jadwal awal + (max - 1) reschedule. Reschedule yang membuat total
+    | melewati batas ditolak 422. Tracked via schedule_version.
+    |
+    */
+
+    'max_schedules_per_session' => (int) env('MAX_SCHEDULES_PER_SESSION', 3),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session Lifetime
     |--------------------------------------------------------------------------
     |

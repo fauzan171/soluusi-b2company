@@ -77,11 +77,13 @@ class BookingService
                 ->orderBy('id')->lockForUpdate()->get();
             $session = $row->sessions()->whereKey($session->id)->lockForUpdate()->firstOrFail();
             abort_if($session->schedule_id === $scheduleId, 422, 'Pilih slot baru.');
+            // ADR 001: version jadwal lanjut ke sesi pengganti (cancel+book = reschedule).
+            $nextVersion = (int) ($session->schedule_version ?? 0) + 1;
             self::cancel($vertical, $session, 'Perubahan jadwal');
             return self::book($vertical, $row, [
                 'schedule_id' => $scheduleId, 'konsultan_type' => $session->konsultan_type,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
-            ]);
+            ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
         });
     }
 
@@ -113,7 +115,8 @@ class BookingService
                 'consultant_id' => $slot->consultant_id, 'schedule_id' => $slot->id,
                 'konsultan_type' => $data['konsultan_type'], 'status' => 'scheduled',
                 'scheduled_at' => $slot->started_at, 'ended_at' => $slot->ended_at,
-                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode] : []),
+                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode]
+                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1)]),
             ]);
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;
