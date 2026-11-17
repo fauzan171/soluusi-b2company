@@ -56,8 +56,11 @@
                     </td>
                     <td class="px-5 py-3">
                         <div class="flex flex-wrap items-center gap-2">
+                            @if($cs->scheduled_at)
                             <a href="{{ route('consultant.chat', $cs) }}" class="inline-flex items-center rounded-lg bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition-colors">Chat</a>
+                            @endif
                             @if(!$cs->scheduled_at && $cs->status === 'scheduled')
+                            <a href="{{ route('consultant.sessions.propose-slots.form', $cs) }}" class="inline-flex items-center rounded-lg border border-pine-300 text-pine-700 px-3 py-1.5 text-xs font-semibold hover:bg-pine-50 transition-colors">Usulkan opsi jadwal</a>
                             <form method="POST" action="{{ route('consultant.sessions.schedule', $cs) }}">
                                 @csrf
                                 <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
