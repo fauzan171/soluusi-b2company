@@ -194,4 +194,4 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Verify:** file exists + markdown lint
 - **Acceptance:** Dokumen lengkap.
 
-## Status: READY-FOR-KULI
+## Status: DONE — Phases A–F complete on branch goal/sekolah-flow-parity
