@@ -31,7 +31,7 @@ class StudentController extends Controller
             $student = $rows->first();
             // Suspend = blok penuh (GET+POST). is_active/consent = blok POST saja.
             abort_if($student->sekolah?->status === 'suspended', 403, 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.');
-            if (!request()->isMethod('GET') && !request()->routeIs('sekolah.booking.cancel')) {
+            if (!request()->isMethod('GET') && !request()->routeIs('sekolah.booking.cancel') && !request()->routeIs('sekolah.siswa.request.cancel')) {
                 abort_unless($student->sekolah?->is_active && $student->parent_consent_at, 403, 'Program/izin wali belum aktif. Hubungi BK.');
             }
             abort_unless($student, 403, 'Akun belum terhubung ke data siswa.');
@@ -179,5 +179,58 @@ class StudentController extends Controller
         \App\Services\BookingService::reschedule('sekolah', $student, $session, $r->integer('schedule_id'));
 
         return redirect()->route('sekolah.student')->with('success', 'Jadwal sesi berhasil diubah.');
+    }
+
+    /** Minta konseling tanpa pilih slot: masuk antrean review BK (paritas F1.1 employee flow). */
+    public function requestConsultation(Request $r)
+    {
+        $student = $this->resolveStudent();
+        $validated = $r->validate([
+            'konsultan_type' => ['required', 'in:psikolog,karir'],
+            'topic_category' => ['nullable', 'string', 'max:100'],
+            'request_notes' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $sekolah = $student->sekolah;
+        abort_if($student->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
+            422, 'Masih ada permintaan menunggu review.');
+
+        $monthStart = now()->startOfMonth();
+        $usedMonth = $student->sessions()
+            ->whereIn('status', ['scheduled', 'done'])
+            ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))->count();
+        abort_if($usedMonth >= $sekolah->sessions_per_student_month, 422, 'Kuota bulan ini habis.');
+
+        // Gate review BK: 'scheduled' + scheduled_at NULL + consultant_id NULL.
+        SekolahSession::create([
+            'sekolah_id' => $sekolah->id,
+            'student_id' => $student->id,
+            'kelas' => $student->kelas,
+            'consultant_id' => null,
+            'konsultan_type' => $validated['konsultan_type'],
+            'topic_category' => $validated['topic_category'] ?? null,
+            'status' => 'scheduled',
+            'scheduled_at' => null,
+            'request_notes' => $validated['request_notes'],
+            'requested_by_user_id' => auth()->id(),
+            'requested_for_role' => 'self',
+        ]);
+
+        return redirect()->route('sekolah.student')
+            ->with('success', 'Permintaan terkirim. Guru BK akan meninjau dan mengatur jadwal konseling.');
+    }
+
+    /** Batalkan permintaan konseling yang masih menunggu review BK (paritas T5.3). */
+    public function cancelPendingRequest(SekolahSession $session)
+    {
+        $student = $this->resolveStudent();
+        abort_unless($session->student_id === $student->id, 403);
+        abort_unless($session->status === 'scheduled' && $session->scheduled_at === null,
+            422, 'Hanya permintaan yang belum terjadwal bisa dibatalkan di sini.');
+
+        \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh siswa sebelum terjadwal');
+
+        return redirect()->route('sekolah.student')
+            ->with('success', 'Permintaan konseling dibatalkan. Kuota kamu kembali.');
     }
 }

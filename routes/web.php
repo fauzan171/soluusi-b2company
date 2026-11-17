@@ -93,6 +93,8 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::post('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
         Route::get('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingForm'])->name('booking');
         Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
+        Route::post('/siswa/request', [\App\Http\Controllers\Sekolah\StudentController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('siswa.request');
+        Route::post('/siswa/request/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('siswa.request.cancel');
         Route::post('/siswa/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
         Route::post('/siswa/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');
     });

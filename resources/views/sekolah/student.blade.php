@@ -3,7 +3,10 @@
 @section('title', 'Portal Siswa — ' . $sekolah->brand)
 
 @section('content')
-<div x-data="{ detail: null, rescheduleId: null }" @keydown.escape.window="detail = null">
+@php
+$pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->scheduled_at === null);
+@endphp
+<div x-data="{ detail: null, rescheduleId: null, requestConsult: false }" @keydown.escape.window="detail = null; requestConsult = false">
     <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-pine-900">Halo, {{ $student->name }}</h1>
         @if($isPreview)
@@ -59,11 +62,132 @@
             </div>
             <span class="text-xs font-semibold text-pine-700 mt-3">Buat jadwal →</span>
         </a>
+
+        {{-- Minta konseling CTA --}}
+        <button type="button" @click="requestConsult = true" class="portal-card p-5 hover:shadow-md transition flex flex-col justify-between text-left">
+            <div>
+                <span class="grid h-10 w-10 place-items-center rounded-2xl bg-pine-50 text-pine-700">
+                    @include('perusahaan.partials.icon', ['name' => 'chat'])
+                </span>
+                <p class="text-sm font-semibold text-pine-900 mt-3">Minta Konseling</p>
+                <p class="text-xs text-gray-500">Butuh teman cerita? Konselor siap dengerin.</p>
+            </div>
+            <span class="text-xs font-semibold text-pine-700 mt-3">Kirim request →</span>
+        </button>
     </div>
+
+    {{-- Modal: minta konseling --}}
+    <div x-show="requestConsult" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
+        <div @click.outside="requestConsult = false" x-show="requestConsult" x-transition.scale class="portal-card w-full max-w-md p-6">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="font-semibold text-pine-900">Minta Konseling</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Request kamu direview guru BK dulu. Setelah disetujui, sistem carikan konselor yang paling siap.</p>
+                </div>
+                <button type="button" @click="requestConsult = false" aria-label="Tutup" class="text-gray-400 hover:text-gray-700 text-lg leading-none">&times;</button>
+            </div>
+
+            @if($errors->any())
+            <div class="mt-4 bg-terra-50 border border-terra-200 rounded-xl p-3 text-xs text-terra-800" role="alert">
+                <p class="font-semibold">Periksa lagi isian kamu.</p>
+                <ul class="mt-1 space-y-0.5 list-disc list-inside">
+                    @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
+            <form method="POST" action="{{ route('sekolah.siswa.request') }}" class="mt-4 space-y-4">
+                @csrf
+
+                <div>
+                    <label for="req_konsultan_type" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Jenis konselor <span class="text-terra-600" aria-hidden="true">*</span>
+                    </label>
+                    <select id="req_konsultan_type" name="konsultan_type" required
+                        aria-invalid="{{ $errors->has('konsultan_type') ? 'true' : 'false' }}"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('konsultan_type') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">
+                        <option value="">— Pilih jenis konselor —</option>
+                        <option value="psikolog" @selected(old('konsultan_type') === 'psikolog')>Psikolog Anak & Remaja</option>
+                        <option value="karir" @selected(old('konsultan_type') === 'karir')>Konselor Karir</option>
+                    </select>
+                    @error('konsultan_type')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="req_topic_category" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Topik <span class="text-xs font-normal text-gray-400">(opsional)</span>
+                    </label>
+                    <input id="req_topic_category" name="topic_category" maxlength="100" value="{{ old('topic_category') }}"
+                        aria-invalid="{{ $errors->has('topic_category') ? 'true' : 'false' }}"
+                        placeholder="Misal: Cemas ujian, Pertemanan, Keluarga"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('topic_category') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">
+                    @error('topic_category')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="req_request_notes" class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Cerita singkat <span class="text-terra-600" aria-hidden="true">*</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mb-2">Tulis apa yang mau kamu bicarakan. Maks. 2.000 karakter.</p>
+                    <textarea id="req_request_notes" name="request_notes" rows="4" maxlength="2000" required
+                        aria-invalid="{{ $errors->has('request_notes') ? 'true' : 'false' }}"
+                        placeholder="Apa yang mau kamu bicarakan?"
+                        class="w-full rounded-lg border px-3 py-2.5 text-sm bg-white transition
+                            {{ $errors->has('request_notes') ? 'border-terra-400 focus:border-terra-500 focus:ring-terra-500' : 'border-gray-300 focus:border-pine-500 focus:ring-pine-500' }}
+                            focus:outline-none focus:ring-2 focus:ring-offset-0">{{ old('request_notes') }}</textarea>
+                    @error('request_notes')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="bg-pine-50 border border-pine-200 rounded-xl p-3 text-xs text-pine-800 leading-relaxed">
+                    <strong class="font-semibold">Rahasia penuh.</strong> Hanya kamu dan konselor yang tahu isi chat ini. Guru BK hanya melihat jumlah agregat.
+                </div>
+
+                <button type="submit"
+                    class="w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-3 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
+                    Kirim Request
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {{-- Permintaan menunggu review BK --}}
+    @if($pendingRequest)
+    <section class="portal-card p-5 mb-6 border-pine-300 bg-pine-50/40">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h3 class="dash-section-title">Permintaan konseling kamu sedang diproses</h3>
+                <p class="text-sm font-medium text-pine-900 mt-2">{{ ucfirst($pendingRequest->konsultan_type) }}
+                    @if($pendingRequest->topic_category) · {{ $pendingRequest->topic_category }}@endif
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    {{ $pendingRequest->consultant_id ? 'Menunggu konfirmasi konselor' : 'Menunggu review guru BK' }}
+                    — kamu dapat kabar begitu jadwal disetujui.
+                </p>
+            </div>
+            <form method="POST" action="{{ route('sekolah.siswa.request.cancel', $pendingRequest) }}"
+                onsubmit="return confirm('Batalkan permintaan konseling ini?')">
+                @csrf
+                <button type="submit" class="shrink-0 text-xs font-semibold text-terra-700 border border-terra-300 rounded-lg px-3 py-2 hover:bg-terra-50 transition">Batalkan permintaan</button>
+            </form>
+        </div>
+    </section>
+    @endif
 
     {{-- Jadwal mendatang — termasuk yang dijadwalkan guru BK --}}
     @php
-    $upcoming = $history->where('status', 'scheduled')->filter(fn ($h) => $h->scheduled_at->isFuture());
+    $upcoming = $history->where('status', 'scheduled')->filter(fn ($h) => $h->scheduled_at && $h->scheduled_at->isFuture());
     @endphp
     @if($upcoming->isNotEmpty())
     <section class="portal-card p-5 mb-6 border-pine-300 bg-pine-50/40">
@@ -98,7 +222,7 @@
     <section class="portal-card p-5">
         <h3 class="dash-section-title">Riwayat sesi kamu</h3>
         <div class="mt-4 space-y-2">
-            @forelse($history as $h)
+            @forelse($history->filter(fn ($h) => !($h->status === 'scheduled' && $h->scheduled_at === null)) as $h)
             <div class="flex items-center justify-between rounded-xl border border-[#e7e2d9] px-4 py-3">
                 <div>
                     <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ ucfirst($h->mode) }}</p>
