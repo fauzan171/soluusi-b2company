@@ -90,6 +90,21 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::post('/review/{session}/approve', [\App\Http\Controllers\Sekolah\BkReviewController::class, 'approve'])->middleware('throttle:10,1')->name('review.approve');
         Route::post('/review/{session}/reject', [\App\Http\Controllers\Sekolah\BkReviewController::class, 'reject'])->middleware('throttle:10,1')->name('review.reject');
     });
+    Route::middleware('role:sekolah_staff,admin')->group(function () {
+        Route::get('/staff', [\App\Http\Controllers\Sekolah\StaffController::class, 'index'])->name('staff');
+        Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
+        Route::post('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');
+        Route::get('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingForm'])->name('staff.booking');
+        Route::post('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingStore'])->middleware('throttle:10,1')->name('staff.booking.store');
+        Route::post('/staff/request', [\App\Http\Controllers\Sekolah\StaffController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('staff.request');
+        Route::post('/staff/request/{session}/cancel', [\App\Http\Controllers\Sekolah\StaffController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('staff.request.cancel');
+        Route::post('/staff/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('staff.booking.cancel');
+        Route::post('/staff/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('staff.booking.reschedule');
+        Route::get('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'student'])->name('staff.chat');
+        Route::post('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentStore'])->middleware('throttle:60,1')->name('staff.chat.store');
+        Route::post('/staff/sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentEnd'])->name('staff.chat.end');
+        Route::post('/staff/sessions/{session}/rate', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentRate'])->name('staff.chat.rate');
+    });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');
         Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');

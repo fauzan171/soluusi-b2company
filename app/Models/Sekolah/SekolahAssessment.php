@@ -35,6 +35,13 @@ class SekolahAssessment extends Model
         'taken_at' => 'datetime',
     ];
 
+    /** E.1: agregat hanya menghitung asesmen siswa, bukan staf. */
+    public function scopeStudentRoster($q)
+    {
+        return $q->whereIn('student_id', SekolahStudent::select('id')
+            ->where('type', SekolahStudent::TYPE_STUDENT));
+    }
+
     /** Band WHO-5 — sama dengan PerusahaanAssessment::band() (satu formula). */
     public function band(): string
     {

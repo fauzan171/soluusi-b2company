@@ -99,7 +99,11 @@ class BookingService
             $tenantKey = $vertical.'_id';
             $tenant = $row->$vertical;
             $school = $vertical === 'sekolah';
-            abort_unless($tenant?->is_active && ($school ? $row->parent_consent_at : $row->consent_at), 403, 'Program/consent belum aktif.');
+            // E.1: staf sekolah (dewasa, tanpa wali) pakai consent_at; siswa tetap wajib parent_consent_at.
+            $consentOk = $school
+                ? ($row->isStaff() ? (bool) $row->consent_at : (bool) $row->parent_consent_at)
+                : (bool) $row->consent_at;
+            abort_unless($tenant?->is_active && $consentOk, 403, 'Program/consent belum aktif.');
             abort_unless($slot->$tenantKey === $row->$tenantKey && !$slot->klinik_id
                 && $slot->status === Schedule::STATUS_CONFIRMED && $slot->started_at->isFuture()
                 && $slot->ended_at && $slot->ended_at->gt($slot->started_at)

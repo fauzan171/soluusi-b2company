@@ -9,7 +9,7 @@
 
     @if(session('error'))<div class="mb-4 p-3 rounded-xl bg-red-100 text-red-800 text-sm">{{ session('error') }}</div>@endif
 
-    <form method="POST" action="{{ route('sekolah.booking.store') }}" class="portal-card p-5 space-y-5" x-data="{ type: @old('konsultan_type', 'psikolog') }">
+    <form method="POST" action="{{ $action ?? route('sekolah.booking.store') }}" class="portal-card p-5 space-y-5" x-data="{ type: @old('konsultan_type', 'psikolog') }">
         @csrf
         <div>
             <label for="konsultan_type" class="block text-sm font-medium mb-2">Jenis konsultan</label>

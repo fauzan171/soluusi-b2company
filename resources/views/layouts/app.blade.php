@@ -27,6 +27,11 @@
         request()->routeIs('consultant.*') => [
             ['route' => 'consultant.sessions', 'pattern' => 'consultant.sessions*', 'label' => 'Sesi Saya', 'icon' => 'calendar'],
         ],
+        $isSekolahRoute && $role === 'sekolah_staff' => [
+            ['route' => 'sekolah.staff', 'pattern' => 'sekolah.staff', 'label' => 'Dashboard', 'icon' => 'heart'],
+            ['route' => 'sekolah.staff.assessment.form', 'pattern' => 'sekolah.staff.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
+            ['route' => 'sekolah.staff.booking', 'pattern' => 'sekolah.staff.booking*', 'label' => 'Booking', 'icon' => 'calendar'],
+        ],
         $isSekolahRoute => [
             ['route' => 'sekolah.student', 'pattern' => 'sekolah.student', 'label' => 'Dashboard', 'icon' => 'heart'],
             ['route' => 'sekolah.assessment.form', 'pattern' => 'sekolah.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],

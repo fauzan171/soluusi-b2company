@@ -11,6 +11,10 @@ class SekolahStudent extends Model
 {
     use HasFactory;
 
+    /** Orang di program sekolah: siswa terdaftar atau staf (guru/karyawan). */
+    public const TYPE_STUDENT = 'student';
+    public const TYPE_STAFF = 'staff';
+
     protected static function booted(): void
     {
         static::addGlobalScope(new TenantScope('sekolah'));
@@ -18,6 +22,7 @@ class SekolahStudent extends Model
 
     protected $fillable = [
         'sekolah_id',
+        'type',
         'kelas',
         'user_id',
         'name',
@@ -27,10 +32,19 @@ class SekolahStudent extends Model
         'consent_at',
     ];
 
+    protected $attributes = [
+        'type' => self::TYPE_STUDENT,
+    ];
+
     protected $casts = [
         'consent_at' => 'datetime',
         'parent_consent_at' => 'datetime',
     ];
+
+    public function isStaff(): bool
+    {
+        return $this->type === self::TYPE_STAFF;
+    }
 
     public function sekolah()
     {
