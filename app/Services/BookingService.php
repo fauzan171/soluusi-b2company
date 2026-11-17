@@ -120,7 +120,7 @@ class BookingService
                 'konsultan_type' => $data['konsultan_type'], 'status' => 'scheduled',
                 'scheduled_at' => $slot->started_at, 'ended_at' => $slot->ended_at,
                 ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode]
-                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1)]),
+                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $slot->mode ?? 'online']),
             ]);
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;

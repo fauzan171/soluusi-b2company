@@ -180,7 +180,7 @@ class HrReviewTest extends TestCase
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
             'topic_category' => 'Stress',
-            'body' => 'Saya butuh konsultasi.',
+            'body' => 'Saya butuh konsultasi.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
 
         $session = PerusahaanSession::first();
@@ -196,7 +196,7 @@ class HrReviewTest extends TestCase
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
             'topic_category' => 'Stress',
-            'body' => 'Saya butuh konsultasi soal burnout.',
+            'body' => 'Saya butuh konsultasi soal burnout.', 'mode' => 'online',
         ])->assertRedirect();
 
         $this->assertSame('Saya butuh konsultasi soal burnout.', PerusahaanSession::first()->request_notes);
@@ -236,7 +236,7 @@ class HrReviewTest extends TestCase
 
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Request ulang setelah ditolak.',
+            'body' => 'Request ulang setelah ditolak.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
 
         $this->assertSame(2, PerusahaanSession::count());

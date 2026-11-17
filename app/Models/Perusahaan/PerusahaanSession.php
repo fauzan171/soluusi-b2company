@@ -40,6 +40,7 @@ class PerusahaanSession extends Model
         'no_show_party',
         'request_notes',
         'schedule_version',
+        'mode',
     ];
 
     protected $casts = [

@@ -393,6 +393,7 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             'topic_category' => ['nullable', 'string', 'max:100'],
             'body' => ['required', 'string', 'max:2000'],
+            'mode' => ['required', 'in:online,offline'],
         ]);
 
         $perusahaan = $employee->perusahaan;
@@ -418,6 +419,7 @@ class EmployeeController extends Controller
             'status' => 'scheduled',
             'scheduled_at' => null,
             'request_notes' => $validated['body'],
+            'mode' => $validated['mode'],
         ]);
 
         return redirect()->route('perusahaan.employee')

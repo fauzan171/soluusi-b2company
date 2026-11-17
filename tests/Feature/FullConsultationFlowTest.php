@@ -70,7 +70,7 @@ class FullConsultationFlowTest extends TestCase
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
             'topic_category' => 'Stress',
-            'body' => 'Butuh sesi konsultasi.',
+            'body' => 'Butuh sesi konsultasi.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
 
         $session = PerusahaanSession::firstOrFail();
@@ -177,7 +177,7 @@ class FullConsultationFlowTest extends TestCase
         // Employee request
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Mohon sesi.',
+            'body' => 'Mohon sesi.', 'mode' => 'online',
         ])->assertRedirect();
         $session = PerusahaanSession::firstOrFail();
 
@@ -201,7 +201,7 @@ class FullConsultationFlowTest extends TestCase
         // Employee bisa request lagi (quota kembali)
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Request ulang.',
+            'body' => 'Request ulang.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
 
         $this->assertSame(2, PerusahaanSession::count());
@@ -218,7 +218,7 @@ class FullConsultationFlowTest extends TestCase
         // Employee request → pending
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Pending request.',
+            'body' => 'Pending request.', 'mode' => 'online',
         ])->assertRedirect();
 
         $session = PerusahaanSession::firstOrFail();
@@ -240,7 +240,7 @@ class FullConsultationFlowTest extends TestCase
         // Employee bisa request lagi setelah sweep
         $this->actingAs($empUser)->post(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Setelah sweep.',
+            'body' => 'Setelah sweep.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
         $this->assertSame(2, PerusahaanSession::count());
     }
