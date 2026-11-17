@@ -73,6 +73,7 @@ class ChatController extends Controller
         $this->authorize('chat', $session);
 
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
+        abort_unless($session->scheduled_at !== null, 422, 'Sesi belum dijadwalkan.');
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
 
@@ -89,6 +90,7 @@ class ChatController extends Controller
         $this->authorize('chat', $session);
 
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
+        abort_unless($session->scheduled_at !== null, 422, 'Sesi belum dijadwalkan.');
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
 
