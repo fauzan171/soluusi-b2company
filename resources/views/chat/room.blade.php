@@ -1,6 +1,12 @@
 @extends('layouts.app')
 
 @php($title = 'Chat Konsultasi')
+@php
+    // Vertical-agnostic action URLs — default perusahaan (CAP), controller SAP override.
+    $endUrl = $endUrl ?? route('perusahaan.chat.end', $session);
+    $rateUrl = $rateUrl ?? route('perusahaan.chat.rate', $session);
+    $startUrl = $startUrl ?? route('consultant.chat.start', $session);
+@endphp
 
 @section('content')
 {{-- ponytail: polling 5s vanilla JS dengan backoff saat error. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
@@ -38,13 +44,13 @@
         @if($isEmployee)
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white shrink-0">
             @if($session->status === 'scheduled')
-            <form method="POST" action="{{ route('perusahaan.chat.end', $session) }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
+            <form method="POST" action="{{ $endUrl }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
                 @csrf
                 <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
                 <span class="text-xs text-gray-400">Chat akan ditutup setelah sesi diakhiri.</span>
             </form>
             @elseif($session->status === 'done' && !$session->rating)
-            <form method="POST" action="{{ route('perusahaan.chat.rate', $session) }}" class="flex items-center gap-3">
+            <form method="POST" action="{{ $rateUrl }}" class="flex items-center gap-3">
                 @csrf
                 <label class="text-sm text-gray-600">Rating:</label>
                 <select name="rating" class="rounded-lg border border-[#e7e2d9] px-2 py-1 text-sm">
@@ -65,12 +71,12 @@
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-3 shrink-0">
             @if($session->status === 'scheduled')
                 @if(!$session->checked_in_at)
-                <form method="POST" action="{{ route('consultant.chat.start', $session) }}">
+                <form method="POST" action="{{ $startUrl }}">
                     @csrf
                     <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Mulai sesi</button>
                 </form>
                 @endif
-                <form method="POST" action="{{ route('consultant.chat.end', $session) }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
+                <form method="POST" action="{{ $endUrl }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
                     @csrf
                     <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
                 </form>

@@ -97,6 +97,10 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::post('/siswa/request/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('siswa.request.cancel');
         Route::post('/siswa/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
         Route::post('/siswa/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');
+        Route::get('/siswa/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'student'])->name('chat');
+        Route::post('/siswa/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentStore'])->middleware('throttle:60,1')->name('chat.store');
+        Route::post('/siswa/sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentEnd'])->name('chat.end');
+        Route::post('/siswa/sessions/{session}/rate', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentRate'])->name('chat.rate');
     });
 });
 
@@ -148,6 +152,11 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('chat.store');
     Route::post('/sessions/{session}/start', [\App\Http\Controllers\ChatController::class, 'consultantStart'])->name('chat.start');
     Route::post('/sessions/{session}/end', [\App\Http\Controllers\ChatController::class, 'consultantEnd'])->name('chat.end');
+    // Sesi sekolah (SAP) — room + start/end terpisah dari CAP (model binding beda).
+    Route::get('/sekolah-sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultant'])->name('sekolah.chat');
+    Route::post('/sekolah-sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('sekolah.chat.store');
+    Route::post('/sekolah-sessions/{session}/start', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantStart'])->name('sekolah.chat.start');
+    Route::post('/sekolah-sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantEnd'])->name('sekolah.chat.end');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---

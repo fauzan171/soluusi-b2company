@@ -206,12 +206,18 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                         @endif
                     </p>
                 </div>
-                <a href="{{ \App\Support\GCalLink::addLink('Konseling — ' . ucfirst($h->konsultan_type), $h->scheduled_at, 'Sesi konseling rahasia via program ' . $sekolah->brand . ($h->mode === 'offline' ? '. Lokasi: ruang BK sekolah.' : '. Link online dikirim mendekati jadwal.'), $h->mode === 'offline' ? 'Ruang BK ' . $sekolah->brand : null) }}"
-                    target="_blank" rel="noopener"
-                    class="shrink-0 text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
-                    Google Calendar
-                </a>
+                <div class="flex items-center gap-2 shrink-0">
+                    @if($h->consultant_id)
+                    <a href="{{ route('sekolah.chat', $h) }}"
+                        class="text-xs font-semibold bg-pine-700 text-white rounded-lg px-3 py-1.5 hover:bg-pine-800">Chat</a>
+                    @endif
+                    <a href="{{ \App\Support\GCalLink::addLink('Konseling — ' . ucfirst($h->konsultan_type), $h->scheduled_at, 'Sesi konseling rahasia via program ' . $sekolah->brand . ($h->mode === 'offline' ? '. Lokasi: ruang BK sekolah.' : '. Link online dikirim mendekati jadwal.'), $h->mode === 'offline' ? 'Ruang BK ' . $sekolah->brand : null) }}"
+                        target="_blank" rel="noopener"
+                        class="text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
+                        Google Calendar
+                    </a>
+                </div>
             </div>
             @endforeach
         </div>
