@@ -34,6 +34,7 @@
                     <th class="px-5 py-3 font-medium">Jadwal</th>
                     <th class="px-5 py-3 font-medium">Karyawan</th>
                     <th class="px-5 py-3 font-medium">Perusahaan</th>
+                    <th class="px-5 py-3 font-medium">Mode</th>
                     <th class="px-5 py-3 font-medium">Status</th>
                     <th class="px-5 py-3 font-medium">Aksi</th>
                 </tr>
@@ -51,6 +52,9 @@
                     </td>
                     <td class="px-5 py-3">Anonim #{{ $cs->employee_id }}</td>
                     <td class="px-5 py-3">{{ $cs->perusahaan?->brand ?? '—' }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{{ ($cs->mode ?? 'online') === 'offline' ? 'Tatap muka' : 'Online' }}</span>
+                    </td>
                     <td class="px-5 py-3">
                         <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $badge($cs->status) }}">{{ $label($cs->status) }}</span>
                     </td>

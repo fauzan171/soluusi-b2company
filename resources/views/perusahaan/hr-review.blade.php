@@ -45,6 +45,7 @@
             <p class="text-sm font-semibold text-pine-900">{{ $session->employee?->name ?? '—' }}
                 <span class="font-normal text-gray-400">·</span>
                 <span class="text-xs font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $typeLabels[$session->konsultan_type] ?? ucfirst($session->konsultan_type) }}</span>
+                <span class="text-xs font-semibold bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">{{ ($session->mode ?? 'online') === 'offline' ? 'Tatap muka' : 'Online' }}</span>
             </p>
             <p class="text-xs text-gray-500 mt-1">dikirim {{ $session->created_at->diffForHumans() }}</p>
             @if($session->topic_category)
