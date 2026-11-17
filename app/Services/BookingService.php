@@ -45,6 +45,21 @@ class BookingService
         return false;
     }
 
+    /**
+     * D.3: satu-satunya kalkulasi kuota bulan berjalan. Request pending review
+     * (scheduled + scheduled_at NULL) ikut memakai kuota karena ia mereservasi slot.
+     */
+    public static function monthQuotaUsed($row): int
+    {
+        $start = \Illuminate\Support\Carbon::now()->startOfMonth();
+        return $row->sessions()
+            ->where(fn ($q) => $q->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $start->copy()->addMonth())
+                ->orWhere(fn ($q2) => $q2->whereNull('scheduled_at')->where('status', 'scheduled')))
+            ->where(fn ($q) => $q->whereIn('status', ['scheduled', 'done'])
+                ->orWhere(fn ($q2) => $q2->whereIn('status', ['cancelled', 'no_show'])->where('quota_consumed', true)))
+            ->count();
+    }
+
     public static function quotaUsed($row, $date, ?int $except = null): int
     {
         $start = \Illuminate\Support\Carbon::parse($date)->startOfMonth();
@@ -109,7 +124,7 @@ class BookingService
                 && $slot->ended_at && $slot->ended_at->gt($slot->started_at)
                 && ConsultantPool::validChoice($vertical, $tenant->id, $slot->consultant_id, $data['konsultan_type'])
                 && $slot->consultant?->is_active && $slot->consultant?->status === Consultant::ACCEPT, 422, 'Slot/konsultan tidak tersedia.');
-            abort_if(self::quotaUsed($row, $slot->started_at) >= ($school ? $tenant->sessions_per_student_month : $tenant->sessions_per_employee_month), 403, 'Kuota bulan tanggal sesi sudah habis.');
+            abort_if(($school ? self::quotaUsed($row, $slot->started_at) : self::monthQuotaUsed($row)) >= ($school ? $tenant->sessions_per_student_month : $tenant->sessions_per_employee_month), 403, 'Kuota bulan tanggal sesi sudah habis.');
             if (self::blocked($slot)) {
                 throw ValidationException::withMessages(['schedule_id' => 'Slot sudah dipesan. Pilih slot lain.']);
             }
