@@ -202,15 +202,18 @@ class HrReviewTest extends TestCase
         $this->assertSame('Saya butuh konsultasi soal burnout.', PerusahaanSession::first()->request_notes);
     }
 
-    public function test_hr_review_page_renders_request_notes()
+    public function test_hr_review_page_never_renders_request_notes()
     {
+        // Dibalik dari assertSeeText: isi keluhan hanya boleh dibaca karyawan +
+        // konsultan yang ditugaskan. HR cukup jenis konsultan + kategori topik
+        // untuk menugaskan. Lihat RequestNotesPrivacyTest untuk invariant penuh.
         [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
         $session = $this->pendingSession($p, $emp);
         $session->update(['request_notes' => 'Saya butuh konsultasi soal kecemasan.']);
 
         $this->actingAs($hrUser)->get(route('perusahaan.review'))
             ->assertOk()
-            ->assertSeeText('Saya butuh konsultasi soal kecemasan.');
+            ->assertDontSeeText('Saya butuh konsultasi soal kecemasan.');
     }
 
     public function test_hr_approve_keeps_request_notes_untouched()

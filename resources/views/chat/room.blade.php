@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@php($title = 'Chat Konsultasi')
 @php
+    $title = 'Chat Konsultasi';
     // Vertical-agnostic action URLs — default perusahaan (CAP), controller SAP override.
     $endUrl = $endUrl ?? route('perusahaan.chat.end', $session);
     $rateUrl = $rateUrl ?? route('perusahaan.chat.rate', $session);
@@ -39,6 +39,15 @@
                 <span class="h-1.5 w-1.5 rounded-full bg-gray-400" data-dot></span><span data-label>menyambung…</span>
             </span>
         </header>
+
+        {{-- Keluhan awal: hanya konsultan yang membaca (HR/BK tidak pernah).
+             Ini konteks yang diminta karyawan saat mengajukan konsultasi. --}}
+        @if(!$isEmployee && !empty($session->request_notes))
+        <details class="px-5 py-3 border-b border-[#e7e2d9] bg-amber-50/50 shrink-0" open>
+            <summary class="text-xs font-semibold text-pine-900 cursor-pointer">Cerita awal dari {{ $peerLabel }} (rahasia)</summary>
+            <p class="mt-2 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $session->request_notes }}</p>
+        </details>
+        @endif
 
         {{-- End session + rating --}}
         @if($isEmployee)

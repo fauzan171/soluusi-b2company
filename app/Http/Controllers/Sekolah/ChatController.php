@@ -79,7 +79,8 @@ class ChatController extends Controller
         PervormaService::evaluate('sap', $session->sekolah);
         GenerateSessionSummary::dispatch($session->id, 'sekolah');
 
-        return redirect()->route('consultant.sekolah.chat', $session)->with('success', 'Sesi diakhiri.');
+        // Redirect ke daftar sesi, bukan room: policy chat() menolak sesi done.
+        return redirect()->route('consultant.sessions')->with('success', 'Sesi diakhiri.');
     }
 
     /** Siswa: akhiri sesi (mark done) — mirror employeeEnd CAP. */
@@ -94,7 +95,8 @@ class ChatController extends Controller
         PervormaService::evaluate('sap', $session->sekolah);
         GenerateSessionSummary::dispatch($session->id, 'sekolah');
 
-        return redirect()->route($prefix.'.chat', $session)
+        // Redirect ke portal, bukan room: policy chat() menolak sesi done.
+        return redirect()->route($prefix === 'sekolah' ? 'sekolah.student' : 'sekolah.staff')
             ->with('success', 'Sesi diakhiri. Silakan beri rating.');
     }
 

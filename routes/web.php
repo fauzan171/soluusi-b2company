@@ -175,6 +175,7 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sekolah-sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('sekolah.chat.store');
     Route::post('/sekolah-sessions/{session}/start', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantStart'])->name('sekolah.chat.start');
     Route::post('/sekolah-sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantEnd'])->name('sekolah.chat.end');
+    Route::post('/sekolah-sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'scheduleSekolah'])->middleware('throttle:10,1')->name('sekolah.schedule');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---

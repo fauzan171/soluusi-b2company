@@ -64,6 +64,53 @@ class SekolahPervormaTriggerTest extends TestCase
         ]);
     }
 
+    /**
+     * E.1: komisi SAP menghitung SEMUA sesi done termasuk staf. Sekolah::sessions()
+     * sengaja mengecualikan staf demi agregat wellbeing BK — kalau Pervorma ikut
+     * memakainya, komisi associate hilang untuk sesi yang benar-benar terjadi.
+     */
+    public function test_staff_sessions_count_toward_sap_commission(): void
+    {
+        config()->set('pervorma.sap.stages', [
+            1 => ['trigger' => 2, 'amount' => 300_000],
+        ]);
+
+        $sekolah = Sekolah::create([
+            'name' => 'SMA Staf Pv', 'brand' => 'SMA Staf Pv',
+            'tingkat' => 'SMA', 'student_count' => 10,
+            'sessions_per_student_month' => 2, 'is_active' => true,
+            'mou_at' => now(),
+        ]);
+        $student = SekolahStudent::create([
+            'sekolah_id' => $sekolah->id, 'name' => 'Siswa Pv3',
+            'email' => 'siswa@pv3.test', 'kelas' => 'X IPA 1',
+        ]);
+        $staff = SekolahStudent::create([
+            'sekolah_id' => $sekolah->id, 'name' => 'Staf Pv3',
+            'email' => 'staf@pv3.test', 'type' => SekolahStudent::TYPE_STAFF,
+            'consent_at' => now(),
+        ]);
+
+        SekolahSession::create([
+            'sekolah_id' => $sekolah->id, 'student_id' => $student->id,
+            'kelas' => $student->kelas, 'konsultan_type' => 'psikolog',
+            'status' => 'done', 'scheduled_at' => now()->subDays(2), 'completed_at' => now()->subDays(2),
+        ]);
+        SekolahSession::create([
+            'sekolah_id' => $sekolah->id, 'student_id' => $staff->id,
+            'konsultan_type' => 'psikolog', 'origin' => 'self_booking',
+            'status' => 'done', 'scheduled_at' => now()->subDay(), 'completed_at' => now()->subDay(),
+        ]);
+
+        \App\Services\PervormaService::evaluate('sap', $sekolah->fresh());
+
+        // 2 sesi done (1 siswa + 1 staf) → trigger 2 tercapai.
+        $this->assertDatabaseHas('sekolah_pervormas', [
+            'sekolah_id' => $sekolah->id,
+            'stage' => 1,
+        ]);
+    }
+
     public function test_no_trigger_when_status_not_done(): void
     {
         $sekolah = Sekolah::create([
