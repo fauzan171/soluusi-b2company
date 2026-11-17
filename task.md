@@ -23,6 +23,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 **Depends on:** none
 
 #### Task A.1: Migration — kolom polymorphic + field parity (S, parallel_group: schema)
+- **Status:** DONE
 - **Files:**
   - `database/migrations/2026_11_17_000001_add_sekolah_support_to_chat_tables.php` (new)
   - `database/migrations/2026_11_17_000002_add_parity_fields_to_sekolah_sessions_table.php` (new)
@@ -33,6 +34,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Acceptance:** Kolom ada di kedua DB sqlite+mysql schema; rollback sukses.
 
 #### Task A.2: Update model relations & fillable (S, parallel_group: schema)
+- **Status:** DONE
 - **Files:**
   - `app/Models/ChatMessage.php`
   - `app/Models/SessionSummary.php`

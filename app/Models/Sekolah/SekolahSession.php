@@ -2,9 +2,13 @@
 
 namespace App\Models\Sekolah;
 
+use App\Models\ChatMessage;
 use App\Models\Consultant;
 use App\Models\Model;
 use App\Models\Scopes\TenantScope;
+use App\Models\SessionSlotProposal;
+use App\Models\SessionSummary;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SekolahSession extends Model
@@ -39,6 +43,10 @@ class SekolahSession extends Model
         'location',
         'delivery_status',
         'no_show_party',
+        'request_notes',
+        'schedule_version',
+        'requested_by_user_id',
+        'requested_for_role',
     ];
 
     protected $casts = [
@@ -60,5 +68,25 @@ class SekolahSession extends Model
     public function consultant()
     {
         return $this->belongsTo(Consultant::class);
+    }
+
+    public function requestedBy()
+    {
+        return $this->belongsTo(User::class, 'requested_by_user_id');
+    }
+
+    public function chatMessages()
+    {
+        return $this->hasMany(ChatMessage::class, 'sekolah_session_id')->orderBy('id');
+    }
+
+    public function sessionSummaries()
+    {
+        return $this->hasMany(SessionSummary::class, 'sekolah_session_id');
+    }
+
+    public function slotProposals()
+    {
+        return $this->hasMany(SessionSlotProposal::class, 'sekolah_session_id');
     }
 }
