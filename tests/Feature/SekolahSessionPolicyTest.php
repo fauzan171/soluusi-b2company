@@ -254,6 +254,19 @@ class SekolahSessionPolicyTest extends TestCase
         $this->assertFalse($this->policy->bkReview($f['studentUserA'], $f['session']));
     }
 
+    public function test_bk_review_sekolah_staff_denied(): void
+    {
+        $f = $this->fixtures();
+        $this->assertFalse($this->policy->bkReview($f['staffA'], $f['session']));
+    }
+
+    public function test_bk_review_superadmin_allowed(): void
+    {
+        $f = $this->fixtures();
+        $admin = $this->makeUser('admin', 'admin@test.local');
+        $this->assertTrue($this->policy->bkReview($admin, $f['session']));
+    }
+
     // ---------- requestFor ----------
     public function test_request_for_bk_same_tenant_allowed(): void
     {

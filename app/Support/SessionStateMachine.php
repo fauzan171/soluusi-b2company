@@ -23,8 +23,11 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  */
 class SessionStateMachine
 {
-    /** pending review (scheduled + scheduled_at NULL) → consultant assigned. */
-    public static function assign(PerusahaanSession $s, int $consultantId): PerusahaanSession
+    /**
+     * pending review (scheduled + scheduled_at NULL) → consultant assigned.
+     * D.2: type-hint diperlebar ke Model — dipakai PerusahaanSession + SekolahSession.
+     */
+    public static function assign(Model $s, int $consultantId): Model
     {
         self::require(
             $s->status === 'scheduled' && $s->scheduled_at === null,
@@ -37,7 +40,7 @@ class SessionStateMachine
     }
 
     /** scheduled (assigned, tanpa jadwal) → scheduled dengan jadwal (booking). */
-    public static function schedule(PerusahaanSession $s, Carbon $start, Carbon $end): PerusahaanSession
+    public static function schedule(Model $s, Carbon $start, Carbon $end): Model
     {
         self::require(
             $s->status === 'scheduled' && $s->scheduled_at === null && $s->consultant_id !== null,

@@ -55,10 +55,10 @@ class SekolahSessionPolicy
             && $session->status === 'done';
     }
 
-    /** Hanya BK tenant yang sama (untuk approve/reject). */
+    /** Hanya BK tenant yang sama (untuk approve/reject); superadmin boleh (view-as ops). */
     public function bkReview(User $user, SekolahSession $session): bool
     {
-        return $this->isTenantBk($user, $session);
+        return $user->role?->name === 'admin' || $this->isTenantBk($user, $session);
     }
 
     /** Hanya BK tenant yang sama (request atas nama siswa). */

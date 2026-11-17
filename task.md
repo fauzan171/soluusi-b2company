@@ -60,6 +60,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 **Depends on:** Phase A
 
 #### Task B.1: Student self-request endpoint (M, parallel_group: request)
+- **Status:** DONE (da57ca0)
 - **Files:**
   - `app/Http/Controllers/Sekolah/StudentController.php` (extend)
   - `resources/views/sekolah/siswa/request-form.blade.php` (new, reuse komponen PR #4)
@@ -69,6 +70,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Acceptance:** Test: student POST → session pending dibuat; unauthorized role → 403; invalid payload → 422.
 
 #### Task B.2: BK refer/request atas nama siswa + auto-provision (M, parallel_group: request)
+- **Status:** DONE (fbc9acf)
 - **Files:**
   - `app/Http/Controllers/Sekolah/RosterController.php` (extend `refer`)
   - `app/Services/Sekolah/StudentProvisioner.php` (new)
@@ -79,6 +81,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Acceptance:** Test: BK refer siswa baru → user dibuat, invitation queued, session pending; refer siswa existing → reuse user.
 
 #### Task B.3: Orangtua email-only (no login) (S, parallel_group: request)
+- **Status:** DONE (fbc9acf)
 - **Files:**
   - `app/Http/Controllers/Sekolah/RosterController.php` (extend `refer` — parent mode)
   - `app/Mail/Sekolah/ParentConsultationRequested.php` (new)
@@ -102,6 +105,7 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Acceptance:** Test: student kirim pesan → `chat_messages.sekolah_session_id` terisi; consultant start/end; rate 1-5 tersimpan.
 
 #### Task C.2: Extract GenerateSessionSummary → polymorphic (M, parallel_group: chat)
+- **Status:** DONE (2771057)
 - **Files:**
   - `app/Jobs/GenerateSessionSummary.php` (refactor)
   - `app/Services/SessionSummaryGenerator.php` (new, logic dipindah)

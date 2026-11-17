@@ -86,6 +86,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
         Route::post('/students/{student}/consent', [\App\Http\Controllers\Sekolah\RosterController::class, 'consent'])->name('students.consent');
         Route::post('/students/invite', [\App\Http\Controllers\Sekolah\RosterController::class, 'invite'])->name('students.invite');
+        Route::get('/review', [\App\Http\Controllers\Sekolah\BkReviewController::class, 'index'])->name('review');
+        Route::post('/review/{session}/approve', [\App\Http\Controllers\Sekolah\BkReviewController::class, 'approve'])->middleware('throttle:10,1')->name('review.approve');
+        Route::post('/review/{session}/reject', [\App\Http\Controllers\Sekolah\BkReviewController::class, 'reject'])->middleware('throttle:10,1')->name('review.reject');
     });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');
