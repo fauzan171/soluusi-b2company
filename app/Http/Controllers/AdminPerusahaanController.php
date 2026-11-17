@@ -63,6 +63,8 @@ class AdminPerusahaanController extends Controller
                 'user_id' => $hr->id,
                 'role' => 'hr_admin',
             ]);
+            // C3: tenant activated (mou_at) — evaluasi pervorma CAP (idempotent).
+            \App\Services\PervormaService::evaluate('cap', $perusahaan);
             return [$perusahaan, $hr];
         });
 

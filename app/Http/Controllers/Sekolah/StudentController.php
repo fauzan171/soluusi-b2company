@@ -29,6 +29,8 @@ class StudentController extends Controller
             $rows = SekolahStudent::where('user_id', $user->id)->get();
             abort_unless($rows->count() === 1, 403, 'Membership ambigu. Hubungi ops.');
             $student = $rows->first();
+            // Suspend = blok penuh (GET+POST). is_active/consent = blok POST saja.
+            abort_if($student->sekolah?->status === 'suspended', 403, 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.');
             if (!request()->isMethod('GET') && !request()->routeIs('sekolah.booking.cancel')) {
                 abort_unless($student->sekolah?->is_active && $student->parent_consent_at, 403, 'Program/izin wali belum aktif. Hubungi BK.');
             }

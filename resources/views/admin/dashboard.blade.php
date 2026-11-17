@@ -3,7 +3,18 @@
 @section('content')
 <div class="flex items-baseline justify-between mb-6">
     <h1 class="text-xl font-bold">Admin Dashboard</h1>
-    <div class="flex gap-4 text-sm">
+    <div class="flex gap-4 text-sm items-center">
+        @php
+            // A7: badge jumlah antrean ops terpadu (sesi review + klinik pending + pervorma due + aktivasi pending).
+            $opsQueueCount = \App\Models\ConsultationSession::where('needs_ops_review', true)->whereNull('completion_verified_at')->count()
+                + \App\Models\Klinik\Klinik::where('is_active', false)->count()
+                + \App\Models\Klinik\HapPervorma::where('status', 'due')->count()
+                + \App\Models\Perusahaan\Perusahaan::where('is_active', false)->count()
+                + \App\Models\Sekolah\Sekolah::where('is_active', false)->count();
+        @endphp
+        <a href="{{ route('admin.ops-queue.index') }}" class="text-emerald-700 font-semibold hover:underline">
+            Ops antrean: {{ $opsQueueCount }}{{ $opsQueueCount === 0 ? ' <span class="ops-queue-badge-zero"></span>' : '' }}
+        </a>
         <a href="{{ route('admin.referral-overview') }}" class="text-emerald-700 font-semibold hover:underline">Referral HPA → klinik →</a>
         <a href="{{ route('admin.consultant-per-klinik') }}" class="text-emerald-700 font-semibold hover:underline">Konsultan per klinik →</a>
         <a href="{{ route('admin.pervorma-sessions') }}" class="text-emerald-700 font-semibold hover:underline">Sesi kontributor pervorma →</a>
@@ -101,7 +112,7 @@
             <td class="p-3">Rp{{ number_format($c->amount, 0, ',', '.') }}</td>
             <td class="p-3">{{ optional($c->due_at)->translatedFormat('d M Y') ?? '-' }}</td>
             <td class="p-3">
-                <form method="POST" action="{{ route('admin.pervormas.pay', $c) }}">@csrf
+                <form method="POST" action="{{ route('admin.pervormas.pay', ['vertical' => 'hap', 'pervorma' => $c->id]) }}">@csrf
                     <button class="text-xs bg-emerald-700 text-white rounded px-3 py-1.5 font-semibold">Tandai dibayar</button>
                 </form>
             </td>

@@ -115,12 +115,39 @@
                                     <option value="{{ $s->id }}" @selected(session('admin_sekolah_id') == $s->id)>{{ $s->brand }}{{ $s->is_active ? '' : ' (nonaktif)' }}</option>
                                 @endforeach
                             </select>
-                        @elseif(request()->routeIs('klinik.*') || request()->routeIs('admin.*'))
-                            <select onchange="if(this.value) location.search = '?klinik_id=' + this.value"
+                        @elseif(request()->routeIs('klinik.*'))
+                            <select onchange="if(this.value) location.href = '{{ url('/klinik/dashboard') }}?klinik_id=' + this.value"
                                     class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
                                 <option value="">— pilih klinik —</option>
                                 @foreach(\App\Models\Klinik\Klinik::orderBy('brand')->get() as $k)
                                     <option value="{{ $k->id }}" @selected(session('admin_klinik_id') == $k->id)>{{ $k->brand }}{{ $k->is_active ? '' : ' (pending)' }}</option>
+                                @endforeach
+                            </select>
+                        @endif
+                        {{-- A4: di halaman admin, switcher 3 vertikal — pilih tenant langsung buka portal dashboard-nya
+                             dengan ?{tenant}_id= context override (Context::current simpan di session). --}}
+                        @if(request()->routeIs('admin.*'))
+                            <select data-tenant-switcher="klinik" onchange="if(this.value) location.href = '{{ url('/klinik/dashboard') }}?klinik_id=' + this.value"
+                                    class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
+                                <option value="">— pilih klinik —</option>
+                                @foreach(\App\Models\Klinik\Klinik::orderBy('brand')->get() as $k)
+                                    <option value="{{ $k->id }}" @selected(session('admin_klinik_id') == $k->id)>{{ $k->brand }}{{ $k->is_active ? '' : ' (pending)' }}</option>
+                                @endforeach
+                            </select>
+                            <select data-tenant-switcher="perusahaan" onchange="if(this.value) location.href = '{{ url('/perusahaan/dashboard') }}?perusahaan_id=' + this.value"
+                                    class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
+                                <option value="">— pilih perusahaan —</option>
+                                {{-- ponytail: hanya tenant aktif — tenant pending aktivasi kelola via ops-queue (A7). --}}
+                                @foreach(\App\Models\Perusahaan\Perusahaan::where('is_active', true)->orderBy('brand')->get() as $p)
+                                    <option value="{{ $p->id }}" @selected(session('admin_perusahaan_id') == $p->id)>{{ $p->brand }}</option>
+                                @endforeach
+                            </select>
+                            <select data-tenant-switcher="sekolah" onchange="if(this.value) location.href = '{{ url('/sekolah-portal/dashboard') }}?sekolah_id=' + this.value"
+                                    class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
+                                <option value="">— pilih sekolah —</option>
+                                {{-- ponytail: hanya tenant aktif — tenant pending aktivasi kelola via ops-queue (A7). --}}
+                                @foreach(\App\Models\Sekolah\Sekolah::where('is_active', true)->orderBy('brand')->get() as $s)
+                                    <option value="{{ $s->id }}" @selected(session('admin_sekolah_id') == $s->id)>{{ $s->brand }}</option>
                                 @endforeach
                             </select>
                         @endif
@@ -149,7 +176,11 @@
                 <div class="mx-auto w-full max-w-7xl">
                 @if(!empty($viewAs))
                     <div class="mb-4 p-3 rounded-xl bg-amber-100 text-amber-900 text-sm flex items-center justify-between gap-3" role="status">
-                        <span>Anda sedang melihat sebagai <strong>{{ $viewAs['name'] }}</strong> (mode view-as superadmin, read-only).</span>
+                        <span>Anda sedang melihat sebagai <strong>{{ $viewAs['name'] }}</strong> <span class="text-amber-700">({{ $viewAs['target_role'] ?? '?' }})</span> — mode view-as superadmin, read-only.
+                            @if(!empty($viewAs['expires_at']))
+                                <span class="text-amber-700">Sisa waktu: <strong>{{ now()->diffInMinutes(\Illuminate\Support\Carbon::parse($viewAs['expires_at']), false) }} menit</strong>.</span>
+                            @endif
+                        </span>
                         <form method="POST" action="{{ route('admin.view-as.stop') }}">@csrf
                             <button class="text-xs font-semibold underline hover:no-underline">Berhenti</button>
                         </form>

@@ -34,11 +34,42 @@ class AuthController extends Controller
         if (!$user || !$user->is_active || !Hash::check($request->password, (string) $user->password)) {
             return back()->with('error', 'Email atau password salah')->withInput();
         }
+        if ($this->tenantSuspended($user)) {
+            return back()->with('error', 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.')->withInput();
+        }
 
         Auth::login($user);
         session()->regenerate();
 
         return $this->redirectByRole($user);
+    }
+
+    /** A2: user tenant (admin maupun end-user) tidak boleh login saat tenant-nya disuspend. */
+    private function tenantSuspended(User $user): bool
+    {
+        $role = $user->role?->name;
+        if ($role === 'admin') {
+            return false;
+        }
+        return match ($role) {
+            'klinik_admin' => ($user->klinik?->status ?? null) === 'suspended',
+            // Konsultan tidak punya home-klinik — cek via schedules.klinik_id (klinik yang dia layani).
+            'konsultan' => \App\Models\Schedule::whereIn('consultant_id', \App\Models\Consultant::where('user_id', $user->id)->pluck('id'))
+                ->whereNotNull('klinik_id')
+                ->join('kliniks', 'kliniks.id', '=', 'schedules.klinik_id')
+                ->where('kliniks.status', 'suspended')->exists(),
+            'hr_admin' => ($user->perusahaanAdmins->first()?->perusahaan?->status ?? null) === 'suspended',
+            'employee' => \App\Models\Perusahaan\PerusahaanEmployee::where('user_id', $user->id)
+                ->join('perusahaans', 'perusahaans.id', '=', 'perusahaan_employees.perusahaan_id')
+                ->where('perusahaans.status', 'suspended')->exists(),
+            'bk' => (bool) \App\Models\Sekolah\SekolahAdmin::where('user_id', $user->id)
+                ->join('sekolahs', 'sekolahs.id', '=', 'sekolah_admins.sekolah_id')
+                ->where('sekolahs.status', 'suspended')->exists(),
+            'student' => \App\Models\Sekolah\SekolahStudent::where('user_id', $user->id)
+                ->join('sekolahs', 'sekolahs.id', '=', 'sekolah_students.sekolah_id')
+                ->where('sekolahs.status', 'suspended')->exists(),
+            default => false,
+        };
     }
 
     public function redirectToProvider(string $provider)

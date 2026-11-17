@@ -574,7 +574,7 @@ class HpaKlinikPortalTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->post(route('admin.pervormas.pay', $pervorma))
+            ->post(route('admin.pervormas.pay', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))
             ->assertRedirect()
             ->assertSessionHas('success');
         $this->assertDatabaseHas('hap_pervormas', [
@@ -606,11 +606,11 @@ class HpaKlinikPortalTest extends TestCase
             ->assertSee('Siap diajukan');
 
         $this->actingAs($otherAssociate)
-            ->post(route('associate.pervormas.request-payout', $pervorma))
+            ->post(route('associate.pervormas.request-payout', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))
             ->assertForbidden();
 
         $this->actingAs($associate)
-            ->post(route('associate.pervormas.request-payout', $pervorma))
+            ->post(route('associate.pervormas.request-payout', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))
             ->assertRedirect()
             ->assertSessionHas('success');
 

@@ -32,6 +32,12 @@ class AppServiceProvider extends ServiceProvider
         // Locale tanggal Indonesia global (F5): hari/bulan via translatedFormat jadi id.
         Date::setLocale('id');
 
+        // A6: catat last-run task scheduler untuk halaman system health.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Console\Events\ScheduledTaskFinished::class,
+            \App\Listeners\RecordScheduleLastRun::class,
+        );
+
         // White-label $brand untuk semua email klinik (PRD §15.4). Resolve dari
         // session kalau ada (per-klinik), fallback internal/default config.
         \Illuminate\Support\Facades\View::composer('emails.klinik.*', function ($view) {

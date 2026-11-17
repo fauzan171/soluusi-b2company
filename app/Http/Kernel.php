@@ -37,6 +37,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\ViewAs::class,
+            \App\Http\Middleware\ViewAsReadOnly::class, // B4: deny non-GET saat view-as aktif
         ],
 
         'api' => [

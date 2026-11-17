@@ -64,6 +64,7 @@ class ChatController extends Controller
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
 
+        \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);
 
         return redirect()->route('consultant.chat', $session)->with('success', 'Sesi diakhiri.');
@@ -81,6 +82,7 @@ class ChatController extends Controller
             'completed_at' => now(),
         ]);
 
+        \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);
 
         return redirect()->route('perusahaan.chat', $session)

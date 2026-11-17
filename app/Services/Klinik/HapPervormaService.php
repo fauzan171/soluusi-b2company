@@ -14,6 +14,11 @@ use Carbon\Carbon;
  * Stage 2/3 tidak hangus (sesi setelah 90 hari tetap dihitung).
  * Stage1 = flat; Stage2 = 1/3 × (Rate − Stage1); Stage3 = 2/3 sisa.
  * Idempotent (unique klinik_id+stage).
+ *
+ * C3: class ini berperan sebagai driver 'hap' untuk PervormaService generik
+ * (App\Services\PervormaService::evaluate('hap', ...) delegasi ke sini).
+ * Public API tetap — caller existing (SessionVerificationController,
+ * dashboard klinik/associate) tidak berubah.
  */
 class HapPervormaService
 {

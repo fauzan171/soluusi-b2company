@@ -21,6 +21,11 @@ class KlinikContext
             return null;
         }
 
+        // B2: view-as superadmin — scope ke tenant target, abaikan admin_klinik_id.
+        if ($viewAs = ViewAs::current()) {
+            return $viewAs['vertical'] === 'klinik' ? Klinik::find($viewAs['tenant_id']) : null;
+        }
+
         if (self::canSwitch($user)) {
             // Super admin: ?klinik_id= memilih klinik + simpan di session biar
             // persist antar klik tanpa perlu ubah semua link di view.
@@ -35,7 +40,9 @@ class KlinikContext
                 ?: Klinik::where('is_active', true)->orderBy('id')->first();
         }
 
-        return $user->klinik ?: Klinik::where('associate_id', $user->id)->first();
+        $klinik = $user->klinik ?: Klinik::where('associate_id', $user->id)->first();
+        abort_if($klinik && $klinik->status === 'suspended', 403, 'Tenant disuspend. Hubungi ops Soluusi.');
+        return $klinik;
     }
 
     /** True bila user boleh milih klinik mana saja (super admin only). */

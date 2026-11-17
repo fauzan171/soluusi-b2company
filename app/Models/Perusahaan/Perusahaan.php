@@ -21,6 +21,7 @@ class Perusahaan extends Model
         'employee_count',
         'nps_score',
         'is_active',
+        'status',
         'ai_enabled',
     ];
 
@@ -48,6 +49,11 @@ class Perusahaan extends Model
     public function sessions()
     {
         return $this->hasMany(PerusahaanSession::class);
+    }
+
+    public function pervormas()
+    {
+        return $this->hasMany(PerusahaanPervorma::class);
     }
 
     public function assessments()

@@ -129,21 +129,60 @@ class AdminDashboardController extends Controller
     }
 
     /**
-     * Sesi-sesi yang berkontribusi ke pervorma HAP per stage (brief: "tandai
-     * karena dia dapat cost dari sana"). Filter: ?klinik_id= & ?stage=.
+     * C6 — List pervorma payout 3 vertikal (hap/sap/cap) + filter ?vertical=.
+     *
+     * Untuk hap: tetap tampilkan sesi kontributor (hap_pervorma_stage) karena
+     * engine HAP menandai per-sesi (window 90 hari). Untuk sap/cap: engine
+     * session-count berbasis tenant (tidak ada tag per sesi), jadi list row
+     * pervorma-nya langsung. Keduanya menyediakan tombol pay (audited).
      */
     public function pervormaSessions()
     {
-        $sessions = ConsultationSession::whereNotNull('hap_pervorma_stage')
-            ->with(['klinik', 'consultant.user', 'schedule'])
-            ->when(request('klinik_id'), fn ($q) => $q->where('klinik_id', request('klinik_id')))
-            ->when(request('stage'), fn ($q) => $q->where('hap_pervorma_stage', request('stage')))
-            ->orderByDesc('completion_verified_at')
+        $vertical = request('vertical', 'hap');
+        abort_unless(in_array($vertical, ['hap', 'sap', 'cap'], true), 404);
+
+        if ($vertical === 'hap') {
+            $sessions = ConsultationSession::whereNotNull('hap_pervorma_stage')
+                ->with(['klinik', 'consultant.user', 'schedule'])
+                ->when(request('klinik_id'), fn ($q) => $q->where('klinik_id', request('klinik_id')))
+                ->when(request('stage'), fn ($q) => $q->where('hap_pervorma_stage', request('stage')))
+                ->orderByDesc('completion_verified_at')
+                ->paginate(50)
+                ->withQueryString();
+
+            $kliniks = Klinik::orderBy('brand')->get(['id', 'brand']);
+
+            return view('admin.pervorma-sessions', [
+                'vertical' => 'hap',
+                'sessions' => $sessions,
+                'kliniks' => $kliniks,
+                'payouts' => collect(),
+                'tenants' => collect(),
+            ]);
+        }
+
+        // sap / cap: list pervorma rows per tenant (engine session-count).
+        $def = [
+            'sap' => ['model' => \App\Models\Sekolah\SekolahPervorma::class, 'tenant' => \App\Models\Sekolah\Sekolah::class, 'fk' => 'sekolah_id', 'rel' => 'sekolah'],
+            'cap' => ['model' => \App\Models\Perusahaan\PerusahaanPervorma::class, 'tenant' => \App\Models\Perusahaan\Perusahaan::class, 'fk' => 'perusahaan_id', 'rel' => 'perusahaan'],
+        ][$vertical];
+
+        $payouts = $def['model']::with([$def['rel'], 'associate'])
+            ->when(request('tenant_id'), fn ($q) => $q->where($def['fk'], request('tenant_id')))
+            ->when(request('stage'), fn ($q) => $q->where('stage', request('stage')))
+            ->when(request('status'), fn ($q) => $q->where('status', request('status')))
+            ->orderByDesc('created_at')
             ->paginate(50)
             ->withQueryString();
 
-        $kliniks = Klinik::orderBy('brand')->get(['id', 'brand']);
+        $tenants = $def['tenant']::orderBy('brand')->get(['id', 'brand']);
 
-        return view('admin.pervorma-sessions', compact('sessions', 'kliniks'));
+        return view('admin.pervorma-sessions', [
+            'vertical' => $vertical,
+            'sessions' => collect(),
+            'kliniks' => collect(),
+            'payouts' => $payouts,
+            'tenants' => $tenants,
+        ]);
     }
 }

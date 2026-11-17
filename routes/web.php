@@ -135,7 +135,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
 });
 
 // --- Konsultan (session + dual-confirm) — Build-NEW #4/#11 ---
-Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant'])->group(function () {
+Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant,admin'])->group(function () {
     Route::get('/sessions', [\App\Http\Controllers\Klinik\SessionController::class, 'index'])->name('sessions');
     Route::post('/sessions/{session}/check-in', [\App\Http\Controllers\Klinik\SessionController::class, 'checkIn'])->name('sessions.checkIn');
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
@@ -149,9 +149,9 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---
-Route::prefix('associate')->as('associate.')->middleware(['auth', 'role:associate'])->group(function () {
+Route::prefix('associate')->as('associate.')->middleware(['auth', 'role:associate,admin'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Associate\DashboardController::class, 'index'])->name('dashboard');
-    Route::post('/pervormas/{pervorma}/request-payout', [\App\Http\Controllers\Associate\DashboardController::class, 'requestPayout'])->name('pervormas.request-payout');
+    Route::post('/pervormas/{vertical}/{pervorma}/request-payout', [\App\Http\Controllers\Associate\DashboardController::class, 'requestPayout'])->name('pervormas.request-payout');
 });
 
 // --- Super admin (ops review + approval mitra) ---
@@ -162,9 +162,57 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'index'])->name('perusahaans.index');
     Route::post('/perusahaans', [\App\Http\Controllers\AdminPerusahaanController::class, 'store'])->name('perusahaans.store');
 
+    // A3: provisioning wizard 1 pintu (3 vertikal + akun admin tenant, 1 transaksi).
+    Route::get('/provision', [\App\Http\Controllers\Admin\ProvisioningController::class, 'create'])->name('provision');
+    Route::post('/provision', [\App\Http\Controllers\Admin\ProvisioningController::class, 'store'])->name('provision.store');
+
+    // A5: audit log viewer (read-only, payload ter-mask).
+    Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
+
+    // A7: ops work queue terpadu (read-only; aksi link ke route existing).
+    Route::get('/ops-queue', [\App\Http\Controllers\Admin\OpsQueueController::class, 'index'])->name('ops-queue.index');
+
+    // A1: tenant management 3 vertikal (list/search/detail/edit; sekolah + create).
+    Route::prefix('tenants')->as('tenants.')->group(function () {
+        Route::get('/kliniks', [\App\Http\Controllers\Admin\Tenant\KlinikController::class, 'index'])->name('kliniks.index');
+        Route::get('/kliniks/{klinik}', [\App\Http\Controllers\Admin\Tenant\KlinikController::class, 'show'])->name('kliniks.show');
+        Route::get('/kliniks/{klinik}/edit', [\App\Http\Controllers\Admin\Tenant\KlinikController::class, 'edit'])->name('kliniks.edit');
+        Route::put('/kliniks/{klinik}', [\App\Http\Controllers\Admin\Tenant\KlinikController::class, 'update'])->name('kliniks.update');
+
+        Route::get('/perusahaans', [\App\Http\Controllers\Admin\Tenant\PerusahaanController::class, 'index'])->name('perusahaans.index');
+        Route::get('/perusahaans/{perusahaan}', [\App\Http\Controllers\Admin\Tenant\PerusahaanController::class, 'show'])->name('perusahaans.show');
+        Route::get('/perusahaans/{perusahaan}/edit', [\App\Http\Controllers\Admin\Tenant\PerusahaanController::class, 'edit'])->name('perusahaans.edit');
+        Route::put('/perusahaans/{perusahaan}', [\App\Http\Controllers\Admin\Tenant\PerusahaanController::class, 'update'])->name('perusahaans.update');
+
+        Route::get('/sekolahs', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'index'])->name('sekolahs.index');
+        Route::get('/sekolahs/create', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'create'])->name('sekolahs.create');
+        Route::post('/sekolahs', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'store'])->name('sekolahs.store');
+        Route::get('/sekolahs/{sekolah}', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'show'])->name('sekolahs.show');
+        Route::get('/sekolahs/{sekolah}/edit', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'edit'])->name('sekolahs.edit');
+        Route::put('/sekolahs/{sekolah}', [\App\Http\Controllers\Admin\Tenant\SekolahController::class, 'update'])->name('sekolahs.update');
+
+        // A2: tenant lifecycle (suspend/activate, alasan wajib).
+        Route::post('/kliniks/{klinik}/suspend', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'suspendKlinik'])->name('kliniks.suspend');
+        Route::post('/kliniks/{klinik}/activate', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'activateKlinik'])->name('kliniks.lifecycle-activate');
+        Route::post('/perusahaans/{perusahaan}/suspend', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'suspendPerusahaan'])->name('perusahaans.suspend');
+        Route::post('/perusahaans/{perusahaan}/activate', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'activatePerusahaan'])->name('perusahaans.lifecycle-activate');
+        Route::post('/sekolahs/{sekolah}/suspend', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'suspendSekolah'])->name('sekolahs.suspend');
+        Route::post('/sekolahs/{sekolah}/activate', [\App\Http\Controllers\Admin\Tenant\LifecycleController::class, 'activateSekolah'])->name('sekolahs.lifecycle-activate');
+
+        // C4: assign associate ke tenant (user harus role associate; kosong = unassign).
+        Route::post('/kliniks/{klinik}/associate', [\App\Http\Controllers\Admin\Tenant\AssociateAssignmentController::class, 'assignKlinik'])->name('kliniks.assign-associate');
+        Route::post('/perusahaans/{perusahaan}/associate', [\App\Http\Controllers\Admin\Tenant\AssociateAssignmentController::class, 'assignPerusahaan'])->name('perusahaans.assign-associate');
+        Route::post('/sekolahs/{sekolah}/associate', [\App\Http\Controllers\Admin\Tenant\AssociateAssignmentController::class, 'assignSekolah'])->name('sekolahs.assign-associate');
+    });
+
     Route::get('/pervorma-sessions', [\App\Http\Controllers\AdminDashboardController::class, 'pervormaSessions'])->name('pervorma-sessions');
 
-    Route::post('/pervormas/{pervorma}/pay', [\App\Http\Controllers\Admin\PervormaController::class, 'pay'])->name('pervormas.pay');
+    // A6: system health — failed jobs + queue size + schedule last-run.
+    Route::get('/system-health', [\App\Http\Controllers\Admin\SystemHealthController::class, 'index'])->name('system-health.index');
+    Route::post('/system-health/failed-jobs/{uuid}/retry', [\App\Http\Controllers\Admin\SystemHealthController::class, 'retry'])->name('system-health.failed-jobs.retry');
+    Route::post('/system-health/failed-jobs/{uuid}/delete', [\App\Http\Controllers\Admin\SystemHealthController::class, 'delete'])->name('system-health.failed-jobs.delete');
+
+    Route::post('/pervormas/{vertical}/{pervorma}/pay', [\App\Http\Controllers\Admin\PervormaController::class, 'pay'])->name('pervormas.pay');
 
     // Approval mitra baru (dari registrasi /daftar-mitra)
     Route::post('/kliniks/{klinik}/approve', [\App\Http\Controllers\Admin\KlinikApprovalController::class, 'store'])->name('kliniks.approve');

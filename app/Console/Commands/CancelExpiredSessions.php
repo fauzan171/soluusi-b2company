@@ -58,6 +58,8 @@ class CancelExpiredSessions extends Command
 
             foreach ($sessions as $session) {
                 $session->update(['status' => 'done', 'completed_at' => now()]);
+                // Sesi benar-benar terjadi → hitung ke pervorma CAP (C3).
+                \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
             }
 
             $this->info("perusahaan: {$sessions->count()} zombie session(s) auto-completed (no end after check-in).");

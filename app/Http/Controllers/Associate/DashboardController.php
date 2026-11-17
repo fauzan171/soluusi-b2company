@@ -6,73 +6,127 @@ use App\Http\Controllers\Controller;
 use App\Models\ConsultationSession;
 use App\Models\Klinik\HapPervorma;
 use App\Models\Klinik\Klinik;
+use App\Models\Perusahaan\Perusahaan;
+use App\Models\Perusahaan\PerusahaanPervorma;
+use App\Models\Sekolah\Sekolah;
+use App\Models\Sekolah\SekolahPervorma;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Associate (HAP) dashboard — see own clinics + commission tracking.
- * Confidentiality: HAP sees aggregate per clinic, NOT individual customer data.
+ * Associate (HAP) dashboard — see own tenants (klinik/perusahaan/sekolah) +
+ * commission tracking across 3 verticals.
+ * Confidentiality: HAP sees aggregate per tenant, NOT individual customer data.
  */
 class DashboardController extends Controller
 {
+    /**
+     * C5: map vertical slug → [tenant model, pervorma model, tenant FK].
+     * Sumber kebenaran stage config: config/pervorma.php (C2).
+     */
+    private const VERTICALS = [
+        'hap' => ['label' => 'Klinik', 'tenant' => Klinik::class, 'pervorma' => HapPervorma::class, 'fk' => 'klinik_id', 'relation' => 'hapPervormas'],
+        'cap' => ['label' => 'Perusahaan', 'tenant' => Perusahaan::class, 'pervorma' => PerusahaanPervorma::class, 'fk' => 'perusahaan_id', 'relation' => 'pervormas'],
+        'sap' => ['label' => 'Sekolah', 'tenant' => Sekolah::class, 'pervorma' => SekolahPervorma::class, 'fk' => 'sekolah_id', 'relation' => 'pervormas'],
+    ];
+
     public function index()
     {
+        // B3: saat superadmin view-as associate, scope data ke associate target.
+        // Admin tanpa view-as ditolak (portal ini khusus associate).
+        $viewAs = \App\Support\ViewAs::current();
         $user = auth()->user();
+        if (($viewAs['target_role'] ?? null) === 'associate') {
+            $user = \App\Models\User::findOrFail($viewAs['target_user_id']);
+        } elseif ($user?->role?->name === 'admin') {
+            abort(403, 'Aktifkan view-as associate untuk masuk portal ini.');
+        }
 
-        // Clinics owned by this associate
-        $kliniks = Klinik::where('associate_id', $user->id)
-            ->withCount(['checkoutLinks', 'splitSettlements'])
-            ->orderByDesc('created_at')
-            ->get();
+        // Tenants per vertical — satu query per tabel, digabung dalam satu struktur.
+        $verticals = [];
+        foreach (self::VERTICALS as $slug => $def) {
+            $tenants = $def['tenant']::where('associate_id', $user->id)
+                ->orderByDesc('created_at')
+                ->get();
 
-        // Per-klinik stats — window 90 hari sejak MoU (PDF Doc 3). Stage 1 dari
-        // sesi dalam window; Stage 2/3 dari semua sesi sejak MoU (tidak hangus).
-        $klinikStats = [];
+            $tenantStats = [];
+            foreach ($tenants as $tenant) {
+                $stages = config("pervorma.{$slug}.stages");
+                $pervormas = $tenant->{$def['relation']}()->orderBy('stage')->get();
 
-        foreach ($kliniks as $klinik) {
-            // SATU definisi hitungan dengan payout engine (HapPervormaService)
-            // — sebelumnya salinan query terpisah yang bisa berbeda setelah edit.
-            $counts = \App\Services\Klinik\HapPervormaService::completedCounts($klinik);
-            $cfg = config('klinik.hap');
+                // Stage progress: hap pakai engine existing (90-hari window);
+                // sap/cap pakai hitungan sesi done / mou_at sesuai trigger type.
+                if ($slug === 'hap') {
+                    $counts = \App\Services\Klinik\HapPervormaService::completedCounts($tenant);
+                    $progress = [
+                        1 => $counts['inWindow'] >= ($stages[1]['trigger'] ?? PHP_INT_MAX),
+                        2 => $counts['sinceMou'] >= ($stages[2]['trigger'] ?? PHP_INT_MAX),
+                        3 => $counts['sinceMou'] >= ($stages[3]['trigger'] ?? PHP_INT_MAX),
+                    ];
+                    $completed = $counts['sinceMou'];
+                } else {
+                    $doneCount = $tenant->sessions()->whereNotNull('completed_at')->count();
+                    $activated = $tenant->mou_at !== null;
+                    $progress = [];
+                    foreach ($stages as $stage => $defStage) {
+                        $progress[$stage] = $defStage['trigger'] === 'mou_at'
+                            ? $activated
+                            : $doneCount >= (int) $defStage['trigger'];
+                    }
+                    $completed = $doneCount;
+                }
 
-            // Pervorma stages for this clinic
-            $pervormas = $klinik->hapPervormas()->orderBy('stage')->get();
-            $totalDue = $pervormas->where('status', 'due')->sum('amount');
-            $totalPaid = $pervormas->where('status', 'paid')->sum('amount');
+                $tenantStats[$tenant->id] = [
+                    'completed' => $completed,
+                    'progress' => $progress,
+                    'due' => $pervormas->where('status', 'due')->sum('amount'),
+                    'paid' => $pervormas->where('status', 'paid')->sum('amount'),
+                    'pervormas' => $pervormas,
+                ];
+            }
 
-            // Stage progress (5/25/40) — angka yang sama dengan trigger payout.
-            $stage1Reached = $counts['inWindow'] >= $cfg['stage1_trigger'];
-            $stage2Reached = $counts['sinceMou'] >= $cfg['stage2_trigger'];
-            $stage3Reached = $counts['sinceMou'] >= $cfg['stage3_trigger'];
-
-            $klinikStats[$klinik->id] = [
-                'completed' => $counts['sinceMou'],
-                'stage1' => $stage1Reached,
-                'stage2' => $stage2Reached,
-                'stage3' => $stage3Reached,
-                'due' => $totalDue,
-                'paid' => $totalPaid,
-                'pervormas' => $pervormas,
+            $verticals[$slug] = [
+                'label' => $def['label'],
+                'tenants' => $tenants,
+                'stats' => $tenantStats,
+                'stages' => config("pervorma.{$slug}.stages"),
             ];
         }
 
-        // Summary across all clinics
-        $totalDue = collect($klinikStats)->sum('due');
-        $totalPaid = collect($klinikStats)->sum('paid');
-        $totalRequested = HapPervorma::where('associate_id', $user->id)
-            ->where('status', 'due')
-            ->whereNotNull('requested_at')
-            ->sum('amount');
-        $totalClinics = $kliniks->count();
-        $activeClinics = $kliniks->where('is_active', true)->count();
+        // Summary across all verticals
+        $totalDue = collect($verticals)->flatMap(fn ($v) => $v['stats'])->sum('due');
+        $totalPaid = collect($verticals)->flatMap(fn ($v) => $v['stats'])->sum('paid');
 
-        $payoutItems = HapPervorma::where('associate_id', $user->id)
-            ->with('klinik')
-            ->orderByRaw("case when status = 'due' and requested_at is null then 0 when status = 'due' then 1 else 2 end")
-            ->orderBy('due_at')
-            ->get();
+        $totalRequested = 0;
+        foreach (self::VERTICALS as $def) {
+            $totalRequested += $def['pervorma']::where('associate_id', $user->id)
+                ->where('status', 'due')
+                ->whereNotNull('requested_at')
+                ->sum('amount');
+        }
 
-        // Aktivitas harian agregat. HPA tidak menerima baris sesi individual
-        // maupun identitas customer/konsultan (Spec §16/§17.2).
+        $totalTenants = collect($verticals)->sum(fn ($v) => $v['tenants']->count());
+        $activeTenants = collect($verticals)->sum(fn ($v) => $v['tenants']->where('is_active', true)->count());
+
+        // Payout items gabungan 3 vertikal — tiap item diberi penanda vertical
+        // untuk form action + label.
+        $payoutItems = collect();
+        foreach (self::VERTICALS as $slug => $def) {
+            $items = $def['pervorma']::where('associate_id', $user->id)
+                ->with(strtolower(class_basename($def['tenant'])))
+                ->get();
+            foreach ($items as $item) {
+                $item->vertical = $slug;
+                $payoutItems->push($item);
+            }
+        }
+        $payoutItems = $payoutItems->sortBy([
+            fn ($a, $b) => (($a->status === 'due' && !$a->requested_at) ? 0 : (($a->status === 'due') ? 1 : 2)) <=> (($b->status === 'due' && !$b->requested_at) ? 0 : (($b->status === 'due') ? 1 : 2)),
+            fn ($a, $b) => ($a->due_at?->timestamp ?? PHP_INT_MAX) <=> ($b->due_at?->timestamp ?? PHP_INT_MAX),
+        ])->values();
+
+        // Aktivitas harian agregat (klinik saja — spec §16/§17.2 membatasi HPA
+        // dari baris sesi individual; perusahaan/sekolah belum ada aktivitas feed).
+        $kliniks = $verticals['hap']['tenants'];
         $recentSessions = ConsultationSession::whereIn('klinik_id', $kliniks->pluck('id'))
             ->where('status', '!=', ConsultationSession::STATUS_NO_SHOW)
             ->selectRaw('DATE(order_at) as activity_date, klinik_id, status, COUNT(*) as session_count')
@@ -82,7 +136,7 @@ class DashboardController extends Controller
             ->limit(15)
             ->get();
 
-        // Chart: sessions per clinic
+        // Chart: sessions per klinik (legacy HAP view tetap ditampilkan)
         $perKlinik = ConsultationSession::whereIn('klinik_id', $kliniks->pluck('id'))
             ->selectRaw('klinik_id, COUNT(*) as c')
             ->groupBy('klinik_id')
@@ -94,7 +148,14 @@ class DashboardController extends Controller
             'data' => $perKlinik->pluck('c')->values(),
         ];
 
+        // Back-compat alias untuk view yang sudah ada (kliniks/klinikStats/
+        // totalClinics/activeClinics dipakai oleh partial lama).
+        $klinikStats = $verticals['hap']['stats'];
+        $totalClinics = $verticals['hap']['tenants']->count();
+        $activeClinics = $verticals['hap']['tenants']->where('is_active', true)->count();
+
         return view('associate.dashboard', compact(
+            'verticals',
             'kliniks',
             'klinikStats',
             'totalDue',
@@ -102,15 +163,21 @@ class DashboardController extends Controller
             'totalRequested',
             'totalClinics',
             'activeClinics',
+            'totalTenants',
+            'activeTenants',
             'payoutItems',
             'recentSessions',
             'chartKlinik'
         ));
     }
 
-    public function requestPayout(HapPervorma $pervorma)
+    public function requestPayout(string $vertical, int $pervormaId)
     {
         $user = auth()->user();
+
+        abort_unless(isset(self::VERTICALS[$vertical]), 404);
+        $model = self::VERTICALS[$vertical]['pervorma'];
+        $pervorma = $model::findOrFail($pervormaId);
 
         abort_unless((int) $pervorma->associate_id === (int) $user->id, 403);
 

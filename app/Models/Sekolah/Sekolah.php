@@ -20,6 +20,7 @@ class Sekolah extends Model
         'associate_id',
         'mou_at',
         'is_active',
+        'status',
         'ai_enabled',
     ];
 
@@ -47,6 +48,11 @@ class Sekolah extends Model
     public function sessions()
     {
         return $this->hasMany(SekolahSession::class);
+    }
+
+    public function pervormas()
+    {
+        return $this->hasMany(SekolahPervorma::class);
     }
 
     public function assessments()

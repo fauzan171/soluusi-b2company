@@ -23,6 +23,7 @@ class Klinik extends Model
         'total_rate',
         'mou_at',
         'is_active',
+        'status',
         'ai_enabled',
         'regency_id',
         'approved_at',

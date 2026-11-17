@@ -41,6 +41,7 @@ class PerusahaanContext
         abort_if($memberships->count() > 1, 403, 'Membership ambigu. Hubungi ops.');
         $tenant = $memberships->first()?->perusahaan;
         abort_if($tenant && !$tenant->is_active && !request()->routeIs('perusahaan.dashboard'), 403, 'Program belum aktif. Hubungi ops.');
+        abort_if($tenant && $tenant->status === 'suspended', 403, 'Tenant disuspend. Hubungi ops Soluusi.');
         return $tenant;
     }
 

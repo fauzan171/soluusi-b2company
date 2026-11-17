@@ -20,6 +20,11 @@ class SekolahContext
             return null;
         }
 
+        // B2: view-as superadmin — scope ke tenant target, abaikan admin_sekolah_id.
+        if ($viewAs = ViewAs::current()) {
+            return $viewAs['vertical'] === 'sekolah' ? Sekolah::find($viewAs['tenant_id']) : null;
+        }
+
         if (self::canSwitch($user)) {
             if (request()->filled('sekolah_id')) {
                 $s = Sekolah::find(request('sekolah_id'));
@@ -36,6 +41,7 @@ class SekolahContext
         abort_if($memberships->count() > 1, 403, 'Membership ambigu. Hubungi ops.');
         $tenant = $memberships->first()?->sekolah;
         abort_if($tenant && !$tenant->is_active && !request()->routeIs('sekolah.dashboard'), 403, 'Program belum aktif. Hubungi ops.');
+        abort_if($tenant && $tenant->status === 'suspended', 403, 'Tenant disuspend. Hubungi ops Soluusi.');
         return $tenant;
     }
 

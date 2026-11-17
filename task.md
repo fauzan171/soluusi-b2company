@@ -1,143 +1,88 @@
-# Soluusi B2B — Production Foundation (goal/production-foundation)
+# Superadmin Control Center
 
-Baseline: `b5170cf` main. Integration branch: `goal/production-foundation`.
-Worktree integrasi: `C:/Users/User/soluusib2b-goal-20261113`.
-Model implementer: `tg/glm-5.3` (CLI headless).
+Branch: `goal/superadmin-control-center` (base `b61552c`). Worktree: `/home/seva-ojan/wt/soluusib2b-production-foundation`.
 
-## Pre-flight (mandor)
-- [x] Git Windows verified 2.56.0
-- [x] Worktree manual tersedia 4 (3 audit + 1 goal)
-- [ ] PHP portable + Composer PHAR di user dir → **BLOCKER untuk semua test**
-- [ ] `.env` lokal diverifikasi existing (tidak auto-seed, tidak overwrite, tidak ganti APP_KEY)
-- [x] Smoke test `tg/glm-5.3` headless sukses (MODEL_OK)
+## Goal
+Satu control center superadmin: kelola 3 vertikal tenant (klinik/perusahaan/sekolah), impersonation penuh read-only ke semua role, dan pervorma/commission associate untuk 3 vertikal.
 
-## Phase 0 — Environment [model: tg/glm-5.3]
-- [ ] T0.1 Install PHP 8.2+ portable ZIP ke `%USERPROFILE%\php` + Composer PHAR. Set PATH hanya untuk proses kuli. Verifikasi `php -v` ≥ 8.2 dan `composer --version`.
-  verify: `php -v && composer --version` exit 0
-- [ ] T0.2 `composer install` di worktree goal. JANGAN ubah `.env` kalau ada. JANGAN `key:generate` kalau APP_KEY sudah ada. Verifikasi composer.lock kompatibel dengan PHP version.
-  verify: `vendor/autoload.php` ada; `php artisan --version` exit 0
-- [ ] T0.3 Verifikasi `.env` lokal: file exists, DB_CONNECTION=sqlite, DB_DATABASE path valid, APP_KEY exists. JANGAN buat baru jika sudah ada. JANGAN migrate sebelum DB lokal terisolasi.
-  verify: `php artisan migrate:status` exit 0 (bukan error koneksi); `.env` tidak di-overwrite
-- [ ] T0.4 Baseline test run: `php artisan test`. Catat pass/fail count. Tidak wajib 66/66 — yang penting terdokumentasi.
-  verify: output test tertulis di `docs/baseline-test-2026-11-14.txt`
+## Context
+- Route admin ada di `routes/web.php:158-201` (grup `role:admin`); portal tenant pakai `role:X,admin` KECUALI `consultant` (web.php:138) dan `associate` (web.php:152) → superadmin 403 di dua portal itu.
+- ViewAs sekarang employee-only (`app/Support/ViewAs.php:16`), read-only via guard manual di `EmployeeController.php:54-69` (bukan middleware; POST `booking.cancel` + `start-chat` lolos guard), hanya `PerusahaanContext` yang kenal view-as, tanpa expiry, tanpa UI start.
+- Provisioning terpecah: perusahaan = form transaksi (`AdminPerusahaanController::store`), klinik = self-register publik → approval queue, sekolah = SEEDER SAJA (tanpa UI admin sama sekali).
+- Associate HAP: `kliniks.associate_id`, tabel `hap_pervormas` unique(klinik_id,stage), `HapPervormaService` 3-stage 5/25/40 window 90 hari idempotent. Playbook: HAP 250K/250K/500K; SAP 300K/400K/800K; CAP 600K/800K/1.6M (stage 1=tenant activated, 2=50 sesi, 3=150 sesi).
 
-## Phase 1 — P0 Quick Wins [model: tg/glm-5.3] (independent, bisa paralel)
-- [x] T1.1 Fix Alpine `requestConsult` state. Tambah `requestConsult: false` ke `x-data` di `resources/views/perusahaan/employee.blade.php:16`. Tambah reset di Escape handler. **Committed `b9d066d`.**
-  verify: modal buka/tutup via klik + Escape (manual browser); tidak ada console error
-- [x] T1.2 Hapus placeholder logo + fake stats dari `resources/views/landing.blade.php`. **Committed `85ed9ff`.**
-  verify: `grep -n "Logo [0-9]" resources/views/landing.blade.php` kosong; `grep -n "5.000+ kasus\|300+ konsultan" resources/views/landing.blade.php` kosong
-- [ ] T1.3 Gate `/progress` di belakang `auth` + `role:admin`. Update `routes/web.php:67`. Spec: `docs/tasks/open/T1.3-gate-progress.md`
-  verify: `php artisan test --filter=ProgressGateTest` hijau (test baru); manual: anonymous GET `/progress` → redirect login
-- [ ] T1.4 Gate dummy payment routes di belakang `APP_ENV != 'production'`. Tambah middleware `env.notprod` atau kondisi di controller. Spec: `docs/tasks/open/T1.4-gate-dummy-payment.md`
-  verify: dengan `APP_ENV=production php artisan config:cache`, GET `/checkout/{token}/dummy-payment` → 404
-- [ ] T1.5 Rate limit endpoint chat store + booking store + reschedule. Tambah `throttle:30,1` (chat) dan `throttle:10,1` (booking/reschedule). Spec: `docs/tasks/open/T1.5-rate-limit.md`
-  verify: `grep "throttle" routes/web.php | wc -l` ≥ 8; test hit ke-11 pada booking → 429
+## Architecture Decision
+- Additive pages di prefix `admin` existing (tiru pattern `AdminPerusahaanController` + blade `resources/views/admin/*.blade.php`); NO new packages (no spatie/filament) — pattern-nya saja yang ditiru.
+- Impersonation: generalize `ViewAs` struct session `{target_user_id, target_role, vertical, tenant_id, started_at, expires_at}` + middleware read-only deny-by-default di grup `web` (tutup 2 lubang POST existing sekaligus). Reject: per-route guard manual (sudah terbukti bocor) dan act-on-behalf tulis-as-target (riskan untuk data healthcare; read-only cukup — YAGNI).
+- Pervorma 3 vertikal: tabel mirror `perusahaan_pervormas` + `sekolah_pervormas` (schema identik `hap_pervormas`, unique(tenant_id,stage)) — konsisten dengan pattern tabel-per-vertikal codebase. Reject: tabel polymorphic tunggal + rename `hap_pervormas` (diff besar, migrasi data, beda dari konvensi codebase).
 
-## Phase 2 — Mass-assignment + Policy + Tenant Enforcement [model: tg/glm-5.3]
-- [ ] T2.1 Ganti `$guarded = ['id']` dan `$guarded = []` menjadi `$fillable` eksplisit di semua model money/PII. Spec: `docs/tasks/open/T2.1-fillable.md`
-  verify: `grep -rn "guarded = \[\]" app/Models` kosong; `grep -rn "guarded = \['id'\]" app/Models` kosong; semua test hijau
-- [ ] T2.2 Buat `PerusahaanSessionPolicy` + `ConsultationSessionPolicy`. Refactor `ChatController` dan `Klinik\SessionController` untuk pakai `$this->authorize(...)`. Spec: `docs/tasks/open/T2.2-policies.md`
-  verify: `grep -c "abort_unless" app/Http/Controllers/ChatController.php` < 3; test negatif: employee A tidak bisa akses session employee B perusahaan lain (403)
-- [ ] T2.3 Tambah test cross-tenant isolation: `tests/Feature/TenancyIsolationTest.php`. Spec: `docs/tasks/open/T2.3-tenancy-tests.md`
-  verify: `php artisan test --filter=TenancyIsolationTest` hijau (minimal 6 skenario negatif)
-- [ ] **T2.4 Tenant enforcement di layer data (BARU)**. Kolom `perusahaan_id` saja bukan isolasi. Tambah global scope / query enforcement di model tenant-scoped: `PerusahaanSession`, `PerusahaanEmployee`, `SekolahSession`, `SekolahStudent`, `CheckoutLink`, `Schedule`. Pastikan query tanpa tenant filter otomatis di-scope. Spec: `docs/tasks/open/T2.4-tenant-data-enforcement.md`
-  verify: test: query langsung tanpa scope tidak return data tenant lain; test negatif tetap hijau
+## Phases
+Format task: `id (size, parallel_group) — deskripsi — files — verify`.
+Est: S=<½ hari, M=1 hari, L=2 hari. Semua aksi admin baru WAJIB `AdminAction::record` + test audit.
 
-## Phase 3 — Inline admin closures → controllers [model: tg/glm-5.3]
-- [ ] T3.1 Pindahkan 6 inline closures di `routes/web.php:153-211` ke controller + Form Request + audit log (`admin_actions` table). Spec: `docs/tasks/open/T3.1-admin-controllers.md`
-  verify: `grep -c "Route::post.*function" routes/web.php` = 0; `php artisan route:cache` exit 0; test tiap endpoint hijau; `admin_actions` row terisi
+### Phase A — Fondasi control center
+**Dependency: A1→A2→A3→A4 (chain, sama-sama menyentuh `resources/views/admin/tenants/` + routes admin). A5/A6/A7 independen — parallel_group `a-indep`, boleh jalan paralel setelah A2 (butuh status/kolom A2 untuk badge A7) DAN paralel terhadap chain A3/A4.**
 
-## Phase 4 — Foundation refactor [model: tg/glm-5.3]
-- [ ] T4.1 Selesaikan Laravel 11+ skeleton: pindahkan middleware ke `bootstrap/app.php`, hapus `app/Http/Kernel.php` + `app/Console/Kernel.php`. Spec: `docs/tasks/open/T4.1-laravel12-skeleton.md`
-  verify: `app/Http/Kernel.php` tidak ada; `php artisan route:list` exit 0; semua test hijau
-- [ ] T4.2 Extract `CheckoutFlow` service dari `CheckoutController`. Pastikan `reserveSession` atomic dengan `lockForUpdate`. Spec: `docs/tasks/open/T4.2-checkout-extract.md`
-  verify: `wc -l app/Http/Controllers/CheckoutController.php` < 200; test `KlinikMoneyFlowTest` tetap hijau; test race condition
-- [ ] T4.3 Buat `SessionStateMachine` untuk transisi status terpusat. Refactor `BookingService`, `ChatController`, `Klinik\SessionController`. Spec: `docs/tasks/open/T4.3-state-machine.md`
-  verify: direct `$session->update(['status' => ...])` di controllers < 5; semua test hijau
+- [x] A1 (L, `a-tenant`) — Tenant management pages: list+detail+edit untuk klinik+perusahaan, list+create+detail+edit untuk sekolah (dari nol, sekarang seeder saja). Search/filter nama+status, layout konsisten (max-w-7xl, Tailwind, flash `session('success')`). Controller `Admin\Tenant\{Klinik,Perusahaan,Sekolah}Controller` + blade `resources/views/admin/tenants/{klinik,perusahaan,sekolah}/index|show|edit.blade.php`.
+  verify: `php artisan test --filter=TenantManagementTest` hijau (list 3 vertikal, search, detail render, edit update ter-audit)
+- [x] A2 (M, `a-tenant`) — Tenant lifecycle: kolom `status` (active/suspended/archived — migration ke 3 tabel tenant, default active) + suspend/activate route dengan alasan WAJIB (validated) + `AdminAction::record`. Suspend = blokir login admin tenant (cek di login/middleware role + tenant suspended → ditolak) + blokir context resolve portal.
+  verify: `php artisan test --filter=TenantLifecycleTest` hijau (suspend tanpa alasan → 422; suspended → admin tenant login/portal ditolak; audit row ada; active tenant tidak terpengaruh)
+- [x] A3 (L, `a-tenant`) — Provisioning wizard 1 pintu: form create 3 tipe tenant + akun admin tenant dalam 1 transaksi DB (pola `AdminPerusahaanController::store`: tenant + user + role attach), assign consultant pool opsional (klinik/perusahaan saja). Route `GET/POST admin/provision`. Klinik self-register `/daftar-mitra` TETAP jalan → masuk approval queue (jangan duplikasi).
+  verify: `php artisan test --filter=ProvisioningWizardTest` hijau (3 vertikal create + user admin + audit; rollback saat user invalid tidak meninggalkan tenant yatim)
+- [x] A4 (S, `a-tenant`) — Tenant switcher navbar admin: dropdown di layout admin list tenant, ganti `?{tenant}_id=` context override existing (PerusahaanContext/KlinikContext/SekolahContext sudah support).
+  verify: `php artisan test --filter=TenantSwitcherTest` hijau (pilih tenant → context admin berubah; tenant lain tidak bocor); grep dropdown ada di `resources/views/layouts/`
+- [x] A5 (M, `a-indep`) — Audit log viewer: `GET admin/audit-logs` list `admin_actions` + filter (admin, action, target type, tanggal) + pagination. Payload TIDAK dirender mentah: values ter-mask (email→`e***@domain`, nama→inisial) atau keys saja. Migration index `admin_id` + `created_at` (tabel sudah ada).
+  verify: `php artisan test --filter=AuditLogViewerTest` hijau (filter bekerja; email user TIDAK muncul utuh di response — assert masked substring; pagination 25/page)
+- [x] A6 (M, `a-indep`) — System health: `GET admin/system-health` — failed_jobs list + retry/delete action (route POST, audit), queue size, schedule last-run (cache timestamp `schedule:last-run:{command}` via event callback — no new table).
+  verify: `php artisan test --filter=SystemHealthTest` hijau (failed job muncul, retry requeue, delete ter-audit)
+- [x] A7 (M, `a-indep`) — Ops work queue terpadu: `GET admin/ops-queue` — satu halaman antrean gabungan read-only: sesi `needs_ops_review` + klinik pending approval + pervorma payout due + aktivasi perusahaan/sekolah pending. Tab/filter `?type=`, link ke aksi existing (verify/approve/pay/activate route yang sudah ada — JANGAN duplikasi write path). Badge count di `admin.dashboard`.
+  verify: `php artisan test --filter=OpsQueueTest` hijau (item tiap tipe muncul sesuai fixture; aksi link ke route existing; badge count = jumlah antrean); `AdminOpsReviewDashboardTest` tetap hijau
 
-## Phase 5 — UX P1 [model: tg/glm-5.3]
-- [ ] T5.1 Wire atau hapus `POST /lead`. Spec: `docs/tasks/open/T5.1-lead-form.md`
-  verify: POST `/lead` berhasil ATAU `grep "/lead" routes/web.php` kosong
-- [ ] T5.2 Rebrand login page ke netral. Spec: `docs/tasks/open/T5.2-login-rebrand.md`
-  verify: `grep "Portal B2B Klinik" resources/views/auth/login.blade.php` kosong
-- [ ] T5.3 Tampilkan card "Menunggu ACC" + cancel di employee dashboard. Spec: `docs/tasks/open/T5.3-pending-acc-card.md`
-  verify: test `RequestConsultationTest::pending_request_visible_and_cancellable` hijau
-- [ ] T5.4 Ubah CTA "Jadi Mitra" ke `/daftar-mitra`. Spec: `docs/tasks/open/T5.4-jadi-mitra-cta.md`
-  verify: `grep -n "#kontak" resources/views/landing.blade.php resources/views/verticals/*.blade.php` tidak ada di CTA
-- [ ] T5.5 Implementasi password reset standar Laravel. Spec: `docs/tasks/open/T5.5-password-reset.md`
-  verify: manual flow email → reset → login berhasil
+### Phase B — Impersonation penuh (guardrail healthcare)
+**Dependency chain: B1→B2→B3→B4→B5→B6. File menyentuh `app/Support/ViewAs.php`, 3 Context, routes, middleware — serialize.**
 
-## Phase 6 — AI seam + Config [model: tg/glm-5.3]
-- [ ] T6.1 Buat `AIService` interface + provider via env + `ai_enabled` flag tenant. Spec: `docs/tasks/open/T6.1-ai-seam.md`
-  verify: `interface_exists(App\Contracts\AIService::class)` true; test: flag off → tidak panggil provider
-- [ ] T6.2 `MAX_SCHEDULES_PER_SESSION = 3` (total jadwal). Tambah `schedule_version` tracking. Enforcement: **reschedule ke-3 ditolak** (total 4 jadwal). Spec: `docs/tasks/open/T6.2-max-schedules.md` + ADR 001
-  verify: test: jadwal awal + 2 reschedule = OK, reschedule ke-3 (total 4) ditolak 422
+- [x] B1 (M) — Generalize ViewAs: struct session `{target_user_id, target_role, vertical, tenant_id, started_at, expires_at}`. Target semua role kecuali `admin` (blok impersonate sesama admin → 422). Route start/stop TETAP `role:admin` SAJA prefix admin. Resolve tenant dari identitas target user (bukan dari context admin).
+  verify: `php artisan test --filter=ViewAsTest` hijau — update test dengan asersi baru (multi-role start sukses; start target admin → 422; anonymous start → redirect login)
+- [x] B2 (M) — Context wiring: `KlinikContext` + `SekolahContext` override saat view-as aktif (ikuti pola `PerusahaanContext.php:24-26`); tenant resolve dari target user. `PerusahaanSessionPolicy` tetap resolve REAL user identity (jangan dilonggarkan).
+  verify: `php artisan test --filter=TenancyIsolationTest` hijau; test baru: view-as hr_admin → data ter-scope ke tenant target, bukan tenant admin
+- [x] B3 (S) — Route grup consultant+associate tambah admin: `role:consultant,admin` (web.php:138) + `role:associate,admin` (web.php:152).
+  verify: `php artisan route:list --path=consultant` exit 0; test: admin GET `/consultant/sessions` + `/associate/dashboard` → 200 (dengan view-as aktif sesuai B1)
+- [x] B4 (M) — Middleware read-only: `app/Http/Middleware/ViewAsReadOnly.php` dipasang di grup `web` setelah auth — saat view-as aktif: tolak semua non-GET di luar prefix `admin` + whitelist eksplisit (`view-as.stop`, form-filter POST kecil) → 403. Deny-by-default. Otomatis tutup 2 lubang existing (`booking.cancel`, chat store saat view-as).
+  verify: `php artisan test --filter=ViewAsReadOnlyTest` hijau (POST booking.cancel/start-chat saat view-as → 403; POST saat tidak view-as → normal; GET → 200; stop view-as POST → 200)
+- [x] B5 (S) — Expiry 30 menit: middleware cek `expires_at` → auto-stop + flash "view-as expired". Audit `view_as.start`/`view_as.stop` full payload (target role, tenant, reason optional). 30 menit hardcode konstanta (ponytail: naikkan ke config saat ada tenant-level SLA).
+  verify: `php artisan test --filter=ViewAsTest` hijau (manipulate session `expires_at` ke masa lalu → next request auto-stop + flash + `admin_actions` row)
+- [x] B6 (S) — UI: form start view-as di detail tenant (A1 show page) — pilih user tenant + reason optional + tombol "Masuk sebagai". Banner existing `layouts/app.blade.php:150-156` + info sisa waktu + tombol stop.
+  verify: `php artisan test --filter=ViewAsUiTest` hijau (form render di detail tenant; start dari form → session view-as aktif + banner menampilkan role target + sisa waktu)
 
-## Phase 7 — Hardening P2 [model: tg/glm-5.3]
-- [ ] T7.1 Eager-load `departement` di `DashboardMetrics::build`. Spec: `docs/tasks/open/T7.1-dashboard-n1.md`
-  verify: `DB::enableQueryLog()` test: dashboard HR < 15 queries
-- [ ] T7.2 Hapus broadcast scaffolding mati. Spec: `docs/tasks/open/T7.2-broadcast-cleanup.md`
-  verify: `ls app/Providers/BroadcastServiceProvider.php` gagal; `config/broadcasting.php` default `log`
-- [ ] T7.3 Fix HR "Sesi aktif" filter overnight. Spec: `docs/tasks/open/T7.3-active-sessions-filter.md`
-  verify: test: sesi jam 23:00 masih muncul jam 01:00 keesokan hari
-- [ ] ~~T7.4 Hapus `app/Models/Model.php`~~ **CANCELLED** — masih dipakai 18 model. Spec: `docs/tasks/open/T7.4-remove-dead-model.md`
-- [ ] T7.5 Pindahkan "Rule demo" ke `config/hap.php`. Spec: `docs/tasks/open/T7.5-hap-rule-config.md`
-  verify: `grep "Rule demo" resources/views/associate/dashboard.blade.php` kosong
-- [ ] T7.6 Tambah custom error pages 403/404/500. Spec: `docs/tasks/open/T7.6-error-pages.md`
-  verify: manual trigger 404 → halaman custom
+### Phase C — Associate 3 vertikal
+**Dependency chain: C1→C2→C3→C4→C5→C6. Migration → config → service → admin → dashboard — serialize.**
 
-## Phase 8 — Flow Inti (P0 blocker) [model: tg/glm-5.3]
-**Renumbered dari T8.x untuk hindari tabrakan dengan QA T8.x.**
+- [x] C1 (M) — Migrasi: `perusahaans.associate_id` + `sekolahs.associate_id` (nullable FK users, mirror `kliniks.associate_id` 2026_08_05_000010). Tabel `perusahaan_pervormas` + `sekolah_pervormas` mirror schema `hap_pervormas` (unique(tenant_id, stage), field payout sama). `hap_pervormas` TIDAK di-rename/diubah.
+  verify: `php artisan migrate` exit 0; `php artisan test --filter=HpaKlinikPortalTest` tetap hijau (HAP existing tidak regresi)
+- [x] C2 (S) — `config/pervorma.php`: stage rates per vertikal — hap 250K/250K/500K @5/25/40 sesi (window 90 hari stage-1 tetap di service), sap 300K/400K/800K @5/25/40, cap 600K/800K/1.6M @trigger 1=mou_at(activated)/2=50 sesi/3=150 sesi. Default persis playbook.
+  verify: `php artisan test --filter=PervormaConfigTest` hijau (assert nilai rates + stage 3 vertikal dari config)
+- [x] C3 (L) — `PervormaService` generalize: driver per vertikal (hap/sap/cap), evaluator dipanggil dari titik trigger yang sama seperti sekarang: klinik=verify sesi (`SessionVerificationController`), perusahaan/sekolah=sesi done + tenant activated. Idempotent firstOrCreate per (tenant, stage). `HapPervormaService` jadi delegasi ke driver hap (smallest diff — caller existing tidak berubah).
+  verify: `php artisan test --filter=PervormaServiceTest` hijau (3 vertikal: stage naik di trigger benar; CAP stage-1 saat mou_at saja; idempotent — evaluator 2x = 1 row; `KlinikMoneyFlowTest` tetap hijau)
+- [x] C4 (S) — Admin assign associate ke tenant 3 vertikal: form di detail tenant (A1 show, section associate) + POST route + audit. Validasi: user role associate.
+  verify: `php artisan test --filter=AssociateAssignmentTest` hijau (assign 3 vertikal ter-audit; non-associate user → 422)
+- [x] C5 (M) — Associate dashboard multi-vertikal: tab klinik/perusahaan/sekolah di `resources/views/associate/dashboard.blade.php`, list tenant per vertikal (ganti hardcode `Klinik::where('associate_id')` di `Associate/DashboardController.php:22,61,68`), pervorma progress per vertikal, request payout per item (route existing generalized).
+  verify: `php artisan test --filter=AssociateMultiVerticalTest` hijau (associate dengan tenant 3 vertikal lihat semuanya; abort_unless pervorma ownership tetap — pervorma tenant lain → 403)
+- [x] C6 (M) — Admin pervorma pay 3 vertikal: `AdminDashboardController::pervormaSessions` + `Admin\PervormaController::pay` handle 3 tabel (filter `?vertical=`), evaluator trigger CAP stage-2/3 dari titik yang sama dengan C3. Pay ter-audit (pattern existing).
+  verify: `php artisan test --filter=AdminPervormaPayTest` hijau (pay per vertikal ter-audit + status paid; filter vertical bekerja)
 
-- [ ] F1.1 HR review request queue. List pending requests, approve/reject, assign consultant. Spec: `docs/tasks/open/F1.1-hr-review-queue.md`
-  verify: test: HR bisa approve request, consultant ter-assign, employee ter-notifikasi
-- [ ] F1.2 Consultant slot proposal. Consultant propose 2-3 slot options untuk request yang di-ACC. Spec: `docs/tasks/open/F1.2-consultant-slot-proposal.md`
-  verify: test: consultant propose slots, employee/HR lihat options
-- [ ] F1.3 Employee slot confirmation. Employee pilih 1 slot dari proposal, auto-book. Spec: `docs/tasks/open/F1.3-employee-slot-confirmation.md`
-  verify: test: employee confirm slot, session ter-book, status berubah
-- [ ] F1.4 Session expiry sweep. Auto-cancel scheduled sessions yang lewat tanpa check-in. Spec: `docs/tasks/open/F1.4-session-expiry-sweep.md`
-  verify: test: scheduled session > X jam tanpa check-in → auto-cancelled
+## Success Criteria
+- [x] `php artisan test` hijau total (baseline + semua suite baru); test existing yang merah by-design (view-as read-only) di-update dengan asersi lebih spesifik, TIDAK di-disable.
+- [x] Superadmin bisa: kelola 3 vertikal tenant (list/create/edit/suspend), impersonate semua non-admin role read-only 30 menit, lihat antrean ops terpadu + audit log ter-mask.
+- [x] Associate lihat + request payout 3 vertikal; admin pay 3 vertikal; HAP existing tidak regresi (`HpaKlinikPortalTest`, `KlinikMoneyFlowTest` hijau).
+- [x] Semua aksi admin baru (suspend, provisioning, retry/delete job, view-as start/stop, assign associate, pay pervorma) menghasilkan row `admin_actions` — diverifikasi via test.
+- [x] `php artisan route:cache` + `migrate` exit 0 di worktree.
+- [x] Tidak ada PII utuh di audit viewer response, log test, atau fixture (fake data saja).
 
-## Phase 9 — Operasional (P1) [model: tg/glm-5.3]
-- [ ] F2.1 Consultant assignment management (superadmin). Assign/remove consultant dari perusahaan/klinik pool. Spec: `docs/tasks/open/F2.1-consultant-assignment.md`
-  verify: test: superadmin assign consultant ke perusahaan, consultant muncul di pool
-- [ ] F2.2 View-as middleware + audit. Superadmin impersonasi tenant admin dengan logging. Spec: `docs/tasks/open/F2.2-view-as-audit.md`
-  verify: test: view-as tercatat di `admin_actions`, data tenant ter-scope
-- [ ] F2.3 HR consultant allocation approval. HR approve/override consultant assignment. Spec: `docs/tasks/open/F2.3-hr-allocation-approval.md`
-  verify: test: HR bisa ganti consultant yang di-assign system
-- [ ] F2.4 Full flow integration test. request → HR review → assignment → slot proposed → confirmed → in-session → completed. Spec: `docs/tasks/open/F2.4-full-flow-test.md`
-  verify: test end-to-end hijau
+## Out of Scope
+- Act-on-behalf (aksi tulis sebagai user target saat view-as) — SKIP, YAGNI: read-only sudah cover kebutuhan "masuk semua dashboard"; aksi tetap lewat admin action sendiri. Naikkan kalau ada permintaan support yang benar-benar butuh tulis-as-target, dengan audit yang memisahkan actor real vs actor effective.
+- Consultant assignment untuk klinik pool (consultant_pools tidak punya klinik_id — struktur beda).
+- Rename/refactor tabel `hap_pervormas` ke polymorphic tunggal.
+- Package admin (spatie, filament).
+- UI start view-as per-user di luar halaman detail tenant (form B6 di detail tenant cukup).
 
-## Phase 10 — Bootstrap workflow [model: tg/glm-5.3]
-- [ ] F3.1 CLAUDE.md + AGENTS.md untuk workflow mandor/kuli. Spec: `docs/tasks/open/F3.1-claude-md.md`
-  verify: file ada, dokumentasi workflow jelas
-- [ ] F3.2 Subagent definitions (auditor, backend, frontend, test, docs, reviewer, server-ops). Spec: `docs/tasks/open/F3.2-subagents.md`
-  verify: subagent bisa di-spawn dengan role spesifik
-- [ ] F3.3 Commands: mandor, dispatch, review, ship, docs-sync. Spec: `docs/tasks/open/F3.3-commands.md`
-  verify: commands executable
-- [ ] F3.4 scripts/gate.sh — pre-merge checks (lint, test, no secret). Spec: `docs/tasks/open/F3.4-gate-sh.md`
-  verify: script executable, fail jika ada secret/test fail
-- [ ] F3.5 scripts/kuli.sh — launcher dengan model routing tg/glm-5.3. Spec: `docs/tasks/open/F3.5-kuli-sh.md`
-  verify: script executable, dispatch kuli dengan model benar
-
-## Phase QA — Independent QA [model: tg/glm-5.3]
-- [ ] QA.1 Jalankan full test suite di branch integration. Verify: `php artisan test` hijau (target: ≥ baseline pass count, 0 regression).
-- [ ] QA.2 Browser pass manual 5 flow. Dokumentasikan di `docs/qa/QA-2026-11-XX.md`.
-- [ ] QA.3 Review security: grep mass-assignment, inline closures, abort_unless.
-- [ ] QA.4 Verify tidak ada `.env` / APP_KEY / token / password di commit.
-
-## Status: READY-FOR-KULI (Phase 1 quick wins — tidak butuh PHP runtime)
-
-**Blocker aktif:**
-1. PHP portable + Composer PHAR belum diinstall → Phase 0 BLOCKED. Owner izinkan download/setup lokal.
-
-**Resolved:**
-- ~~Model `tg/glm5.3`~~ → verified sebagai `tg/glm-5.3` (dengan dash). CLI headless MODEL_OK. Kuli sudah jalan untuk T1.1 + T1.2.
-
-**Security findings tambahan:**
-- High: `?employee_id=` superadmin preview tanpa audit log → sudah ditambahkan ke T3.1.
-- High: race window pada checkout guest link → sudah ditambahkan ke T4.2.
-- Med: chat email sinkron → T7.x queue.
-
-**Yang bisa kuli kerjakan SEKARANG tanpa PHP:** T1.1, T1.2 (sudah committed).
-**Yang butuh PHP:** T1.3–T1.5, T2.x, T3.x, dst. (verify pakai `php artisan test`).
+## Status: DONE — QA PASS (319 tests / 1287 assertions, 0 failures, 2026-11-17)

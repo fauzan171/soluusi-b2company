@@ -18,7 +18,13 @@ class SessionController extends Controller
     /** Konsultan: daftar sesi miliknya. */
     public function index()
     {
-        $consultant = auth()->user()->consultants()->first();
+        // B3: saat superadmin view-as consultant, resolve consultant dari target user.
+        $viewAs = \App\Support\ViewAs::current();
+        $userId = ($viewAs && ($viewAs['target_role'] ?? null) === 'consultant')
+            ? $viewAs['target_user_id']
+            : auth()->id();
+
+        $consultant = \App\Models\Consultant::where('user_id', $userId)->first();
         abort_unless($consultant, 403, 'Bukan konsultan.');
 
         $sessions = ConsultationSession::where('consultant_id', $consultant->id)

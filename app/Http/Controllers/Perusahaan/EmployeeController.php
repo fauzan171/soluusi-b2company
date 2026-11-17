@@ -44,6 +44,8 @@ class EmployeeController extends Controller
             $rows = PerusahaanEmployee::where('user_id', $user->id)->get();
             abort_unless($rows->count() === 1, 403, 'Membership ambigu. Hubungi ops.');
             $employee = $rows->first();
+            // Suspend = blok penuh (GET+POST). is_active/consent = blok POST saja.
+            abort_if($employee->perusahaan?->status === 'suspended', 403, 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.');
             if (!request()->isMethod('GET') && !request()->routeIs('perusahaan.booking.cancel') && !request()->routeIs('perusahaan.consultants.start-chat')) {
                 abort_unless($employee->perusahaan?->is_active && $employee->consent_at, 403, 'Program/consent belum aktif. Hubungi HR.');
             }
@@ -226,7 +228,7 @@ class EmployeeController extends Controller
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
     }
 
-    public function bookingForm()
+    public function bookingForm(Request $request)
     {
         $employee = $this->resolveEmployee();
         $perusahaan = $employee->perusahaan;
@@ -237,13 +239,39 @@ class EmployeeController extends Controller
             ->where('scheduled_at', '>=', $monthStart)->count();
         $quota = $perusahaan->sessions_per_employee_month;
 
+        $pool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id);
+
+        $q = $request->string('q')->trim()->toString();
+        $category = $request->string('category')->trim()->toString();
+        $consultantId = $request->integer('consultant_id') ?: null;
+
+        $selectedConsultant = null;
+        if ($consultantId) {
+            $selectedConsultant = $pool->firstWhere('id', $consultantId);
+            abort_unless($selectedConsultant, 404);
+        }
+
+        $filteredPool = $pool
+            ->when($q, fn ($c) => $c->filter(fn ($item) => str_contains(strtolower($item['name']), strtolower($q))))
+            ->when($category, fn ($c) => $c->filter(fn ($item) => str_contains($item['category'], $category)))
+            ->values();
+
+        $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
+        $visibleSlots = $selectedConsultant
+            ? $slots->where('consultant_id', $selectedConsultant['id'])->values()
+            : $slots;
+
         return view('perusahaan.booking', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'types' => ['psikolog' => 'Psikolog', 'nutrisionis' => 'Nutrisionis', 'fisioterapis' => 'Fisioterapis', 'karir' => 'Konselor Karir'],
-            'consultants' => \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id),
-            'slots' => \App\Services\BookingService::available('perusahaan', $perusahaan->id),
+            'consultants' => $filteredPool,
+            'categories' => $pool->pluck('category')->filter()->unique()->sort()->values(),
+            'q' => $q,
+            'activeCategory' => $category,
+            'selectedConsultant' => $selectedConsultant,
+            'slots' => $visibleSlots,
             'quotaLeft' => max(0, $quota - $usedMonth),
         ]);
     }

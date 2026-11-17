@@ -80,11 +80,11 @@ class AdminActionsAuditTest extends TestCase
             'due_at' => now()->addWeek(),
         ]);
 
-        $this->post(route('admin.pervormas.pay', $pervorma))->assertRedirect(route('loginIndex'));
-        $this->actingAs($this->nonAdmin())->post(route('admin.pervormas.pay', $pervorma))->assertForbidden();
+        $this->post(route('admin.pervormas.pay', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))->assertRedirect(route('loginIndex'));
+        $this->actingAs($this->nonAdmin())->post(route('admin.pervormas.pay', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))->assertForbidden();
 
         $admin = $this->admin();
-        $this->actingAs($admin)->post(route('admin.pervormas.pay', $pervorma))
+        $this->actingAs($admin)->post(route('admin.pervormas.pay', ['vertical' => 'hap', 'pervorma' => $pervorma->id]))
             ->assertRedirect()->assertSessionHas('success');
 
         $this->assertSame('paid', $pervorma->fresh()->status);
