@@ -47,6 +47,7 @@ class SekolahSession extends Model
         'schedule_version',
         'requested_by_user_id',
         'requested_for_role',
+        'parent_notified_at',
     ];
 
     protected $casts = [

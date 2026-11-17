@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('requested_by_user_id')->nullable()
                 ->constrained('users')->nullOnDelete();
             $table->string('requested_for_role')->default('self'); // self|bk|parent
+            $table->timestamp('parent_notified_at')->nullable(); // B.3 audit: email orangtua terkirim
         });
     }
 
@@ -23,7 +24,7 @@ return new class extends Migration
     {
         Schema::table('sekolah_sessions', function (Blueprint $table) {
             $table->dropConstrainedForeignId('requested_by_user_id');
-            $table->dropColumn(['request_notes', 'schedule_version', 'requested_for_role']);
+            $table->dropColumn(['request_notes', 'schedule_version', 'requested_for_role', 'parent_notified_at']);
         });
     }
 };
