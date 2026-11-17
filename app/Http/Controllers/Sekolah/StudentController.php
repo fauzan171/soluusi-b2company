@@ -65,6 +65,12 @@ class StudentController extends Controller
             ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
         $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
+        // Saran AI per sesi (siswa lihat miliknya sendiri saja — C.3).
+        $advices = \App\Models\SessionSummary::whereIn('sekolah_session_id', $history->pluck('id'))
+            ->where('status', 'completed')
+            ->get(['sekolah_session_id', 'client_advice'])
+            ->keyBy('sekolah_session_id');
+
         return view('sekolah.student', [
             'student' => $student,
             'sekolah' => $sekolah,
@@ -76,6 +82,7 @@ class StudentController extends Controller
             'assessment' => $latest,
             'assessmentTrend' => $trend,
             'needsAssessment' => $needsAssessment,
+            'advices' => $advices,
         ]);
     }
 

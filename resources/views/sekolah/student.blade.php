@@ -224,6 +224,32 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
     </section>
     @endif
 
+    {{-- Saran AI per sesi (siswa lihat miliknya sendiri) — C.3 --}}
+    @if(isset($advices) && $advices->isNotEmpty())
+    <h2 class="font-semibold text-sm text-pine-900 mb-2">Saran dari sesi konseling kamu</h2>
+    <div class="space-y-3 mb-6">
+        @foreach($history as $s)
+            @php $adv = $advices[$s->id] ?? null; @endphp
+            @if($adv && $adv->client_advice)
+            <div class="portal-card p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-xs text-gray-500">
+                            {{ ($s->completed_at ?? $s->scheduled_at)?->translatedFormat('d M Y') ?? '' }}
+                            · {{ ucfirst($s->konsultan_type) }}
+                        </p>
+                        <p class="text-sm text-gray-800 mt-2 whitespace-pre-wrap leading-relaxed">{{ $adv->client_advice }}</p>
+                    </div>
+                    @if($s->consultant_id)
+                    <a href="{{ route('sekolah.chat', $s) }}" class="text-xs font-semibold text-pine-700 hover:text-pine-900 whitespace-nowrap">Lihat sesi →</a>
+                    @endif
+                </div>
+            </div>
+            @endif
+        @endforeach
+    </div>
+    @endif
+
     {{-- Riwayat --}}
     <section class="portal-card p-5">
         <h3 class="dash-section-title">Riwayat sesi kamu</h3>
