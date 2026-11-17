@@ -18,6 +18,8 @@ class SekolahSession extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new TenantScope('sekolah'));
+        // D.1: SAP pervorma trigger single-source (observer). Idempotent di PervormaService.
+        static::observe(\App\Observers\SekolahSessionObserver::class);
     }
 
     protected $fillable = [
