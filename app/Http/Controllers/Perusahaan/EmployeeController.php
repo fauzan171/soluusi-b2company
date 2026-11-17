@@ -137,7 +137,12 @@ class EmployeeController extends Controller
         abort_unless($session->status === 'scheduled' && $session->scheduled_at === null,
             422, 'Hanya permintaan yang belum terjadwal bisa dibatalkan di sini.');
 
-        \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+        DB::transaction(function () use ($session) {
+            \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+            // D.2: proposal slot yang masih pending tidak boleh menggantung.
+            \App\Models\SessionSlotProposal::where('session_id', $session->id)
+                ->where('status', 'pending')->update(['status' => 'rejected']);
+        });
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Permintaan konsultasi dibatalkan. Kuota kamu kembali.');
@@ -279,6 +284,11 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         abort_unless($session->employee_id === $employee->id, 403);
         abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa dibatalkan.');
+        // D.2: baris pending-review dibatalkan lewat jalur yang mengembalikan kuota.
+        if ($session->scheduled_at === null) {
+            return $this->cancelPendingRequest($session);
+        }
+
         request()->validate(['reason' => ['required', 'string', 'max:1000']]);
         $restored = \App\Services\BookingService::cancel('perusahaan', $session, request('reason'));
 
@@ -291,6 +301,9 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         abort_unless($session->employee_id === $employee->id, 403);
         abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa diubah.');
+        // D.2: reschedule tidak boleh bypass review HR untuk permintaan pending.
+        abort_if($session->scheduled_at === null, 422, 'Permintaan masih menunggu review.');
+
         // ADR 001: max 3 jadwal total per sesi. Enforced di perusahaan flow;
         // ponytail: sekolah/BookingService belum — samakan saat reschedule mereka dimigrasi.
         $max = (int) config('booking.max_schedules_per_session', 3);

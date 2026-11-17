@@ -5,6 +5,7 @@ namespace Tests\Feature\Perusahaan;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
+use App\Models\SessionSlotProposal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -68,5 +69,59 @@ class QuotaConsistencyTest extends TestCase
         ])->assertStatus(403);
 
         $this->assertSame(1, $emp->sessions()->count());
+    }
+
+    public function test_cancel_pending_request_restores_quota(): void
+    {
+        [$p, $user, $emp] = $this->fixture(1);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $session = $this->pendingSession($p, $emp);
+        SessionSlotProposal::create([
+            'session_id' => $session->id, 'consultant_id' => $slot->consultant_id,
+            'proposed_at' => now(), 'status' => 'pending',
+            'slots' => [['start' => now()->addDay()->toDateTimeString(), 'end' => now()->addDay()->addHour()->toDateTimeString()]],
+        ]);
+
+        $this->actingAs($user)->post(route('perusahaan.request.cancel', $session))
+            ->assertRedirect(route('perusahaan.employee'));
+
+        $session->refresh();
+        $this->assertSame('cancelled', $session->status);
+        $this->assertFalse((bool) $session->quota_consumed);
+        $this->assertSame('rejected', SessionSlotProposal::firstOrFail()->status);
+
+        // Kuota kembali: booking baru diterima.
+        $this->actingAs($user)->post(route('perusahaan.booking.store'), [
+            'schedule_id' => $slot->id,
+            'konsultan_type' => 'psikolog',
+        ])->assertRedirect(route('perusahaan.employee'));
+    }
+
+    public function test_cancel_pending_via_booking_cancel_restores_quota(): void
+    {
+        [$p, $user, $emp] = $this->fixture(1);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.cancel', $session), ['reason' => 'Batal'])
+            ->assertRedirect();
+
+        $session->refresh();
+        $this->assertSame('cancelled', $session->status);
+        $this->assertFalse((bool) $session->quota_consumed);
+    }
+
+    public function test_reschedule_pending_request_is_rejected(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.reschedule', $session), [
+            'schedule_id' => $slot->id,
+        ])->assertStatus(422);
+
+        $session->refresh();
+        $this->assertSame('scheduled', $session->status);
+        $this->assertNull($session->scheduled_at);
     }
 }
