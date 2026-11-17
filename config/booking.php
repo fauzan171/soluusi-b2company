@@ -30,6 +30,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Stale Unscheduled Cancel Days (assigned but never scheduled, D.4)
+    |--------------------------------------------------------------------------
+    |
+    | Sessions with an assigned consultant but no scheduled_at are cancelled
+    | after this many days without update (no commission, no summary).
+    |
+    */
+
+    'stale_unscheduled_cancel_days' => (int) env('SESSION_STALE_UNSCHEDULED_DAYS', 7),
+
+    /*
+    |--------------------------------------------------------------------------
     | Max Schedules Per Session (ADR 001, opsi A)
     |--------------------------------------------------------------------------
     |
