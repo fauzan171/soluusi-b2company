@@ -269,4 +269,4 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 | D.6 | Rating & AI summary hanya server-render; JS menutup composer tanpa reload | `room.blade.php:52-67` vs `:149-156` | User tidak melihat form rating setelah sesi berakhir |
 | D.7 | Transkrip purged 24 jam tampil sama dengan "belum pernah chat" | `room.blade.php:167` | Ambiguitas setelah retensi |
 
-## Status: Phase F DONE. Phase G PENDING (G.1–G.8: mode konsultasi, link jadwal konsultan, 2 defect end/chat). D.1–D.7 deferred.
+## Status: Phase F + Phase G DONE (G.1–G.8). Deferred D.1–D.7 DONE. Full Feature suite 458/458 green.
