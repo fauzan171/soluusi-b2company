@@ -204,11 +204,15 @@ class ChatController extends Controller
                 'at' => $m->created_at->format('H:i'),
             ]);
 
-        // D.5: pesan lawan yang baru ditarik polling ini dianggap terbaca.
-        $session->chatMessages()
-            ->where('sender_id', '!=', $myId)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        // D.5: tandai terbaca HANYA pesan lawan yang benar-benar terkirim di payload
+// ini — pesan di luar limit 200 belum dilihat user, jangan ditandai.
+        $delivered = $messages->where('mine', false)->pluck('id');
+        if ($delivered->isNotEmpty()) {
+            $session->chatMessages()
+                ->whereIn('id', $delivered)
+                ->whereNull('read_at')
+                ->update(['read_at' => now()]);
+        }
 
         return [
             'messages' => $messages,

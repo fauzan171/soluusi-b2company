@@ -90,6 +90,29 @@ class ChatRoomEndStateTest extends TestCase
         $this->assertNull($mine->refresh()->read_at);
     }
 
+    public function test_polling_only_marks_delivered_messages_read(): void
+    {
+        [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
+        $older = ChatMessage::create([
+            'perusahaan_session_id' => $session->id,
+            'sender_id' => $docUser->id,
+            'body' => 'Pesan sebelumnya.',
+        ]);
+        // Pesan ini yang ikut payload (after = id pesan lama di atas).
+        $delivered = ChatMessage::create([
+            'perusahaan_session_id' => $session->id,
+            'sender_id' => $docUser->id,
+            'body' => 'Pesan terbaru.',
+        ]);
+
+        $this->actingAs($empUser)->getJson(
+            route('perusahaan.chat', $session) . '?after=' . $older->id
+        )->assertOk();
+
+        $this->assertNotNull($delivered->refresh()->read_at);
+        $this->assertNull($older->refresh()->read_at);
+    }
+
     public function test_done_and_rating_shown_after_reload(): void
     {
         [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
