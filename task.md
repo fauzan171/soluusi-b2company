@@ -194,4 +194,79 @@ Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah
 - **Verify:** file exists + markdown lint
 - **Acceptance:** Dokumen lengkap.
 
-## Status: DONE — Phases A–F complete on branch goal/sekolah-flow-parity
+---
+
+### Phase G: Mode konsultasi + jadwal dari konsultan (CAP)
+
+**Depends on:** Phase A–F done. Scope: portal perusahaan (karyawan). Sekolah sudah punya `mode` di `sekolah_sessions` dan `BookingService::available()`.
+
+**Konteks (bukti kode, bukan asumsi):**
+- Isi keluhan HR → SUDAH ditutup di commit `6f8b4ce` (`perusahaan/hr-review.blade.php`, dijaga `RequestNotesPrivacyTest`).
+- `perusahaan_sessions` TIDAK punya kolom `mode`; `sekolah_sessions` punya (`default 'online'`, migrasi `2026_09_19_000004:23`).
+- `BookingService::book()` hanya menyimpan `mode` untuk cabang sekolah (`BookingService.php:122`).
+- `Schedule.mode` ditulis HANYA oleh admin klinik (`Klinik\ScheduleController.php:89`) — konsultan tidak bisa menerbitkan slot sendiri, jadi "pilih mode" tidak bisa diturunkan dari `Schedule` untuk perusahaan.
+- Alur "konsultan kasih jadwal available" SUDAH ADA end-to-end: `Consultant\SlotProposalController` (propose 2–3 slot) → `perusahaan.slots.confirm` → `SessionStateMachine::schedule()`. Employee dashboard sudah merender `$pendingProposals`. Yang hilang: TIDAK ADA link dari `consultant/sessions.blade.php` ke form propose.
+
+#### Task G.1: Migration — kolom `mode` di `perusahaan_sessions` (S)
+- **Files:** `database/migrations/2026_11_18_000001_add_mode_to_perusahaan_sessions_table.php` (new)
+- **Action:** `$table->string('mode')->default('online');` — mirror `sekolah_sessions.mode`. Jangan rebuild tabel (CHECK constraint rebuild tidak perlu untuk kolom baru).
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Kolom ada, default `online`, migrasi reversible.
+
+#### Task G.2: Simpan mode dari request + self-booking (S)
+- **Files:** `app/Models/Perusahaan/PerusahaanSession.php`, `app/Http/Controllers/Perusahaan/EmployeeController.php`, `app/Services/BookingService.php`
+- **Action:** (a) `'mode'` masuk `$fillable`. (b) `requestConsultation` validasi `'mode' => ['required','in:online,offline']` dan simpan. (c) `BookingService::book()` cabang perusahaan ikut menyimpan `'mode' => $slot->mode ?? 'online'` supaya "pilih jadwal sendiri" juga membawa mode slot.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Request tersimpan dengan mode pilihan; booking manual menyimpan mode dari `Schedule`.
+
+#### Task G.3: Form pilih mode (S)
+- **Files:** `resources/views/perusahaan/employee.blade.php`
+- **Action:** Radio group di form request: "Online (via chat)" / "Tatap muka 1-on-1". Pakai komponen/kelas yang sudah ada di form (border-pine-500, focus ring). Default `old('mode', 'online')`. Update teks jaminan privasi kalau perlu.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Radio ter-render, required, error state konsisten dengan field lain.
+
+#### Task G.4: Tampilkan mode di kartu yang relevan (S)
+- **Files:** `resources/views/perusahaan/employee.blade.php`, `resources/views/perusahaan/hr-review.blade.php`, `resources/views/consultant/sessions.blade.php`, `resources/views/perusahaan/booking.blade.php`
+- **Action:** Badge kecil "Tatap muka" / "Online" di: kartu pending karyawan, kartu review HR (mode bukan data sensitif — HR butuh untuk siapkan ruang), baris sesi konsultan. Di `booking.blade.php:153` ganti `{{ $slot->mode }}` mentah jadi label Indonesia.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Tidak ada lagi string mentah `online`/`offline` yang tampil ke user.
+
+#### Task G.5: Entry point "Usulkan opsi jadwal" untuk konsultan (S)
+- **Files:** `resources/views/consultant/sessions.blade.php`
+- **Action:** Di blok `@if(!$cs->scheduled_at && $cs->status === 'scheduled')` tambah link ke `route('consultant.sessions.propose-slots.form', $cs)` ("Usulkan opsi jadwal"). Route + controller + view sudah ada; hanya link yang hilang.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Link muncul untuk sesi yang menunggu penjadwalan, mengarah ke form yang berfungsi.
+
+#### Task G.6: Test paritas mode + entry point (S)
+- **Files:** `tests/Feature/Perusahaan/ModeParityTest.php` (new)
+- **Action:** (1) request tanpa mode → 422/lolos? → wajibkan. (2) request dengan `mode=offline` tersimpan `offline`. (3) `bookingStore` dengan slot offline menyimpan `mode=offline`. (4) halaman review HR merender badge mode DAN tetap tidak merender `request_notes`. (5) `consultant.sessions` menampilkan link propose-slots untuk sesi pending. (6) halaman propose-slots bisa dibuka konsultan pemilik, 403 untuk konsultan lain.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Semua test hijau; full suite tetap hijau.
+
+#### Task G.7: Tutup celah "akhiri sesi" tanpa jadwal (S) — DEFECT, ikut Phase G
+- **Files:** `app/Http/Controllers/ChatController.php`
+- **Action:** `consultantEnd()` (`:63`) dan `employeeEnd()` (`:78`) saat ini hanya cek `status === 'scheduled'`. Sesi yang sudah di-assign konsultan tapi `scheduled_at` masih NULL (menunggu penjadwalan) bisa diakhiri → status `done` → `PervormaService::evaluate('cap')` bayar komisi + `GenerateSessionSummary` jalan di atas transkrip kosong + kuota terbakar. Tambahkan syarat `$session->scheduled_at !== null` di kedua method. Samakan dengan `send()` di `PerusahaanSessionPolicy` yang sudah mensyaratkan `scheduled_at`.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** End pada sesi assigned-belum-terjadwal → 422. Pervorma tidak ter-trigger. Test membuktikan keduanya.
+
+#### Task G.8: Sembunyikan tombol Chat pada baris CAP yang belum terjadwal (S) — DEFECT
+- **Files:** `resources/views/consultant/sessions.blade.php`
+- **Action:** `:59` merender link Chat tanpa syarat; sekolah sudah benar (`@if($ss->scheduled_at)` di `:116-117`). Bungkus link Chat CAP dengan `@if($cs->scheduled_at)` agar tidak membuka room mati yang menampilkan pesan untuk karyawan.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Sesi pending hanya menampilkan "Usulkan opsi jadwal" + select jadwal, tanpa Chat.
+
+**Out of scope (dicatat, tidak dikerjakan):** slot proposal untuk sesi sekolah (`SessionSlotProposal.sekolah_session_id` ada tapi `SlotProposalController` hanya terima `PerusahaanSession`); lokasi/ruang untuk sesi offline (`location` tetap NULL — perlu alur booking ruang terpisah).
+
+### Deferred — defect ditemukan saat audit, TIDAK masuk Phase G
+
+| # | Temuan | Bukti | Dampak |
+|---|---|---|---|
+| D.1 | Tidak ada auto-provision karyawan (sekolah punya `StudentProvisioner`, perusahaan tidak) | `Perusahaan/RosterController.php:32-46` vs `Sekolah/RosterController.php:93,104` | Program CAP kosong sampai tiap karyawan di-invite manual |
+| D.2 | `bookingReschedule`/`bookingCancel` menerima baris pending-review | `EmployeeController.php:280-309` + `BookingService.php:65-66` | Reschedule bypass review HR; cancel membakar kuota |
+| D.3 | Empat kalkulasi kuota berbeda | `EmployeeController.php:80,237,403` vs `BookingService.php:48-55` | Booking melebihi kuota bisa lolos |
+| D.4 | Sesi assigned-belum-terjadwal tidak pernah expire | `CancelExpiredSessions.php:81,124` | Sesi menggantung permanen |
+| D.5 | `read_at` di `chat_messages` tidak pernah ditulis | `ChatMessage.php:15` | Tidak ada indikator pesan belum dibaca |
+| D.6 | Rating & AI summary hanya server-render; JS menutup composer tanpa reload | `room.blade.php:52-67` vs `:149-156` | User tidak melihat form rating setelah sesi berakhir |
+| D.7 | Transkrip purged 24 jam tampil sama dengan "belum pernah chat" | `room.blade.php:167` | Ambiguitas setelah retensi |
+
+## Status: Phase F DONE. Phase G PENDING (G.1–G.8: mode konsultasi, link jadwal konsultan, 2 defect end/chat). D.1–D.7 deferred.
