@@ -6,10 +6,10 @@
     $who5Items = \App\Http\Controllers\Perusahaan\EmployeeController::WHO5_ITEMS;
     $answerLabels = \App\Http\Controllers\Perusahaan\EmployeeController::ANSWER_OPTIONS;
     $resources = [
-        ['title' => 'Teknik pernapasan 4-7-8 untuk cemas', 'desc' => 'Latihan 3 menit untuk menenangkan sistem saraf sebelum tidur atau meeting.', 'tag' => 'Kecemasan', 'icon' => 'heart'],
+        ['title' => 'Teknik pernapasan 4-7-8 untuk cemas', 'desc' => 'Latihan 3 menit untuk menenangkan sistem saraf sebelum tidur atau meeting.', 'tag' => 'Kecemasan', 'icon' => 'wind'],
         ['title' => 'Istirahat mikro di sela kerja', 'desc' => 'Riset menunjukkan jeda 5 menit tiap jam menjaga fokus dan menurunkan burnout.', 'tag' => 'Burnout', 'icon' => 'bolt'],
-        ['title' => 'Bicara dengan atasan soal beban kerja', 'desc' => 'Panduan percakapan asertif tanpa konfrontasi untuk negosiasi prioritas.', 'tag' => 'Karir', 'icon' => 'megaphone'],
-        ['title' => 'Sleep hygiene: 6 kebiasaan tidur sehat', 'desc' => 'Rutinitas malam yang terbukti memperbaiki kualitas tidur dalam 2 minggu.', 'tag' => 'Tidur', 'icon' => 'sparkles'],
+        ['title' => 'Bicara dengan atasan soal beban kerja', 'desc' => 'Panduan percakapan asertif tanpa konfrontasi untuk negosiasi prioritas.', 'tag' => 'Karir', 'icon' => 'messages'],
+        ['title' => 'Sleep hygiene: 6 kebiasaan tidur sehat', 'desc' => 'Rutinitas malam yang terbukti memperbaiki kualitas tidur dalam 2 minggu.', 'tag' => 'Tidur', 'icon' => 'moon'],
     ];
 @endphp
 
@@ -334,8 +334,8 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         @foreach($resources as $r)
         <div class="portal-card p-4 transition hover:shadow-md hover:border-pine-300">
-            <div class="flex items-center justify-between">
-                <span class="grid h-9 w-9 place-items-center rounded-xl bg-pine-50 text-pine-700">
+            <div class="flex items-start justify-between gap-2">
+                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-pine-50 text-pine-700 shrink-0">
                     @include('perusahaan.partials.icon', ['name' => $r['icon']])
                 </span>
                 <span class="text-[10px] font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $r['tag'] }}</span>
