@@ -133,6 +133,11 @@ class ChatController extends Controller
             'backUrl' => $backUrl,
             'isEmployee' => $isEmployee,
             'sessionSummary' => $sessionSummary,
+            // D.7: transkrip yang sudah dipurge (retensi 24 jam) tidak boleh
+            // tampil sama dengan "belum pernah chat".
+            'transcriptPurged' => $session->status === 'done'
+                && $session->completed_at?->lt(now()->subDay())
+                && $session->chatMessages()->doesntExist(),
         ]);
     }
 
@@ -198,6 +203,12 @@ class ChatController extends Controller
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
             ]);
+
+        // D.5: pesan lawan yang baru ditarik polling ini dianggap terbaca.
+        $session->chatMessages()
+            ->where('sender_id', '!=', $myId)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
 
         return [
             'messages' => $messages,

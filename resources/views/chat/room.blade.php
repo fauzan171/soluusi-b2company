@@ -12,7 +12,8 @@
 {{-- ponytail: polling 5s vanilla JS dengan backoff saat error. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
 <div id="chat" class="mx-auto max-w-2xl"
      data-poll="{{ $pollUrl }}" data-post="{{ $postUrl }}" data-token="{{ csrf_token() }}"
-     data-can-send="{{ $canSend ? 1 : 0 }}" data-status="{{ $session->status }}">
+     data-can-send="{{ $canSend ? 1 : 0 }}" data-status="{{ $session->status }}"
+     data-purged="{{ !empty($transcriptPurged) ? 1 : 0 }}">
 
     <a href="{{ $backUrl }}" class="inline-flex items-center gap-1 text-sm text-pine-700 hover:text-pine-900 font-medium mb-3">← Kembali ke riwayat sesi</a>
 
@@ -95,6 +96,12 @@
         </div>
         @endif
 
+        @if(!empty($transcriptPurged))
+        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">
+            Transkrip chat sesi ini sudah dihapus otomatis 24 jam setelah sesi selesai (kebijakan retensi privasi). Ringkasan sesi tetap tersimpan.
+        </p>
+        @endif
+
         <div id="chat-log" class="flex-1 min-h-0 px-4 py-4 sm:px-5 overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
 
         <div id="chat-composer" class="shrink-0">
@@ -128,6 +135,7 @@
     let lastId = 0, first = true, sending = false, timer = null;
     let delay = 5000; // backoff: 5s → 10s → 30s cap, reset on success
     let terminal = ['done', 'cancelled', 'no_show'].includes(root.dataset.status);
+    const terminalAtLoad = terminal;
 
     const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
@@ -162,6 +170,9 @@
         if (composer) {
             composer.innerHTML = '<p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Sesi selesai. Chat ditutup.</p>';
         }
+        // D.6: sesi berakhir saat room terbuka → muat ulang sekali supaya form
+        // rating (render server) muncul. Tidak reload bila sudah terminal saat load.
+        if (!terminalAtLoad) location.reload();
     }
 
     async function poll() {
@@ -173,7 +184,9 @@
             if (!r.ok) throw new Error(r.status);
             const data = await r.json();
             const rows = data.messages || [];
-            if (first) { log.innerHTML = ''; rows.length || (log.innerHTML = '<p class="text-center text-gray-400 py-6">Belum ada pesan. Sapa dulu.</p>'); }
+            if (first) { log.innerHTML = ''; rows.length || (log.innerHTML = root.dataset.purged === '1'
+                ? '<p class="text-center text-gray-400 py-6">Transkrip sudah dihapus sesuai kebijakan retensi.</p>'
+                : '<p class="text-center text-gray-400 py-6">Belum ada pesan. Sapa dulu.</p>'); }
             rows.forEach(add);
             if (first) log.scrollTop = log.scrollHeight;
             first = false;
