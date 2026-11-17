@@ -121,7 +121,7 @@ class DashboardMetrics
         // NPS wellbeing = avg WHO-5 terbaru tiap orang (90 hari) skala 100 → /20.
         $assessmentModel = $school ? \App\Models\Sekolah\SekolahAssessment::class : \App\Models\Perusahaan\PerusahaanAssessment::class;
         $assessed = $assessmentModel::where($vertical . '_id', $tenant->id)
-            ->where('taken_at', '>=', now()->copy()->subDays(90))->get()
+            ->where('taken_at', '>=', now()->copy()->subDays(90))->when($school, fn ($q) => $q->studentRoster())->get()
             ->groupBy($person)->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
         $npsScore = $assessed->isNotEmpty() ? round($assessed->avg('score') / 20, 1) : 0.0;
 

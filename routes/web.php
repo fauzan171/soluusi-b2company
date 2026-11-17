@@ -100,10 +100,10 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
         Route::post('/staff/request/{session}/cancel', [\App\Http\Controllers\Sekolah\StaffController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('staff.request.cancel');
         Route::post('/staff/sessions/{session}/cancel', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('staff.booking.cancel');
         Route::post('/staff/sessions/{session}/reschedule', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('staff.booking.reschedule');
-        Route::get('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'student'])->name('staff.chat');
-        Route::post('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentStore'])->middleware('throttle:60,1')->name('staff.chat.store');
-        Route::post('/staff/sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentEnd'])->name('staff.chat.end');
-        Route::post('/staff/sessions/{session}/rate', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentRate'])->name('staff.chat.rate');
+        Route::get('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'student'])->defaults('prefix', 'sekolah.staff')->name('staff.chat');
+        Route::post('/staff/sessions/{session}/chat', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentStore'])->defaults('prefix', 'sekolah.staff')->middleware('throttle:60,1')->name('staff.chat.store');
+        Route::post('/staff/sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentEnd'])->defaults('prefix', 'sekolah.staff')->name('staff.chat.end');
+        Route::post('/staff/sessions/{session}/rate', [\App\Http\Controllers\Sekolah\ChatController::class, 'studentRate'])->defaults('prefix', 'sekolah.staff')->name('staff.chat.rate');
     });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');

@@ -13,7 +13,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
         <span class="text-[10px] font-semibold bg-terra-100 text-terra-800 rounded-lg px-2 py-1">Preview Super Admin</span>
         @endif
     </div>
-    <p class="text-sm text-gray-500 mb-6">Portal kesejahteraan staf sekolah. Semua sesi kamu rahasia — hanya kamu dan konsultan yang tahu isinya. Sekolah hanya melihat data agregat.</p>
+    <p class="text-sm text-gray-500 mb-6">Portal kesejahteraan staf sekolah. Skor asesmen dan isi chat kamu rahasia — sekolah hanya melihat data agregat. Kalau kamu minta konseling, guru BK membaca alasan permintaanmu untuk menentukan jadwal.</p>
 
     <div class="grid md:grid-cols-3 gap-4 mb-6">
         {{-- Kuota --}}
@@ -151,7 +151,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                 </div>
 
                 <div class="bg-pine-50 border border-pine-200 rounded-xl p-3 text-xs text-pine-800 leading-relaxed">
-                    <strong class="font-semibold">Rahasia penuh.</strong> Hanya kamu dan konselor yang tahu isi chat ini. Guru BK hanya melihat jumlah agregat.
+                    <strong class="font-semibold">Rahasia penuh.</strong> Isi chat hanya kamu dan konselor yang tahu. Guru BK membaca alasan permintaan ini untuk mengatur jadwal, bukan isi sesinya.
                 </div>
 
                 <button type="submit"

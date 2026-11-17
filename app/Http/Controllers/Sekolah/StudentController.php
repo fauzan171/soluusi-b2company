@@ -26,7 +26,7 @@ class StudentController extends Controller
         $user = auth()->user();
 
         if (optional($user->role)->name === 'student') {
-            $rows = SekolahStudent::where('user_id', $user->id)->get();
+            $rows = SekolahStudent::where('user_id', $user->id)->where('type', SekolahStudent::TYPE_STUDENT)->get();
             abort_unless($rows->count() === 1, 403, 'Membership ambigu. Hubungi ops.');
             $student = $rows->first();
             // Suspend = blok penuh (GET+POST). is_active/consent = blok POST saja.
@@ -39,8 +39,8 @@ class StudentController extends Controller
         }
 
         abort_unless(request()->isMethod('GET'), 403, 'Preview read-only.');
-        $student = SekolahStudent::find(request('student_id'))
-            ?: SekolahStudent::whereHas('user')
+        $student = SekolahStudent::where('type', SekolahStudent::TYPE_STUDENT)->find(request('student_id'))
+            ?: SekolahStudent::where('type', SekolahStudent::TYPE_STUDENT)->whereHas('user')
                 ->where('sekolah_id', SekolahContext::current()?->id)
                 ->first();
         abort_unless($student, 403, 'Belum ada siswa dengan akun untuk preview.');

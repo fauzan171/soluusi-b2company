@@ -167,6 +167,26 @@ class SekolahStaffFlowTest extends TestCase
         $this->assertSame(6, $metrics['registered']);
     }
 
+    public function test_staff_assessment_does_not_enter_bk_wellbeing_aggregate(): void
+    {
+        $sekolah = $this->sekolah();
+        for ($i = 1; $i <= 4; $i++) {
+            $this->student($sekolah, "siswa{$i}@test.local", "Siswa {$i}");
+        }
+        $this->staff($sekolah);
+
+        // Staff menilai dirinya sangat baik — kalau ikut terhitung, npsScore naik dari 0.
+        $staffPerson = SekolahStudent::where('sekolah_id', $sekolah->id)->where('type', 'staff')->sole();
+        SekolahAssessment::create([
+            'sekolah_id' => $sekolah->id, 'student_id' => $staffPerson->id,
+            'answers' => [5, 5, 5, 5, 5], 'score' => 100, 'taken_at' => now(),
+        ]);
+
+        $metrics = DashboardMetrics::build($sekolah, 'sekolah');
+
+        $this->assertSame(0.0, $metrics['npsScore'], 'Skor staf tidak boleh masuk agregat wellbeing BK.');
+    }
+
     public function test_other_staff_cannot_cancel_someone_elses_session(): void
     {
         $sekolah = $this->sekolah();

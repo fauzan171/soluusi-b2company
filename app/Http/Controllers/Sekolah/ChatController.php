@@ -17,15 +17,22 @@ use Illuminate\Support\Facades\Mail;
  */
 class ChatController extends Controller
 {
-    /** Siswa: buka room chat sesinya. */
-    public function student(SekolahSession $session)
+    /** Siswa/staf: buka room chat sesinya. $prefix memilih route group (sekolah.* vs sekolah.staff.*). */
+    public function student(SekolahSession $session, string $prefix = 'sekolah')
     {
         $this->authorize('chat', $session);
 
-        return $this->room($session, 'Konselor', route('sekolah.chat.store', $session), route('sekolah.student'), true);
+        return $this->room(
+            $session,
+            'Konselor',
+            route($prefix.'.chat.store', $session),
+            route($prefix === 'sekolah' ? 'sekolah.student' : 'sekolah.staff'),
+            true,
+            $prefix
+        );
     }
 
-    public function studentStore(Request $r, SekolahSession $session)
+    public function studentStore(Request $r, SekolahSession $session, string $prefix = 'sekolah')
     {
         $this->authorize('chat', $session);
 
@@ -76,7 +83,7 @@ class ChatController extends Controller
     }
 
     /** Siswa: akhiri sesi (mark done) — mirror employeeEnd CAP. */
-    public function studentEnd(SekolahSession $session)
+    public function studentEnd(SekolahSession $session, string $prefix = 'sekolah')
     {
         $this->authorize('chat', $session);
 
@@ -87,12 +94,12 @@ class ChatController extends Controller
         PervormaService::evaluate('sap', $session->sekolah);
         GenerateSessionSummary::dispatch($session->id, 'sekolah');
 
-        return redirect()->route('sekolah.chat', $session)
+        return redirect()->route($prefix.'.chat', $session)
             ->with('success', 'Sesi diakhiri. Silakan beri rating.');
     }
 
     /** Siswa: beri rating 1-5 setelah sesi done. */
-    public function studentRate(Request $r, SekolahSession $session)
+    public function studentRate(Request $r, SekolahSession $session, string $prefix = 'sekolah')
     {
         $this->authorize('rate', $session);
 
@@ -102,10 +109,11 @@ class ChatController extends Controller
 
         $session->update(['rating' => $r->rating]);
 
-        return redirect()->route('sekolah.student')->with('success', 'Terima kasih atas ratingnya.');
+        return redirect()->route($prefix === 'sekolah' ? 'sekolah.student' : 'sekolah.staff')
+            ->with('success', 'Terima kasih atas ratingnya.');
     }
 
-    private function room(SekolahSession $session, string $peerLabel, string $postUrl, string $backUrl, bool $isStudent = false)
+    private function room(SekolahSession $session, string $peerLabel, string $postUrl, string $backUrl, bool $isStudent = false, string $prefix = 'sekolah')
     {
         if (request()->wantsJson() || request()->has('after')) {
             return response()->json($this->payload($session, (int) request('after', 0), $peerLabel));
@@ -131,8 +139,8 @@ class ChatController extends Controller
             'backUrl' => $backUrl,
             'isEmployee' => $isStudent, // view pakai nama var yang sama
             'sessionSummary' => $sessionSummary,
-            'endUrl' => $isStudent ? route('sekolah.chat.end', $session) : route('consultant.sekolah.chat.end', $session),
-            'rateUrl' => route('sekolah.chat.rate', $session),
+            'endUrl' => $isStudent ? route($prefix.'.chat.end', $session) : route('consultant.sekolah.chat.end', $session),
+            'rateUrl' => route($prefix.'.chat.rate', $session),
             'startUrl' => route('consultant.sekolah.chat.start', $session),
         ]);
     }
