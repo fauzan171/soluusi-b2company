@@ -11,6 +11,7 @@ use App\Models\Perusahaan\PerusahaanSession;
 use App\Models\Role;
 use App\Models\Sekolah\Sekolah;
 use App\Models\Sekolah\SekolahAdmin;
+use App\Models\Sekolah\SekolahStudent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -228,6 +229,31 @@ class ViewAsTest extends TestCase
 
         $this->actingAs($admin)->withSession(['admin_sekolah_id' => $sekolahA->id])
             ->post(route('admin.view-as.start'), ['user_id' => $bkUser->id]);
+
+        $this->assertSame($sekolahB->id, \App\Support\SekolahContext::current()?->id);
+        $current = \App\Support\ViewAs::current();
+        $this->assertSame('sekolah', $current['vertical']);
+        $this->assertSame($sekolahB->id, $current['tenant_id']);
+    }
+
+    /** E.1 — view-as staf sekolah harus scope ke tenant & mendarat di portal staf. */
+    public function test_view_as_sekolah_staff_scopes_context_and_lands_on_staff_portal()
+    {
+        $admin = $this->admin();
+
+        $sekolahA = Sekolah::create(['name' => 'SMA A', 'brand' => 'SA', 'is_active' => true]);
+        $sekolahB = Sekolah::create(['name' => 'SMA B', 'brand' => 'SB', 'is_active' => true]);
+
+        $staffUser = User::factory()->create(['role_id' => Role::firstOrCreate(['name' => 'sekolah_staff'])->id]);
+        SekolahAdmin::create(['sekolah_id' => $sekolahB->id, 'user_id' => $staffUser->id, 'role' => 'sekolah_staff']);
+        SekolahStudent::create([
+            'sekolah_id' => $sekolahB->id, 'user_id' => $staffUser->id,
+            'name' => 'Staf B', 'email' => 'staf-b@test.local', 'type' => 'staff', 'consent_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->withSession(['admin_sekolah_id' => $sekolahA->id])
+            ->post(route('admin.view-as.start'), ['user_id' => $staffUser->id])
+            ->assertRedirect(route('sekolah.staff'));
 
         $this->assertSame($sekolahB->id, \App\Support\SekolahContext::current()?->id);
         $current = \App\Support\ViewAs::current();

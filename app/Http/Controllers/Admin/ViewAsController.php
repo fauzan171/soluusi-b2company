@@ -35,11 +35,14 @@ class ViewAsController extends Controller
             'reason' => $data['reason'] ?? null,
         ]);
 
-        $redirectRoute = match (ViewAs::current()['vertical'] ?? null) {
-            'perusahaan' => 'perusahaan.employee',
-            'sekolah' => 'sekolah.dashboard',
-            'klinik' => 'klinik.dashboard',
-            default => 'admin.dashboard',
+        $redirectRoute = match (true) {
+            (ViewAs::current()['target_role'] ?? null) === 'sekolah_staff' => 'sekolah.staff',
+            default => match (ViewAs::current()['vertical'] ?? null) {
+                'perusahaan' => 'perusahaan.employee',
+                'sekolah' => 'sekolah.dashboard',
+                'klinik' => 'klinik.dashboard',
+                default => 'admin.dashboard',
+            },
         };
 
         return redirect()->route($redirectRoute)
