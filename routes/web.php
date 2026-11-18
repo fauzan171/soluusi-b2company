@@ -101,6 +101,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
         Route::post('/students/{student}/consent', [\App\Http\Controllers\Sekolah\RosterController::class, 'consent'])->name('students.consent');
         Route::post('/students/invite', [\App\Http\Controllers\Sekolah\RosterController::class, 'invite'])->name('students.invite');
+        // ONB.5: BK menyalakan/mematikan konsultan yang sudah di-assign Soluusi.
+        Route::get('/konsultan', [\App\Http\Controllers\Sekolah\ConsultantPoolController::class, 'index'])->name('consultants.pool');
+        Route::post('/konsultan/toggle', [\App\Http\Controllers\Sekolah\ConsultantPoolController::class, 'toggle'])->middleware('throttle:20,1')->name('consultants.pool.toggle');
     });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');
@@ -132,6 +135,9 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/review', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'index'])->name('review');
         Route::post('/review/{session}/approve', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'approve'])->middleware('throttle:10,1')->name('review.approve');
         Route::post('/review/{session}/reject', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'reject'])->middleware('throttle:10,1')->name('review.reject');
+        // ONB.5: HR menyalakan/mematikan konsultan yang sudah di-assign Soluusi.
+        Route::get('/konsultan', [\App\Http\Controllers\Perusahaan\ConsultantPoolController::class, 'index'])->name('consultants.pool');
+        Route::post('/konsultan/toggle', [\App\Http\Controllers\Perusahaan\ConsultantPoolController::class, 'toggle'])->middleware('throttle:20,1')->name('consultants.pool.toggle');
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');

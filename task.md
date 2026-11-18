@@ -231,7 +231,7 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
 
 > Boleh paralel dengan Phase C (file berbeda), tapi butuh Phase A selesai.
 
-- [ ] **D1 / ONB.5 (M, `d-pool`) — HR/BK toggle konsultan aktif di pool tenant.**
+- [x] **D1 / ONB.5 (M, `d-pool`) — HR/BK toggle konsultan aktif di pool tenant.**
   Spec: `docs/tasks/open/ONB.5-tenant-consultant-pool-self-service.md`.
   **Files:**
   - `database/migrations/2026_11_18_000004_add_is_active_to_consultant_pools.php` (new)
@@ -250,7 +250,7 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
   **Verify:** `php artisan test --filter=TenantConsultantPoolTest`
   **Acceptance:** HR A hanya lihat pool A; toggle off → hilang dari halaman booking karyawan; toggle on → muncul lagi; HR A tidak bisa toggle row B; BK bisa toggle sekolahnya; karyawan/siswa → 403; tidak ada jalur tambah konsultan baru; audit tercatat tanpa PII; konsultan `status != accept` tidak muncul; `php -l`.
 
-- [ ] **D2 / ONB.6 (M, `d-parity`) — Paritas dua vertikal + `sekolah_staff` redirect.**
+- [-] **D2 / ONB.6 (M, `d-parity`) — Paritas dua vertikal + `sekolah_staff` redirect.** BLOCKED: `sekolah_staff` tidak ada di `main` (0 kemunculan di `app/`, `routes/`, `database/`) dan branch `goal/sekolah-flow-parity` belum merge. Sesuai spec, role baru TIDAK dibuat di task ini. Bagian yang tidak butuh parity (urutan gerbang `force.password` → `profile.confirmed`) sudah bernilai `[x]` lewat A1+B1 dan diverifikasi `ForcePasswordChangeTest` + `FirstLoginProfileTest`.
   Spec: `docs/tasks/open/ONB.6-parity-and-role-redirect.md`.
   **Files:**
   - `app/Http/Controllers/AuthController.php` (`redirectByRole`: verifikasi case `sekolah_staff` ada)
