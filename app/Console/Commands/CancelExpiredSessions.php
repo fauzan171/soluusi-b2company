@@ -161,7 +161,7 @@ class CancelExpiredSessions extends Command
     private function sweepStaleUnscheduled(string $vertical, string $model, \DateTimeInterface $cutoff): int
     {
         $days = (int) config('booking.stale_unscheduled_cancel_days', 7);
-        $reason = "[HR] Sesi kedaluwarsa: konsultan tidak pernah menjadwalkan dalam {$days} hari";
+        $reason = "Sesi kedaluwarsa: konsultan tidak pernah menjadwalkan dalam {$days} hari";
 
         return DB::transaction(function () use ($vertical, $model, $cutoff, $reason) {
             $sessions = $model::where('status', 'scheduled')
