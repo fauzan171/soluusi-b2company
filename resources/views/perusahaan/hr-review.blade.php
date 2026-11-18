@@ -45,14 +45,16 @@
             <p class="text-sm font-semibold text-pine-900">{{ $session->employee?->name ?? '—' }}
                 <span class="font-normal text-gray-400">·</span>
                 <span class="text-xs font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $typeLabels[$session->konsultan_type] ?? ucfirst($session->konsultan_type) }}</span>
+                <span class="text-xs font-semibold bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">{{ ($session->mode ?? 'online') === 'offline' ? 'Tatap muka' : 'Online' }}</span>
             </p>
             <p class="text-xs text-gray-500 mt-1">dikirim {{ $session->created_at->diffForHumans() }}</p>
             @if($session->topic_category)
             <p class="text-xs text-gray-500 mt-0.5">Topik: <span class="font-medium text-gray-700">{{ $session->topic_category }}</span></p>
             @endif
-            @if($session->request_notes)
-            <p class="text-xs text-gray-600 mt-1.5 leading-relaxed">{{ str($session->request_notes)->limit(200) }}</p>
-            @endif
+            {{-- Isi keluhan TIDAK dirender untuk HR: hanya karyawan + konsultan yang
+                 boleh tahu (lihat janji privasi di portal karyawan). HR cukup tahu
+                 jenis konsultan + kategori topik untuk menugaskan. --}}
+            <p class="text-[11px] text-gray-400 mt-1.5">Isi cerita bersifat rahasia — hanya dibaca konsultan yang ditugaskan.</p>
         </div>
     </div>
 

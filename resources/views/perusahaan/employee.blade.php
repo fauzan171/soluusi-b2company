@@ -3,13 +3,14 @@
 @section('content')
 @php
     $typeLabels = ['psikolog' => 'Psikolog', 'nutrisionis' => 'Nutrisionis', 'fisioterapis' => 'Fisioterapis', 'karir' => 'Konselor Karir'];
+    $modeLabels = ['online' => 'Online', 'offline' => 'Tatap muka'];
     $who5Items = \App\Http\Controllers\Perusahaan\EmployeeController::WHO5_ITEMS;
     $answerLabels = \App\Http\Controllers\Perusahaan\EmployeeController::ANSWER_OPTIONS;
     $resources = [
-        ['title' => 'Teknik pernapasan 4-7-8 untuk cemas', 'desc' => 'Latihan 3 menit untuk menenangkan sistem saraf sebelum tidur atau meeting.', 'tag' => 'Kecemasan', 'icon' => 'heart'],
+        ['title' => 'Teknik pernapasan 4-7-8 untuk cemas', 'desc' => 'Latihan 3 menit untuk menenangkan sistem saraf sebelum tidur atau meeting.', 'tag' => 'Kecemasan', 'icon' => 'wind'],
         ['title' => 'Istirahat mikro di sela kerja', 'desc' => 'Riset menunjukkan jeda 5 menit tiap jam menjaga fokus dan menurunkan burnout.', 'tag' => 'Burnout', 'icon' => 'bolt'],
-        ['title' => 'Bicara dengan atasan soal beban kerja', 'desc' => 'Panduan percakapan asertif tanpa konfrontasi untuk negosiasi prioritas.', 'tag' => 'Karir', 'icon' => 'megaphone'],
-        ['title' => 'Sleep hygiene: 6 kebiasaan tidur sehat', 'desc' => 'Rutinitas malam yang terbukti memperbaiki kualitas tidur dalam 2 minggu.', 'tag' => 'Tidur', 'icon' => 'sparkles'],
+        ['title' => 'Bicara dengan atasan soal beban kerja', 'desc' => 'Panduan percakapan asertif tanpa konfrontasi untuk negosiasi prioritas.', 'tag' => 'Karir', 'icon' => 'messages'],
+        ['title' => 'Sleep hygiene: 6 kebiasaan tidur sehat', 'desc' => 'Rutinitas malam yang terbukti memperbaiki kualitas tidur dalam 2 minggu.', 'tag' => 'Tidur', 'icon' => 'moon'],
     ];
 @endphp
 
@@ -157,8 +158,31 @@
                     @enderror
                 </div>
 
+                <fieldset>
+                    <legend class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Cara konsultasi <span class="text-terra-600" aria-hidden="true">*</span>
+                    </legend>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        @foreach(['online' => ['Online', 'Via chat, dari mana saja'], 'offline' => ['Tatap muka 1-on-1', 'Bertemu langsung di kantor']] as $value => [$label, $hint])
+                        <label class="flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition
+                            {{ $errors->has('mode') ? 'border-terra-400' : 'border-gray-300 hover:border-pine-400' }}">
+                            <input type="radio" name="mode" value="{{ $value }}" required
+                                @checked(old('mode', 'online') === $value)
+                                class="mt-0.5 text-pine-700 focus:ring-pine-500">
+                            <span>
+                                <span class="block text-sm font-semibold text-pine-900">{{ $label }}</span>
+                                <span class="block text-xs text-gray-500">{{ $hint }}</span>
+                            </span>
+                        </label>
+                        @endforeach
+                    </div>
+                    @error('mode')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </fieldset>
+
                 <div class="bg-pine-50 border border-pine-200 rounded-xl p-3 text-xs text-pine-800 leading-relaxed">
-                    <strong class="font-semibold">Rahasia penuh.</strong> Hanya kamu dan konsultan yang tahu isi chat ini.
+                    <strong class="font-semibold">Rahasia penuh.</strong> Hanya kamu dan konsultan yang tahu isi cerita dan chat ini.
                 </div>
 
                 <button type="submit"
@@ -177,6 +201,7 @@
                 <h3 class="dash-section-title">Permintaan konsultasi kamu sedang diproses</h3>
                 <p class="text-sm font-medium text-pine-900 mt-2">{{ $typeLabels[$pendingRequest->konsultan_type] ?? ucfirst($pendingRequest->konsultan_type) }}
                     @if($pendingRequest->topic_category) · {{ $pendingRequest->topic_category }}@endif
+                    <span class="ml-1 align-middle text-[11px] font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $modeLabels[$pendingRequest->mode] ?? 'Online' }}</span>
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
                     {{ $pendingRequest->consultant_id ? 'Menunggu konfirmasi konsultan' : 'Menunggu review HR' }}
@@ -205,6 +230,7 @@
                 <p class="text-sm font-medium text-pine-900 mb-2">
                     {{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}
                     @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
+                    <span class="ml-1 align-middle text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2 py-0.5">{{ $modeLabels[$s->mode] ?? 'Online' }}</span>
                 </p>
                 <div class="space-y-2">
                     @foreach($proposal->slots as $i => $slot)
@@ -230,7 +256,9 @@
             @foreach($upcoming as $s)
             <div class="flex items-center justify-between rounded-xl border border-pine-200 bg-white px-4 py-3">
                 <div>
-                    <p class="text-sm font-medium">{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}</p>
+                    <p class="text-sm font-medium">{{ $typeLabels[$s->konsultan_type] ?? ucfirst($s->konsultan_type) }}
+                        <span class="ml-1 align-middle text-[11px] font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $modeLabels[$s->mode] ?? 'Online' }}</span>
+                    </p>
                     <p class="text-xs text-gray-500">
                         {{ $s->scheduled_at->translatedFormat('l, d M Y, H.i') }} WIB
                         @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
@@ -334,8 +362,8 @@
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         @foreach($resources as $r)
         <div class="portal-card p-4 transition hover:shadow-md hover:border-pine-300">
-            <div class="flex items-center justify-between">
-                <span class="grid h-9 w-9 place-items-center rounded-xl bg-pine-50 text-pine-700">
+            <div class="flex items-start justify-between gap-2">
+                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-pine-50 text-pine-700 shrink-0">
                     @include('perusahaan.partials.icon', ['name' => $r['icon']])
                 </span>
                 <span class="text-[10px] font-semibold bg-pine-100 text-pine-800 rounded-full px-2 py-0.5">{{ $r['tag'] }}</span>

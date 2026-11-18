@@ -40,14 +40,27 @@ class Sekolah extends Model
         return $this->hasMany(SekolahAdmin::class);
     }
 
+    /** Siswa terdaftar — dipakai semua agregat (kuota, kelas, registered). */
     public function students()
     {
-        return $this->hasMany(SekolahStudent::class);
+        return $this->hasMany(SekolahStudent::class)->where('type', SekolahStudent::TYPE_STUDENT);
     }
 
+    /** Staf sekolah (guru/karyawan) yang ikut program sebagai end-user. */
+    public function staff()
+    {
+        return $this->hasMany(SekolahStudent::class)->where('type', SekolahStudent::TYPE_STAFF);
+    }
+
+    /**
+     * Sesi program yang dihitung di agregat BK: hanya sesi milik siswa.
+     * Sesi staf (self-service, E.1) tidak masuk dashboard/kuota sekolah —
+     * person row-nya type='staff' dan tidak ada di Sekolah::students().
+     */
     public function sessions()
     {
-        return $this->hasMany(SekolahSession::class);
+        return $this->hasMany(SekolahSession::class)
+            ->whereDoesntHave('student', fn ($q) => $q->where('type', SekolahStudent::TYPE_STAFF));
     }
 
     public function pervormas()

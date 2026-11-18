@@ -76,6 +76,17 @@ class ChatPurgeTest extends TestCase
         $this->artisan('chat:purge-ended')->assertSuccessful();
 
         $this->assertSame(0, DB::table('chat_messages')->where('perusahaan_session_id', $old->id)->count());
+        // D.7: penanda purge ditulis supaya UI bisa bedakan dari "belum pernah chat".
+        $this->assertNotNull($old->fresh()->transcript_purged_at);
+    }
+
+    public function test_never_chatted_done_session_still_gets_purge_marker(): void
+    {
+        $empty = $this->makeSession('done', now()->subHours(25), now()->subDays(2));
+
+        $this->artisan('chat:purge-ended')->assertSuccessful();
+
+        $this->assertNotNull($empty->fresh()->transcript_purged_at);
     }
 
     public function test_done_under_24h_is_kept(): void
@@ -86,6 +97,7 @@ class ChatPurgeTest extends TestCase
         $this->artisan('chat:purge-ended')->assertSuccessful();
 
         $this->assertSame(2, DB::table('chat_messages')->where('perusahaan_session_id', $recent->id)->count());
+        $this->assertNull($recent->fresh()->transcript_purged_at);
     }
 
     public function test_scheduled_session_is_kept(): void
@@ -96,6 +108,36 @@ class ChatPurgeTest extends TestCase
         $this->artisan('chat:purge-ended')->assertSuccessful();
 
         $this->assertSame(2, DB::table('chat_messages')->where('perusahaan_session_id', $live->id)->count());
+    }
+
+    public function test_sekolah_session_transcript_is_purged_too(): void
+    {
+        $sekolah = \App\Models\Sekolah\Sekolah::create([
+            'name' => 'SMA Purge', 'brand' => 'SMA Purge', 'tingkat' => 'SMA',
+            'student_count' => 10, 'sessions_per_student_month' => 2, 'is_active' => true,
+        ]);
+        $user = $this->makeUser('siswa@purge.local', 'student');
+        $student = \App\Models\Sekolah\SekolahStudent::create([
+            'sekolah_id' => $sekolah->id, 'user_id' => $user->id,
+            'name' => 'S', 'email' => $user->email, 'kelas' => 'X IPA 1',
+        ]);
+        $session = \App\Models\Sekolah\SekolahSession::create([
+            'sekolah_id' => $sekolah->id, 'student_id' => $student->id,
+            'kelas' => $student->kelas, 'konsultan_type' => 'psikolog',
+            'status' => 'done', 'scheduled_at' => now()->subDays(2),
+            'completed_at' => now()->subHours(25),
+        ]);
+        DB::table('chat_messages')->insert([
+            'sekolah_session_id' => $session->id,
+            'sender_id' => $user->id,
+            'body' => 'pesan sekolah',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->artisan('chat:purge-ended')->assertSuccessful();
+
+        // Retensi privasi berlaku lintas vertical — sekolah juga wajib bersih.
+        $this->assertSame(0, DB::table('chat_messages')->where('sekolah_session_id', $session->id)->count());
     }
 
     public function test_session_summary_survives_purge(): void

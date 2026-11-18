@@ -23,11 +23,12 @@ class SekolahSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (['bk', 'student'] as $name) {
+        foreach (['bk', 'student', 'sekolah_staff'] as $name) {
             DB::table('roles')->updateOrInsert(['name' => $name], ['created_at' => now(), 'updated_at' => now()]);
         }
         $bkRoleId = DB::table('roles')->where('name', 'bk')->value('id');
         $studentRoleId = DB::table('roles')->where('name', 'student')->value('id');
+        $staffRoleId = DB::table('roles')->where('name', 'sekolah_staff')->value('id');
 
         $schools = [
             ['name' => 'SMA Cendekia Nusantara', 'brand' => 'SMA Cendekia', 'tingkat' => 'SMA', 'students' => 40],
@@ -83,6 +84,35 @@ class SekolahSeeder extends Seeder
                 ]
             );
             SekolahAdmin::firstOrCreate(['sekolah_id' => $sekolah->id, 'user_id' => $bk->id], ['role' => 'bk']);
+
+            // E.1: staf sekolah (guru/karyawan) — end-user program wellbeing sendiri.
+            // Person row type='staff' supaya agregat BK tetap menghitung siswa saja.
+            $staffEmail = 'staff@' . Str::slug($s['brand'], '') . '.test';
+            $staffUser = User::firstOrCreate(
+                ['email' => $staffEmail],
+                [
+                    'uuid' => Str::uuid(),
+                    'firstname' => 'Guru', 'lastname' => 'Staf ' . $s['brand'],
+                    'username' => 'staff_' . Str::slug($s['brand'], '_'),
+                    'password' => bcrypt('password'),
+                    'is_active' => true,
+                    'role_id' => $staffRoleId,
+                ]
+            );
+            SekolahAdmin::firstOrCreate(
+                ['sekolah_id' => $sekolah->id, 'user_id' => $staffUser->id],
+                ['role' => 'sekolah_staff']
+            );
+            SekolahStudent::firstOrCreate(
+                ['sekolah_id' => $sekolah->id, 'email' => $staffEmail],
+                [
+                    'type' => SekolahStudent::TYPE_STAFF,
+                    'user_id' => $staffUser->id,
+                    'name' => 'Guru Staf ' . $s['brand'],
+                    'kelas' => null,
+                    'consent_at' => now()->subDays(30),
+                ]
+            );
 
             // Satu siswa user untuk demo portal siswa.
             $stuUser = SekolahStudent::where('sekolah_id', $sekolah->id)->whereNull('user_id')->first();

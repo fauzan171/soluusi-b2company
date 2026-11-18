@@ -1,12 +1,19 @@
 @extends('layouts.app')
 
-@php($title = 'Chat Konsultasi')
+@php
+    $title = 'Chat Konsultasi';
+    // Vertical-agnostic action URLs — default perusahaan (CAP), controller SAP override.
+    $endUrl = $endUrl ?? route('perusahaan.chat.end', $session);
+    $rateUrl = $rateUrl ?? route('perusahaan.chat.rate', $session);
+    $startUrl = $startUrl ?? route('consultant.chat.start', $session);
+@endphp
 
 @section('content')
 {{-- ponytail: polling 5s vanilla JS dengan backoff saat error. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
 <div id="chat" class="mx-auto max-w-2xl"
      data-poll="{{ $pollUrl }}" data-post="{{ $postUrl }}" data-token="{{ csrf_token() }}"
-     data-can-send="{{ $canSend ? 1 : 0 }}" data-status="{{ $session->status }}">
+     data-can-send="{{ $canSend ? 1 : 0 }}" data-status="{{ $session->status }}"
+     data-purged="{{ !empty($transcriptPurged) ? 1 : 0 }}">
 
     <a href="{{ $backUrl }}" class="inline-flex items-center gap-1 text-sm text-pine-700 hover:text-pine-900 font-medium mb-3">← Kembali ke riwayat sesi</a>
 
@@ -34,17 +41,26 @@
             </span>
         </header>
 
+        {{-- Keluhan awal: hanya konsultan yang membaca (HR/BK tidak pernah).
+             Ini konteks yang diminta karyawan saat mengajukan konsultasi. --}}
+        @if(!$isEmployee && !empty($session->request_notes))
+        <details class="px-5 py-3 border-b border-[#e7e2d9] bg-amber-50/50 shrink-0" open>
+            <summary class="text-xs font-semibold text-pine-900 cursor-pointer">Cerita awal dari {{ $peerLabel }} (rahasia)</summary>
+            <p class="mt-2 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $session->request_notes }}</p>
+        </details>
+        @endif
+
         {{-- End session + rating --}}
         @if($isEmployee)
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white shrink-0">
-            @if($session->status === 'scheduled')
-            <form method="POST" action="{{ route('perusahaan.chat.end', $session) }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
+            @if($session->status === 'scheduled' && $session->scheduled_at)
+            <form method="POST" action="{{ $endUrl }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
                 @csrf
                 <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
                 <span class="text-xs text-gray-400">Chat akan ditutup setelah sesi diakhiri.</span>
             </form>
             @elseif($session->status === 'done' && !$session->rating)
-            <form method="POST" action="{{ route('perusahaan.chat.rate', $session) }}" class="flex items-center gap-3">
+            <form method="POST" action="{{ $rateUrl }}" class="flex items-center gap-3">
                 @csrf
                 <label class="text-sm text-gray-600">Rating:</label>
                 <select name="rating" class="rounded-lg border border-[#e7e2d9] px-2 py-1 text-sm">
@@ -63,14 +79,14 @@
         @endif
         @if(!$isEmployee)
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-3 shrink-0">
-            @if($session->status === 'scheduled')
+            @if($session->status === 'scheduled' && $session->scheduled_at)
                 @if(!$session->checked_in_at)
-                <form method="POST" action="{{ route('consultant.chat.start', $session) }}">
+                <form method="POST" action="{{ $startUrl }}">
                     @csrf
                     <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Mulai sesi</button>
                 </form>
                 @endif
-                <form method="POST" action="{{ route('consultant.chat.end', $session) }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
+                <form method="POST" action="{{ $endUrl }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
                     @csrf
                     <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
                 </form>
@@ -78,6 +94,12 @@
                 <span class="text-sm text-gray-500">Sesi selesai.</span>
             @endif
         </div>
+        @endif
+
+        @if(!empty($transcriptPurged))
+        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">
+            Transkrip chat sesi ini sudah dihapus otomatis 24 jam setelah sesi selesai (kebijakan retensi privasi). Ringkasan sesi tetap tersimpan.
+        </p>
         @endif
 
         <div id="chat-log" class="flex-1 min-h-0 px-4 py-4 sm:px-5 overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
@@ -111,8 +133,10 @@
     const postUrl = root.dataset.post;
     const token = root.dataset.token;
     let lastId = 0, first = true, sending = false, timer = null;
+    let peerReadUpto = 0;
     let delay = 5000; // backoff: 5s → 10s → 30s cap, reset on success
     let terminal = ['done', 'cancelled', 'no_show'].includes(root.dataset.status);
+    const terminalAtLoad = terminal;
 
     const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
@@ -124,11 +148,21 @@
             : 'bg-white border border-[#e7e2d9] text-gray-800 rounded-bl-md'}">
             ${m.mine ? '' : `<div class="text-[11px] font-semibold text-pine-700 mb-0.5">${esc(m.name)}</div>`}
             <div class="whitespace-pre-wrap break-words leading-relaxed">${esc(m.body)}</div>
-            <div class="text-[10px] ${m.mine ? 'opacity-70' : 'text-gray-400'} mt-1 text-right">${esc(m.at)}</div>
+            <div class="text-[10px] ${m.mine ? 'opacity-70' : 'text-gray-400'} mt-1 text-right">${esc(m.at)}<span data-tick="${m.id}" class="ml-1">${m.mine && m.read ? '✓✓' : ''}</span></div>
         </div>`;
         log.appendChild(wrap);
         log.scrollTop = log.scrollHeight;
         if (m.id > lastId) lastId = m.id;
+    }
+
+    // D.5: tick "dibaca" untuk pesan sendiri. Server kirim id tertinggi yang
+    // sudah dibaca lawan; semua pesan sendiri <= id itu bertanda ✓✓.
+    function applyReadUpto(upto) {
+        if (!upto || upto <= peerReadUpto) return;
+        peerReadUpto = upto;
+        log.querySelectorAll('[data-tick]').forEach(el => {
+            if (Number(el.dataset.tick) <= upto) el.textContent = '✓✓';
+        });
     }
 
     function setStatus(text, tone) {
@@ -147,6 +181,9 @@
         if (composer) {
             composer.innerHTML = '<p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Sesi selesai. Chat ditutup.</p>';
         }
+        // D.6: sesi berakhir saat room terbuka → muat ulang sekali supaya form
+        // rating (render server) muncul. Tidak reload bila sudah terminal saat load.
+        if (!terminalAtLoad) location.reload();
     }
 
     async function poll() {
@@ -158,8 +195,11 @@
             if (!r.ok) throw new Error(r.status);
             const data = await r.json();
             const rows = data.messages || [];
-            if (first) { log.innerHTML = ''; rows.length || (log.innerHTML = '<p class="text-center text-gray-400 py-6">Belum ada pesan. Sapa dulu.</p>'); }
+            if (first) { log.innerHTML = ''; rows.length || (log.innerHTML = root.dataset.purged === '1'
+                ? '<p class="text-center text-gray-400 py-6">Transkrip sudah dihapus sesuai kebijakan retensi.</p>'
+                : '<p class="text-center text-gray-400 py-6">Belum ada pesan. Sapa dulu.</p>'); }
             rows.forEach(add);
+            applyReadUpto(data.peer_read_upto);
             if (first) log.scrollTop = log.scrollHeight;
             first = false;
             delay = 5000;

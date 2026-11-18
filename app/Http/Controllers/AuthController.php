@@ -65,6 +65,10 @@ class AuthController extends Controller
             'bk' => (bool) \App\Models\Sekolah\SekolahAdmin::where('user_id', $user->id)
                 ->join('sekolahs', 'sekolahs.id', '=', 'sekolah_admins.sekolah_id')
                 ->where('sekolahs.status', 'suspended')->exists(),
+            // E.1: staf sekolah terikat tenant lewat sekolah_admins (role sekolah_staff).
+            'sekolah_staff' => (bool) \App\Models\Sekolah\SekolahAdmin::where('user_id', $user->id)
+                ->join('sekolahs', 'sekolahs.id', '=', 'sekolah_admins.sekolah_id')
+                ->where('sekolahs.status', 'suspended')->exists(),
             'student' => \App\Models\Sekolah\SekolahStudent::where('user_id', $user->id)
                 ->join('sekolahs', 'sekolahs.id', '=', 'sekolah_students.sekolah_id')
                 ->where('sekolahs.status', 'suspended')->exists(),
@@ -124,6 +128,7 @@ class AuthController extends Controller
             'hr_admin' => redirect()->route('perusahaan.dashboard'),
             'employee' => redirect()->route('perusahaan.employee'),
             'bk' => redirect()->route('sekolah.dashboard'),
+            'sekolah_staff' => redirect()->route('sekolah.staff'),
             'student' => redirect()->route('sekolah.student'),
             default => redirect()->route('loginIndex')->with('error', 'Role tidak dikenal.'),
         };

@@ -18,11 +18,13 @@ class CancelExpiredSessions extends Command
     {
         $cutoff = now()->subHours((int) config('booking.auto_cancel_hours', 24));
         $pendingCutoff = now()->subHours((int) config('booking.pending_cancel_hours', 72));
+        $staleCutoff = now()->subDays((int) config('booking.stale_unscheduled_cancel_days', 7));
         $total = 0;
 
         foreach (['perusahaan' => PerusahaanSession::class, 'sekolah' => SekolahSession::class] as $vertical => $model) {
             $total += $this->sweepExpired($vertical, $model, $cutoff);
             $total += $this->sweepStalePendingRequests($vertical, $model, $pendingCutoff);
+            $total += $this->sweepStaleUnscheduled($vertical, $model, $staleCutoff);
         }
 
         $total += $this->sweepZombieCheckedIn();
@@ -144,6 +146,49 @@ class CancelExpiredSessions extends Command
             }
 
             $this->info("{$vertical}: {$sessions->count()} pending request(s) auto-cancelled (stale review).");
+
+            return $sessions->count();
+        });
+    }
+
+    /**
+     * D.4: sesi sudah di-assign konsultan tapi tak pernah dijadwalkan
+     * (scheduled + scheduled_at NULL + consultant NOT NULL). Tidak cocok dengan
+     * sweep expired (butuh scheduled_at) maupun sweep pending (butuh consultant
+     * NULL) → menggantung selamanya. Tanpa komisi & tanpa summary: sesi tidak
+     * pernah terjadi. Cutoff dari updated_at (assignment terakhir).
+     */
+    private function sweepStaleUnscheduled(string $vertical, string $model, \DateTimeInterface $cutoff): int
+    {
+        $days = (int) config('booking.stale_unscheduled_cancel_days', 7);
+        $reason = "Sesi kedaluwarsa: konsultan tidak pernah menjadwalkan dalam {$days} hari";
+
+        return DB::transaction(function () use ($vertical, $model, $cutoff, $reason) {
+            $sessions = $model::where('status', 'scheduled')
+                ->whereNotNull('consultant_id')
+                ->whereNull('scheduled_at')
+                ->where('updated_at', '<', $cutoff)
+                ->lockForUpdate()
+                ->get();
+
+            $sessions = $sessions->filter(fn ($s) => $s->status === 'scheduled'
+                && $s->consultant_id !== null && $s->scheduled_at === null);
+
+            if ($sessions->isEmpty()) {
+                return 0;
+            }
+
+            foreach ($sessions as $session) {
+                \App\Support\SessionStateMachine::cancel($session, $reason);
+            }
+
+            $ids = $sessions->pluck('id');
+            DB::table('booking_claims')->where('owner_type', $vertical)->whereIn('owner_id', $ids)->delete();
+            if ($vertical === 'perusahaan') {
+                $this->rejectPendingProposals($ids);
+            }
+
+            $this->info("{$vertical}: {$sessions->count()} assigned-unscheduled session(s) auto-cancelled (stale).");
 
             return $sessions->count();
         });

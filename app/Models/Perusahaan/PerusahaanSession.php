@@ -40,12 +40,15 @@ class PerusahaanSession extends Model
         'no_show_party',
         'request_notes',
         'schedule_version',
+        'transcript_purged_at',
+        'mode',
     ];
 
     protected $casts = [
         'completed_at' => 'datetime',
         'scheduled_at' => 'datetime',
         'ended_at' => 'datetime',
+        'transcript_purged_at' => 'datetime',
     ];
 
     public function schedule()

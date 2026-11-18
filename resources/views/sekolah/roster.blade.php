@@ -36,7 +36,7 @@
                 <select name="schedule_id" required class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">
                     <option value="">— Pilih slot sesuai jenis konsultan —</option>
                     @foreach($slots as $slot)
-                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H.i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode }}</option>
+                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H.i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode === 'offline' ? 'Tatap muka' : 'Online' }}</option>
                     @endforeach
                 </select>
                 @error('schedule_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror

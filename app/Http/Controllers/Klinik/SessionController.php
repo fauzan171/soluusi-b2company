@@ -39,7 +39,15 @@ class SessionController extends Controller
             ->limit(50)
             ->get();
 
-        return view('consultant.sessions', compact('sessions', 'consultant', 'companySessions'));
+        // Sesi sekolah (SAP) yang ditugaskan ke konsultan ini — termasuk yang masih
+        // menunggu jadwal (scheduled_at NULL) supaya konsultan bisa set jadwalnya.
+        $schoolSessions = \App\Models\Sekolah\SekolahSession::where('consultant_id', $consultant->id)
+            ->with(['student', 'sekolah'])
+            ->orderByDesc('scheduled_at')
+            ->limit(50)
+            ->get();
+
+        return view('consultant.sessions', compact('sessions', 'consultant', 'companySessions', 'schoolSessions'));
     }
 
     /** Konsultan check-in (pre-session window). */
@@ -120,6 +128,33 @@ class SessionController extends Controller
         $session->update(['schedule_id' => $slot->id]);
         // Lewat state machine: set schedule_version=1 + ended_at (konsisten dengan flow confirmSlot).
         \App\Support\SessionStateMachine::schedule($session, $slot->started_at, $slot->ended_at);
+        return back()->with('success', 'Jadwal di-set.');
+    }
+
+    /**
+     * Konsultan set jadwal untuk request SAP (sekolah) yang sudah di-ACC BK.
+     * E.2: mirror schedulePerusahaan — tanpa ini sesi sekolah terjebak
+     * scheduled_at NULL selamanya (chat tidak bisa dibuka, sweep tidak menyentuhnya).
+     */
+    public function scheduleSekolah(Request $r, \App\Models\Sekolah\SekolahSession $session)
+    {
+        $this->authorize('view', $session);
+        $consultant = auth()->user()->consultants()->first();
+        abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        abort_unless($session->status === 'scheduled' && !$session->scheduled_at, 422, 'Sesi sudah dijadwalkan.');
+
+        $r->validate(['schedule_id' => 'required|integer|exists:schedules,id']);
+
+        $slot = Schedule::where('id', $r->schedule_id)
+            ->where('consultant_id', $consultant->id)
+            ->where('started_at', '>', now())
+            ->whereDoesntHave('perusahaanSessions', fn ($q) => $q->whereIn('status', ['scheduled', 'done']))
+            ->whereDoesntHave('consultationSession', fn ($q) => $q->whereIn('status', ['scheduled', 'done']))
+            ->firstOrFail();
+
+        $session->update(['schedule_id' => $slot->id]);
+        \App\Support\SessionStateMachine::schedule($session, $slot->started_at, $slot->ended_at);
+
         return back()->with('success', 'Jadwal di-set.');
     }
 }

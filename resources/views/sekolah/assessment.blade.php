@@ -13,7 +13,7 @@
     </div>
     @endif
 
-    <form method="POST" action="{{ route('sekolah.assessment.store') }}" class="portal-card p-5 space-y-5">
+    <form method="POST" action="{{ $action ?? route('sekolah.assessment.store') }}" class="portal-card p-5 space-y-5">
         @csrf
         @foreach($items as $i => $item)
         <div>

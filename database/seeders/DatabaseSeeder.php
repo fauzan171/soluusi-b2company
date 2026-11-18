@@ -21,8 +21,8 @@ class DatabaseSeeder extends Seeder
 
         // Seed roles (idempotent). B2B adds klinik_admin + associate (HAP) per PRD §4.2,
         // hr_admin + employee untuk vertikal Perusahaan (CAP),
-        // bk + student untuk vertikal Sekolah.
-        foreach (['admin', 'consultant', 'customer', 'klinik_admin', 'associate', 'hr_admin', 'employee', 'bk', 'student'] as $name) {
+        // bk + student + sekolah_staff untuk vertikal Sekolah.
+        foreach (['admin', 'consultant', 'customer', 'klinik_admin', 'associate', 'hr_admin', 'employee', 'bk', 'student', 'sekolah_staff'] as $name) {
             DB::table('roles')->updateOrInsert(['name' => $name], ['created_at' => $now, 'updated_at' => $now]);
         }
 

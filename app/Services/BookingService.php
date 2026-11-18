@@ -45,6 +45,25 @@ class BookingService
         return false;
     }
 
+    /**
+     * D.3: satu-satunya kalkulasi kuota bulan berjalan. Request pending review
+     * (scheduled + scheduled_at NULL) ikut memakai kuota karena ia mereservasi slot.
+     */
+    public static function monthQuotaUsed($row): int
+    {
+        $start = \Illuminate\Support\Carbon::now()->startOfMonth();
+        return $row->sessions()
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $start->copy()->addMonth()))
+                ->orWhere(fn ($w) => $w->whereNull('scheduled_at')->where('status', 'scheduled'))
+                // Baris pending yang di-cancel dengan kuota tetap terpakai tidak
+                // punya anchor bulan — hitung apa pun statusnya.
+                ->orWhere(fn ($w) => $w->whereNull('scheduled_at')->where('quota_consumed', true)))
+            ->where(fn ($q) => $q->whereIn('status', ['scheduled', 'done'])
+                ->orWhere(fn ($q2) => $q2->whereIn('status', ['cancelled', 'no_show'])->where('quota_consumed', true)))
+            ->count();
+    }
+
     public static function quotaUsed($row, $date, ?int $except = null): int
     {
         $start = \Illuminate\Support\Carbon::parse($date)->startOfMonth();
@@ -79,9 +98,13 @@ class BookingService
             abort_if($session->schedule_id === $scheduleId, 422, 'Pilih slot baru.');
             // ADR 001: version jadwal lanjut ke sesi pengganti (cancel+book = reschedule).
             $nextVersion = (int) ($session->schedule_version ?? 0) + 1;
+            $mode = $session->mode;
             self::cancel($vertical, $session, 'Perubahan jadwal');
             return self::book($vertical, $row, [
                 'schedule_id' => $scheduleId, 'konsultan_type' => $session->konsultan_type,
+                // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
+                // senyap ditimpa mode slot baru.
+                'mode' => $mode,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
             ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
         });
@@ -99,13 +122,17 @@ class BookingService
             $tenantKey = $vertical.'_id';
             $tenant = $row->$vertical;
             $school = $vertical === 'sekolah';
-            abort_unless($tenant?->is_active && ($school ? $row->parent_consent_at : $row->consent_at), 403, 'Program/consent belum aktif.');
+            // E.1: staf sekolah (dewasa, tanpa wali) pakai consent_at; siswa tetap wajib parent_consent_at.
+            $consentOk = $school
+                ? ($row->isStaff() ? (bool) $row->consent_at : (bool) $row->parent_consent_at)
+                : (bool) $row->consent_at;
+            abort_unless($tenant?->is_active && $consentOk, 403, 'Program/consent belum aktif.');
             abort_unless($slot->$tenantKey === $row->$tenantKey && !$slot->klinik_id
                 && $slot->status === Schedule::STATUS_CONFIRMED && $slot->started_at->isFuture()
                 && $slot->ended_at && $slot->ended_at->gt($slot->started_at)
                 && ConsultantPool::validChoice($vertical, $tenant->id, $slot->consultant_id, $data['konsultan_type'])
                 && $slot->consultant?->is_active && $slot->consultant?->status === Consultant::ACCEPT, 422, 'Slot/konsultan tidak tersedia.');
-            abort_if(self::quotaUsed($row, $slot->started_at) >= ($school ? $tenant->sessions_per_student_month : $tenant->sessions_per_employee_month), 403, 'Kuota bulan tanggal sesi sudah habis.');
+            abort_if(($school ? self::quotaUsed($row, $slot->started_at) : self::monthQuotaUsed($row)) >= ($school ? $tenant->sessions_per_student_month : $tenant->sessions_per_employee_month), 403, 'Kuota bulan tanggal sesi sudah habis.');
             if (self::blocked($slot)) {
                 throw ValidationException::withMessages(['schedule_id' => 'Slot sudah dipesan. Pilih slot lain.']);
             }
@@ -115,8 +142,8 @@ class BookingService
                 'consultant_id' => $slot->consultant_id, 'schedule_id' => $slot->id,
                 'konsultan_type' => $data['konsultan_type'], 'status' => 'scheduled',
                 'scheduled_at' => $slot->started_at, 'ended_at' => $slot->ended_at,
-                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode]
-                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1)]),
+                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $data['mode'] ?? $slot->mode]
+                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $data['mode'] ?? $slot->mode ?? 'online']),
             ]);
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;

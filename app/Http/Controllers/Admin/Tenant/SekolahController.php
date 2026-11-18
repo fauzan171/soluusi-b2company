@@ -58,12 +58,21 @@ class SekolahController extends Controller
     {
         $sekolah->load('admins.user')->loadCount('students', 'sessions');
 
-        // B6 — kandidat view-as: BK (admin sekolah) + siswa.
+        // B6 — kandidat view-as: BK/staf (admin sekolah) + siswa.
         $viewAsUsers = $sekolah->admins->filter(fn ($a) => $a->user)->map(fn ($a) => [
             'user_id' => $a->user->id,
             'label' => trim(($a->user->firstname ?? '') . ' ' . ($a->user->lastname ?? '')) ?: $a->user->email,
-            'role' => 'bk',
+            'role' => $a->role,
         ])->values();
+        foreach ($sekolah->staff()->with('user')->get() as $s) {
+            if ($s->user) {
+                $viewAsUsers->push([
+                    'user_id' => $s->user->id,
+                    'label' => $s->name ?? trim(($s->user->firstname ?? '') . ' ' . ($s->user->lastname ?? '')) ?: $s->user->email,
+                    'role' => 'sekolah_staff',
+                ]);
+            }
+        }
         foreach ($sekolah->students()->with('user')->get() as $s) {
             if ($s->user) {
                 $viewAsUsers->push([

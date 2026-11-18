@@ -62,7 +62,7 @@ class RequestConsultationTest extends TestCase
         $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
             'topic_category' => 'Stress',
-            'body' => 'Saya butuh konsultasi.',
+            'body' => 'Saya butuh konsultasi.', 'mode' => 'online',
         ]);
 
         $session = PerusahaanSession::first();
@@ -87,7 +87,7 @@ class RequestConsultationTest extends TestCase
 
         $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Saya butuh konsultasi lagi.',
+            'body' => 'Saya butuh konsultasi lagi.', 'mode' => 'online',
         ]);
 
         $response->assertStatus(422);
@@ -106,7 +106,7 @@ class RequestConsultationTest extends TestCase
 
         $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Request kedua saat masih menunggu ACC.',
+            'body' => 'Request kedua saat masih menunggu ACC.', 'mode' => 'online',
         ]);
 
         $response->assertStatus(422);
@@ -128,7 +128,7 @@ class RequestConsultationTest extends TestCase
         // Pool kosong bukan masalah di sisi employee — request masuk antrean HR.
         $response = $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Tidak ada konsultan.',
+            'body' => 'Tidak ada konsultan.', 'mode' => 'online',
         ]);
 
         $response->assertRedirect(route('perusahaan.employee'));
@@ -200,7 +200,7 @@ class RequestConsultationTest extends TestCase
         // Kuota kembali: request baru bisa dibuat lagi.
         $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Request baru setelah cancel.',
+            'body' => 'Request baru setelah cancel.', 'mode' => 'online',
         ])->assertRedirect(route('perusahaan.employee'));
     }
 

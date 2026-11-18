@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Support\PerusahaanContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Manajemen karyawan program (roster + invite).
@@ -41,7 +43,19 @@ class RosterController extends Controller
         if (!empty($data['departement_id'])) {
             abort_unless(\App\Models\Departement::whereKey($data['departement_id'])->where('perusahaan_id', $perusahaan->id)->exists(), 422, 'Departemen bukan milik perusahaan.');
         }
-        $perusahaan->employees()->create($data);
+        // Email unik lintas roster: duplikat membuat akun/membership ambigu saat
+        // self-register (satu email = satu user). Termasuk tenant lain.
+        if (PerusahaanEmployee::withoutGlobalScopes()->where('email', $data['email'])->exists()) {
+            throw ValidationException::withMessages([
+                'email' => 'Email ini sudah terdaftar di roster karyawan.',
+            ]);
+        }
+
+        DB::transaction(function () use ($perusahaan, $data) {
+            $employee = $perusahaan->employees()->create($data);
+            \App\Services\Perusahaan\EmployeeProvisioner::ensure($employee);
+        });
+
         return back()->with('success', 'Karyawan ditambahkan. Catat consent lalu kirim undangan.');
     }
 
@@ -62,6 +76,7 @@ class RosterController extends Controller
         $emp = PerusahaanEmployee::findOrFail($r->employee_id);
         // Guard: HR hanya bisa invite karyawan perusahaannya sendiri.
         abort_unless($emp->perusahaan_id === $perusahaan->id, 403);
+        abort_unless($emp->email, 422, 'Karyawan belum punya email.');
 
         // ponytail: email undangan via Mail::raw (MAIL_MAILER=log di dev).
         // Upgrade: templated mailable saat dibutuhkan.
