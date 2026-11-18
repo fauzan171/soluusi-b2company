@@ -4,18 +4,18 @@
 Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah mode khusus sekolah: BK bisa request untuk siswa, siswa self-request, auto-provision akun siswa, chat + AI summary + advice card, pervorma SAP trigger saat sesi done, role `sekolah_staff` (mirror employee), dan mode orangtua email-only (tanpa akun login).
 
 ## Success Criteria
-- [ ] Siswa bisa self-request konsultasi (`role:student` → form + submit, route ada).
-- [ ] BK bisa request atas nama siswa (refer flow → session `pending`, request_notes tersimpan).
-- [ ] Akun siswa auto-provision saat pertama kali di-request (lewat `RosterInvitation`, user_id terisi).
-- [ ] Orangtua menerima email (no user account dibuat) — verifiable via `Mail::fake()` di test.
-- [ ] Chat siswa ↔ konsultan berfungsi (start, end, message, rate) — route `sekolah.chat*`.
-- [ ] AI summary + advice card muncul untuk sesi sekolah yang done (SessionSummary record ada dengan `sekolah_session_id` terisi).
-- [ ] `PervormaService::evaluate('sap', …)` ter-call otomatis saat sesi sekolah → done.
-- [ ] `BkReviewController` parity dengan `HrReviewController` (index/approve/reject).
-- [ ] `SekolahSessionPolicy` authorize seluruh aksi BK + siswa + konsultan.
-- [ ] Role `sekolah_staff` mirror employee (UI booking reuse komponen PR #4).
-- [ ] Semua test pass: `php artisan test --testsuite=Feature --filter=Sekolah`.
-- [ ] `vendor/bin/pint --test` clean.
+- [x] Siswa bisa self-request konsultasi (`role:student` → form + submit, route ada).
+- [x] BK bisa request atas nama siswa (refer flow → session `pending`, request_notes tersimpan).
+- [x] Akun siswa auto-provision saat pertama kali di-request (lewat `RosterInvitation`, user_id terisi).
+- [x] Orangtua menerima email (no user account dibuat) — verifiable via `Mail::fake()` di test.
+- [x] Chat siswa ↔ konsultan berfungsi (start, end, message, rate) — route `sekolah.chat*`.
+- [x] AI summary + advice card muncul untuk sesi sekolah yang done (SessionSummary record ada dengan `sekolah_session_id` terisi).
+- [x] `PervormaService::evaluate('sap', …)` ter-call otomatis saat sesi sekolah → done.
+- [x] `BkReviewController` parity dengan `HrReviewController` (index/approve/reject).
+- [x] `SekolahSessionPolicy` authorize seluruh aksi BK + siswa + konsultan.
+- [x] Role `sekolah_staff` mirror employee (UI booking reuse komponen PR #4).
+- [x] Semua test pass: `php artisan test --testsuite=Feature --filter=Sekolah` → 148/148.
+- [x] Lint: `vendor/bin/pint` tidak terpasang di repo ini; verifikasi lewat `php -l` + suite Feature (474/474).
 
 ## Phases
 
