@@ -38,6 +38,7 @@ class User extends Authenticatable
         'role_id',
         'is_active',
         'must_change_password',
+        'must_confirm_profile',
         'password_changed_at',
         'phone_number',
         'date_of_birth',
@@ -64,6 +65,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'must_change_password' => 'boolean',
+        'must_confirm_profile' => 'boolean',
         'password_changed_at' => 'datetime',
     ];
 

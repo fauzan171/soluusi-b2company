@@ -45,6 +45,14 @@ Route::controller(\App\Http\Controllers\Auth\ChangePasswordController::class)
         Route::post('/ubah-password', 'store')->middleware('throttle:6,1')->name('password.change.store');
     });
 
+// --- Onboarding login pertama: konfirmasi profil (ONB.4) ---
+Route::controller(\App\Http\Controllers\Onboarding\ProfileController::class)->middleware('auth')->group(function () {
+    Route::get('/onboarding/perusahaan/profil', 'show')->defaults('vertical', 'perusahaan')->name('perusahaan.profile');
+    Route::post('/onboarding/perusahaan/profil', 'store')->defaults('vertical', 'perusahaan')->name('perusahaan.profile.store');
+    Route::get('/onboarding/sekolah/profil', 'show')->defaults('vertical', 'sekolah')->name('sekolah.profile');
+    Route::post('/onboarding/sekolah/profil', 'store')->defaults('vertical', 'sekolah')->name('sekolah.profile.store');
+});
+
 // --- Landing page B2B (public) + vertical detail pages ---
 Route::get('/', [\App\Http\Controllers\LandingController::class, 'index'])->name('landing');
 Route::get('/klinik', fn () => view('verticals.klinik'))->name('landing.klinik');
@@ -81,7 +89,7 @@ Route::post('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::cla
 Route::get('/progress', [\App\Http\Controllers\ProgressController::class, 'index'])->middleware(['auth', 'role:admin'])->name('progress');
 
 // --- Sekolah portal (BK coordinator + siswa) ---
-Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.password'])->group(function () {
+Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
     Route::middleware('role:bk,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Sekolah\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Sekolah\DashboardController::class, 'export'])->name('dashboard.export');
@@ -106,7 +114,7 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
 });
 
 // --- Perusahaan portal (CAP — HR admin + karyawan) ---
-Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password'])->group(function () {
+Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
     Route::middleware('role:hr_admin,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'export'])->name('dashboard.export');

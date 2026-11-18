@@ -69,5 +69,6 @@ class Kernel extends HttpKernel
         'klinik.active' => \App\Http\Middleware\KlinikActive::class,
         'notprod' => \App\Http\Middleware\NotProduction::class,
         'force.password' => \App\Http\Middleware\ForcePasswordChange::class, // ONB.3
+        'profile.confirmed' => \App\Http\Middleware\EnsureProfileConfirmed::class, // ONB.4
     ];
 }

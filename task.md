@@ -159,12 +159,11 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
 > Butuh Phase A selesai (kolom `departement_id` yang benar + middleware
 > sudah punya pola pemasangan).
 
-- [ ] **B1 / ONB.4 (M, `b-onboard`) — Konfirmasi nama + pilih divisi/kelas.**
+- [x] **B1 / ONB.4 (M, `b-onboard`) — Konfirmasi nama + pilih divisi/kelas.**
   Spec: `docs/tasks/open/ONB.4-first-login-profile.md`.
   **Files:**
   - `database/migrations/2026_11_18_000003_add_profile_confirmed_at_to_roster_tables.php` (new)
-  - `app/Models/Perusahaan/PerusahaanEmployee.php` (fillable + casts)
-  - `app/Models/Sekolah/SekolahStudent.php` (fillable + casts)
+  - `app/Models/User.php` (fillable + casts: `must_confirm_profile`)
   - `app/Http/Middleware/EnsureProfileConfirmed.php` (new)
   - `app/Http/Controllers/Onboarding/ProfileController.php` (new)
   - `app/Http/Kernel.php` (alias `profile.confirmed`)
@@ -172,7 +171,10 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
   - `resources/views/onboarding/profile.blade.php` (new — satu view, `$vertical`)
   - `tests/Feature/FirstLoginProfileTest.php` (new)
   **Action:**
-  - Migrasi: `profile_confirmed_at` timestamp nullable di `perusahaan_employees` **dan** `sekolah_students`.
+  - Migrasi: `users.must_confirm_profile` boolean default false. **Ruling:** flag
+    ditaruh di `users`, bukan `profile_confirmed_at` di row roster — row lama
+    (input manual HR / self-register) tidak boleh mendadak kena gerbang; 63 test
+    existing regresi saat dicoba di row. Hanya import CSV menyalakan flag ini.
   - Middleware: cari row roster milik user lewat relasi (`PerusahaanEmployee::where('user_id',…)` / `SekolahStudent::where('user_id',…)`). Ada row dengan `profile_confirmed_at IS NULL` → redirect `{vertical}.profile`. Tidak punya row → lewati. Role `admin`/`hr_admin`/`bk`/`consultant`/`associate`/`klinik_admin` → lewati.
   - Controller: `show()` prefill nama dari row; opsi divisi dari `Departement::forPerusahaan()` (perusahaan) atau daftar distinct `kelas` milik sekolah (sekolah, input bebas + `datalist`). `store()`: `name` wajib `max:255`; `departement_id` harus lolos `forPerusahaan()` (guard yang sama dengan roster); `kelas` wajib di sekolah. Set row + `profile_confirmed_at = now()`.
   - **Jangan sentuh** `consent_at` / `parent_consent_at` — consent tetap lewat `ProgramConsent` oleh HR/BK.
