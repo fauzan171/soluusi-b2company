@@ -27,6 +27,7 @@ class RosterController extends Controller
         return view('perusahaan.roster', [
             'perusahaan' => $perusahaan,
             'employees' => $employees,
+            'departements' => \App\Models\Departement::forPerusahaan($perusahaan->id),
             'quota' => $perusahaan->sessions_per_employee_month,
         ]);
     }
@@ -41,7 +42,12 @@ class RosterController extends Controller
             'departement_id' => ['nullable', 'integer'],
         ]);
         if (!empty($data['departement_id'])) {
-            abort_unless(\App\Models\Departement::whereKey($data['departement_id'])->where('perusahaan_id', $perusahaan->id)->exists(), 422, 'Departemen bukan milik perusahaan.');
+            // ONB.1: guard lama query kolom `perusahaan_id` yang dulu tidak ada → selalu 422.
+            abort_unless(
+                \App\Models\Departement::forPerusahaan($perusahaan->id)->contains('id', (int) $data['departement_id']),
+                422,
+                'Departemen bukan milik perusahaan.'
+            );
         }
         // Email unik lintas roster: duplikat membuat akun/membership ambigu saat
         // self-register (satu email = satu user). Termasuk tenant lain.

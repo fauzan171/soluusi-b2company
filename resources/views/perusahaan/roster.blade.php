@@ -13,6 +13,7 @@
         <p class="text-sm text-gray-500">Halaman administratif — data individu hanya untuk pengelolaan program. Konten sesi tidak pernah tampil.</p>
     </div>
     <a href="{{ route('perusahaan.dashboard') }}" class="text-sm text-pine-700 hover:underline">← Dashboard</a>
+    <a href="{{ route('perusahaan.employees.import') }}" class="text-sm font-semibold text-pine-700 hover:underline">Import CSV →</a>
 </div>
 
 {{-- Summary cards --}}
@@ -47,6 +48,15 @@
             <label class="block text-sm">
                 <span class="text-gray-600">Email</span>
                 <input type="email" name="email" value="{{ old('email') }}" required class="mt-1 block w-full rounded border-gray-300 text-sm focus:border-pine-500 focus:ring-pine-500">
+            </label>
+            <label class="block text-sm">
+                <span class="text-gray-600">Divisi <span class="text-gray-400">(opsional)</span></span>
+                <select name="departement_id" class="mt-1 block w-full rounded border-gray-300 text-sm focus:border-pine-500 focus:ring-pine-500">
+                    <option value="">— Belum ditentukan —</option>
+                    @foreach($departements as $dept)
+                        <option value="{{ $dept->id }}" @selected(old('departement_id') == $dept->id)>{{ $dept->name }}</option>
+                    @endforeach
+                </select>
             </label>
         </div>
         <button class="btn-pine text-sm">Simpan</button>

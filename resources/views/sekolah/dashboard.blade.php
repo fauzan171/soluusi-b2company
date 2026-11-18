@@ -583,6 +583,13 @@
                 </span>
                 <span class="text-[11px] text-gray-400">{{ $registered }} terdaftar</span>
             </a>
+            <a href="{{ route('sekolah.consultants.pool') }}" class="panel-surface bg-white flex items-center justify-between text-sm font-medium text-gray-800 hover:border-pine-300 transition">
+                <span class="flex items-center gap-2">
+                    @include('sekolah.partials.icon', ['name' => 'users'])
+                    Pool konsultan
+                </span>
+                <span class="text-[11px] text-gray-400">Aktif/nonaktif</span>
+            </a>
         </div>
     </section>
 

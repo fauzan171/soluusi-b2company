@@ -18,6 +18,11 @@ class ConsultantPool extends Model
         'consultant_id',
         'sekolah_id',
         'perusahaan_id',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function consultant()
@@ -54,6 +59,9 @@ class ConsultantPool extends Model
     {
         return static::query()
             ->where("{$tenant}_id", $tenantId)
+            // ONB.5: HR/BK bisa mematikan konsultan; yang mati tidak boleh
+            // muncul di halaman booking maupun katalog karyawan/siswa.
+            ->where('is_active', true)
             ->whereHas('consultant', fn ($q) => $q->where('status', 'accept')->whereHas('user', fn ($u) => $u->where('is_active', true)))
             ->with('consultant.user', 'consultant.categories')
             ->get()

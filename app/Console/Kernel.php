@@ -26,6 +26,10 @@ class Kernel extends ConsoleKernel
         // Retensi privasi: hapus transkrip chat untuk sesi done ≥24 jam.
         $schedule->command('chat:purge-ended')->daily();
 
+        // ONB.2: file CSV import berisi password awal plaintext. Jalur commit
+        // menghapus sendiri; ini jaring pengaman untuk pratinjau yang ditinggal.
+        $schedule->command('imports:prune')->hourly();
+
         // Dual-confirm fallback (Spec §9.1): konsultan done >24h tanpa customer
         // confirm → flag ops review (anti fake sesi). Tidak auto-complete.
         $schedule->call(function () {

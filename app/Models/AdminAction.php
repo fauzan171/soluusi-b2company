@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Audit trail aksi super admin (bayar pervorma, approve mitra, aktivasi program,
  * settle margin, verify sesi, preview data karyawan). Append-only: tidak ada
  * updated_at.
+ *
+ * ONB.5: sejak HR/BK boleh mengubah pool konsultan tenant sendiri, kolom
+ * `admin_id` berarti **aktor** — bukan khusus super admin. Identitas role aktor
+ * ikut dicatat di `payload_json.actor_role` oleh TenantConsultantPoolController.
  */
 class AdminAction extends Model
 {
