@@ -1,0 +1,423 @@
+# Soluusi B2B — Production Foundation, Batch 1 REVISED (15 Nov 2026)
+# Re-validated by 3 parallel researchers terhadap kode actual di main.
+# Worktree: /home/seva-ojan/wt/soluusib2b-production-foundation (branch goal/production-foundation)
+# Perubahan dari batch kemarin:
+#   - T0.1 DONE (PHP 8.5.4 + Composer 2.11.2 sudah ada, bukan blocking)
+#   - T1.3/T1.5 mark verify-only (kemungkinan sudah di main, perlu konfirmasi test)
+#   - URUTAN BARU: security gates → tenancy → FLOW INTI F1.x → admin controllers
+#   - F1.x dinaikkan prioritasnya (P0): user confirm "flow masih banyak kurang"
+#   - T4.x refactor DITURUNKAN ke batch 2 (T4.1 berbahaya: 5 conflict + tests merah di branch lama)
+#   - T2.4 global scope DITUNDA setelah F1.x (risky untuk flow baru, butuh test komprehensif)
+
+project: soluusib2b
+worktree: /home/seva-ojan/wt/soluusib2b-production-foundation
+branch: goal/production-foundation
+baseline_test: "66 run / 321 assertions PASS di worktree (warnings = PHP 8.5 tmp-path deprecation, bukan failure) — docs/baseline-test-2026-11-15.txt"
+
+constraints:
+  - Tidak push, tidak merge ke main, tidak deploy
+  - Tidak migrate:fresh/refresh/reset
+  - .env worktree SUDAH dibuat fresh (key baru, sqlite) — jangan overwrite
+  - SQLite dev; tests pakai RefreshDatabase + isolated :memory:
+  - Ponytail: smallest diff, no slop
+  - Deliverable Indonesia; code/commit English
+  - Data healthcare sensitif: tidak ada PII di log/test/commit
+  - Jangan sentuh T4.1 (Laravel 12 skeleton) — berbahaya, batch 2
+
+tasks:
+  # ---- Phase 0: Environment — SEMUA DONE 15 Nov 2026 ----
+  - id: T0.1
+    title: PHP + Composer host
+    phase: 0
+    status: done
+    evidence: "PHP 8.5.4, Composer 2.11.2 — sudah ada, task aslinya obsolete"
+
+  - id: T0.2
+    title: composer install di worktree
+    phase: 0
+    status: done
+    evidence: "vendor/autoload.php ada, artisan jalan"
+
+  - id: T0.3
+    title: Setup .env worktree + sqlite + migrate
+    phase: 0
+    status: done
+    evidence: ".env fresh (APP_KEY baru), database/database.sqlite migrated 123 migrations"
+
+  - id: T0.4
+    title: Baseline test run terdokumentasi
+    phase: 0
+    status: done
+    evidence: "docs/baseline-test-2026-11-15.txt — 66 tests / 321 assertions pass (warnings = PHP 8.5 deprecation, bukan failure)"
+
+  # ---- Phase A: Security quick wins (verify + kerjakan sisa) ----
+  - id: T1.3
+    title: Gate /progress di belakang auth + role:admin
+    phase: A
+    status: done
+    evidence: "commit e723d0b — ProgressGateTest 3 assertions pass"
+    spec: docs/tasks/open/T1.3-gate-progress.md
+    verify: "php artisan test --filter=ProgressGateTest hijau; anonymous GET /progress → redirect login"
+
+  - id: T1.4
+    title: Gate dummy payment routes di belakang APP_ENV != production
+    phase: A
+    status: done
+    evidence: "commit 87c940b — DummyPaymentGateTest 2 assertions pass"
+    spec: docs/tasks/open/T1.4-gate-dummy-payment.md
+    verify: "APP_ENV=production + config:cache → GET /checkout/{token}/dummy-payment → 404"
+
+  - id: T1.5
+    title: Rate limit chat store + booking + reschedule
+    phase: A
+    status: done
+    evidence: "commit 261d1a3 — RateLimitTest 21 assertions pass, throttle count 14"
+    spec: docs/tasks/open/T1.5-rate-limit.md
+    verify: "grep throttle routes/web.php ≥ 8; hit ke-11 booking → 429"
+
+  # ---- Phase B: Tenancy enforcement (P0 — klaim tenant isolation belum terbukti) ----
+  - id: T2.1
+    title: $fillable eksplisit di model money/PII (ganti $guarded)
+    phase: B
+    status: done
+    evidence: "commit 13dbbd2 — 26 models, grep guarded kosong, suite 76/354 hijau. Deviasi: SocialAccount provider_token silent-drop (kolom tidak ada di migrasi) — follow-up batch 2."
+    depends: [T0.4]
+    spec: docs/tasks/open/T2.1-fillable.md
+    parallel_group: b-models
+    verify: "grep 'guarded = []' dan \"guarded = ['id']\" di app/Models kosong; semua test hijau"
+
+  - id: T2.2
+    title: PerusahaanSessionPolicy + ConsultationSessionPolicy; refactor abort_unless
+    phase: B
+    status: done
+    evidence: "commit 9f9ac28 — SessionPolicyTest 4 assertions; abort_unless 12→2; policies registered via AuthServiceProvider"
+    depends: [T2.1]
+    spec: docs/tasks/open/T2.2-policies.md
+    parallel_group: b-authz
+    verify: "abort_unless di ChatController < 3; test negatif cross-tenant 403"
+
+  - id: T2.3
+    title: tests/Feature/TenancyIsolationTest.php (≥6 skenario negatif)
+    phase: B
+    status: done
+    evidence: "commit 791ad17 — 8 tests / 32 assertions (employee cross-tenant, HR cross-tenant, consultant isolation, chat isolation, rating isolation)"
+    depends: [T2.2]
+    spec: docs/tasks/open/T2.3-tenancy-tests.md
+    parallel_group: b-authz
+    verify: "php artisan test --filter=TenancyIsolationTest hijau"
+
+  # ---- Phase C: FLOW INTI F1.x (P0 — ini 'flow masih kurang' yang user maksud) ----
+  # Naik prioritas dari phase 8/9 jadi phase C. Belum ada sama sekali di kode.
+  - id: F1.1
+    title: HR review request queue (list pending, approve/reject, assign consultant)
+    phase: C
+    status: done
+    evidence: "commit e627a4f — HrReviewTest 9 tests / 29 assertions; pending = scheduled+null+consultant_id=null"
+    depends: [T0.4]
+    spec: docs/tasks/open/F1.1-hr-review-queue.md
+    parallel_group: c-flow
+    verify: "test: HR approve request → consultant ter-assign → employee ter-notifikasi"
+
+  - id: F1.2
+    title: Consultant slot proposal (propose 2-3 slot untuk request ACC)
+    phase: C
+    status: done
+    depends: [F1.1]
+    evidence: "commit a7c0c3f — SlotProposalTest 8 tests / 21 assertions; table session_slot_proposals; validasi overlap vs 2 vertikal"
+    spec: docs/tasks/open/F1.2-consultant-slot-proposal.md
+    parallel_group: c-flow
+    verify: "test: consultant propose slots → employee/HR lihat options"
+
+  - id: F1.3
+    title: Employee slot confirmation (pilih 1 slot, auto-book)
+    phase: C
+    status: done
+    depends: [F1.2]
+    evidence: "commit 82fd7fe — SlotConfirmationTest 4 tests / 13 assertions"
+    spec: docs/tasks/open/F1.3-employee-slot-confirmation.md
+    parallel_group: c-flow
+    verify: "test: employee confirm slot → session ter-book → status berubah"
+
+  - id: F1.4
+    title: Session expiry sweep (auto-cancel scheduled lewat tanpa check-in)
+    phase: C
+    status: done
+    depends: [F1.1]
+    evidence: "commit 5995399 — SessionExpirySweepTest 4 tests / 17 assertions; hourly schedule; quota restored"
+    spec: docs/tasks/open/F1.4-session-expiry-sweep.md
+    parallel_group: c-flow
+    verify: "test: scheduled session > X jam tanpa check-in → auto-cancelled"
+
+  # ---- Phase C2: P0 baru dari audit flow (user-approved 15 Nov 2026) ----
+  - id: P0.1
+    title: Checkout token bearer — expire status page + confirm-done setelah link expiry
+    phase: C2
+    status: done
+    depends: [T0.4]
+    evidence: "commit c1a0015 — CheckoutTokenExpiryTest 4 assertions pass"
+    verify: "test: token expired → status page 410/404; token valid → 200"
+
+  - id: P0.2
+    title: AI Insight redaksi nama orang (bukan hanya email/telepon)
+    phase: C2
+    status: done
+    evidence: "commit 069af33 — AiInsightRedactionTest 3 tests / 9 assertions; heuristic name redaction (ponytail comment)"
+    depends: [T0.4]
+    verify: "test: input dengan nama orang → output tidak mengandung nama"
+
+  - id: P0.3
+    title: H2 privacy suppression parity — extend AggregatePrivacy::safe ke report/CSV
+    phase: C2
+    status: done
+    depends: [T0.4]
+    evidence: "commit d68d85a — AggregatePrivacySuppressionTest 5 tests / 21 assertions (report, CSV, dashboard chart, sekolah, regression)"
+    verify: "test: report departemen dengan <5 karyawan → data disuppress"
+
+  # ---- Phase D: Admin controllers (P0 — mutasi finansial masih inline closure) ----
+  - id: T3.1
+    title: Pindahkan 6 inline admin closures → controller + audit log
+    phase: D
+    status: done
+    evidence: "commit 8e46c17 — AdminActionsAuditTest 7 tests / 37 assertions; route:cache OK; Form Request skipped (no user input); AdminAction::record() static helper"
+    depends: [T0.4]
+    spec: docs/tasks/open/T3.1-admin-controllers.md
+    parallel_group: d-admin
+    verify: "grep 'Route::post.*function' routes/web.php = 0; route:cache exit 0; admin_actions terisi"
+
+  # ---- Phase E: Tenant global scope (DITUNDA — setelah flow stabil) ----
+  - id: T2.4
+    title: Tenant global scope di model tenant-scoped
+    phase: E
+    status: deferred
+    reason: "Risky untuk dikerjakan bareng flow baru F1.x. Kerjakan setelah F1.x stabil + test tenancy komprehensif hijau."
+    depends: [T2.3, F1.3]
+    spec: docs/tasks/open/T2.4-tenant-data-enforcement.md
+    verify: "query tanpa scope tidak return data tenant lain; superadmin bypass via withoutGlobalScope; semua test hijau"
+
+  # ---- QA gate batch 1 ----
+  - id: QA.1
+    title: Full test suite + review diff batch 1
+    phase: qa
+    status: done
+    depends: [T1.3, T1.4, T1.5, T2.1, T2.2, T2.3, F1.1, F1.2, F1.3, F1.4, T3.1, P0.1, P0.2, P0.3]
+    evidence: "Reviewer BLOCK + security-auditor pass-with-notes → fixes committed 8c97cf0 (redaction over-match, checkout dual-confirm 410, HR audit+throttles) & 32b2441 (confirmSlot lockForUpdate+overlap re-check, atomic sweep, pending-stuck 72h auto-cancel). Full suite 137 tests / 572 assertions / 0 failures; route:cache OK. Residual notes (deferred batch 2): requestConsultation 'body' never persisted (pre-existing), HR approve/reject audit gap closed via AdminAction, employee.preview fullUrl payload (minor), orphan proposals handled by sweep."
+    verify: "php artisan test hijau ≥ baseline; reviewer + security-auditor pass"
+
+  # ---- Keputusan produk (user 15 Nov 2026) ----
+  # Flow konsultasi: HR-review-gated (F1.x) — BUKAN instant-chat Halodoc.
+  # P0 baru masuk batch 1: checkout token expiry, AI nama redaksi, H2 suppression.
+
+  # ---- Post-QA hardening (15 Nov 2026, in-flight "100%" push) ----
+  - id: QA.2
+    title: Request notes persist (reviewer M6)
+    phase: qa
+    status: done
+    evidence: "commit 4767ac2 — request_notes column + HR view render + fullUrl→path audit fix; HrReviewTest +3"
+  - id: T4.3
+    title: SessionStateMachine untuk perusahaan flow
+    phase: batch2
+    status: done
+    evidence: "commit 36ae9cd — app/Support/SessionStateMachine.php + 14 unit tests; HrReview/confirmSlot/sweep migrated"
+  - id: T6.2
+    title: Max 3 schedules per session (ADR 001, schedule_version)
+    phase: batch2
+    status: done
+    evidence: "commit afa1e06 — schedule_version carry across cancel+rebook, 4th → 422; BookingService perusahaan-only"
+  - id: QA.3
+    title: Final reviewer gate di diff b5170cf..HEAD
+    phase: qa
+    status: done
+    evidence: "Reviewer pass-with-notes; MAJOR (sekolah sweep reject proposal perusahaan id-collision) + 2 MINOR (schedulePerusahaan bypass state machine, topParticipationDept always-null) fixed commits 46c9b3f + 38cb345, regression tests added (sweep 9/9, TopParticipationDeptTest)."
+
+  # ---- Batch 3 (15 Nov 2026, "100%" push) ----
+  - id: T5.1
+    title: Remove dead POST /lead + Lead model
+    phase: batch3
+    status: done
+    evidence: "commit 5dcbcbf"
+  - id: T5.2
+    title: Login rebrand role-neutral
+    phase: batch3
+    status: done
+    evidence: "commit b641280"
+  - id: T5.3
+    title: Pending-ACC card + cancel di employee dashboard
+    phase: batch3
+    status: done
+    evidence: "commit 9f6b83e — route perusahaan.request.cancel via SessionStateMachine::cancel, quota restored"
+  - id: T5.4
+    title: Jadi Mitra CTA → partner.register
+    phase: batch3
+    status: done
+    evidence: "commit f03d8d0"
+  - id: T5.5
+    title: Password reset flow
+    phase: batch3
+    status: done
+    evidence: "PasswordResetController + 4 routes (throttle:5,1) + 2 views; PasswordResetTest 5/5 hijau; full suite 174/661/0 (route:clear diperlukan — stale cache)"
+  - id: T7.1
+    title: DashboardMetrics N+1 + query budget
+    phase: batch3
+    status: done
+    evidence: "commit 1a558dc — eager load departement, DashboardMetricsQueryCountTest <10 queries"
+  - id: T7.2
+    title: Remove dead broadcast scaffolding
+    phase: batch3
+    status: done
+    evidence: "commit 1b022f7"
+  - id: T7.3
+    title: Overnight sessions visible in HR active list
+    phase: batch3
+    status: done
+    evidence: "commit 9387d6c"
+  - id: T7.5
+    title: HAP stage rule → config
+    phase: batch3
+    status: done
+    evidence: "commit f66e416"
+  - id: T7.6
+    title: Error pages 403/404/500 brand-neutral
+    phase: batch3
+    status: done
+    evidence: "commit 6f27626"
+
+  # ---- Batch 4 (15 Nov 2026, "sampai selesai") ----
+  - id: F2.4
+    title: Full consultation flow integration test
+    phase: batch4
+    status: done
+    evidence: "commit 4b58006 — 3 tests/66 assertions end-to-end (happy path + reject + sweep); no bugs found"
+  - id: F2.1
+    title: Consultant assignment management (superadmin)
+    phase: batch4
+    status: done
+    evidence: "commit f302610 — ConsultantAssignmentController + view + tests"
+  - id: F2.2
+    title: Superadmin view-as + audit
+    phase: batch4
+    status: done
+    evidence: "commit a105977 — ViewAs middleware/controller/helper, banner, PerusahaanContext override, 5 tests"
+  - id: F2.3
+    title: HR consultant allocation override
+    phase: batch4
+    status: done
+    evidence: "commit 65a0215 — suggested consultant + dropdown override + reason, audit payload, +4 HrReviewTest"
+  - id: T2.4
+    title: Tenant global scope enforcement
+    phase: batch4
+    status: done
+    evidence: "commit 819b9bc — TenantScope aktif hanya saat auth+context; Schedule/CheckoutLink deferred (ponytail); TenancyIsolationTest 422→404"
+  - id: R4.1
+    title: Backfill schedule_version legacy rows
+    phase: batch4
+    status: done
+    evidence: "commit c2680f5"
+  - id: R4.2
+    title: SocialAccount provider_token column
+    phase: batch4
+    status: done
+    evidence: "commit 962859f"
+  - id: R4.3
+    title: ChatController auth() hoist + config/booking.php
+    phase: batch4
+    status: done
+    evidence: "commits c0e45ea, 4335d0d"
+
+  # ---- Batch 5 (15 Nov 2026, T6.1 complete + T4.2 + UI polish) ----
+  - id: T6.1
+    title: AI service seam — interface + provider env + per-tenant ai_enabled flag
+    phase: batch5
+    status: done
+    evidence: "commits de23ba8 (Tokengateway wiring glm-5.3-flash, PR #2) + be7cec8 (AIService contract, config/ai.php, NullAIService/TokengatewayAIService, ai_enabled migration 3 tenant tables, AiInsightSeamTest 4 tests)"
+    spec: docs/tasks/open/T6.1-ai-seam.md
+  - id: T4.2
+    title: Extract CheckoutFlow service dari CheckoutController
+    phase: batch5
+    status: done
+    evidence: "commit a376c34 — controller 647→198 baris; CheckoutFlow 358 + CustomerDashboardState + KlinikBrowse; reserveSession lockForUpdate+slot re-check; claimLink conditional update; CheckoutFlowAtomicityTest"
+    spec: docs/tasks/open/T4.2-checkout-extract.md
+  - id: T5.6
+    title: UI polish — normalisasi container/margin/gutter
+    phase: batch5
+    status: done
+    evidence: "commit 0ea7352 — 17 blade, konvensi max-w-7xl mx-auto + px-4 sm:px-6 lg:px-8; 13 tabel dibungkus overflow-x-auto; 40+/40- surgical"
+  - id: QA.4
+    title: Secrets scan history
+    phase: qa
+    status: done
+    evidence: "138 commits scanned — no secrets/tokens di history/tree; key hanya di .env lokal (tidak pernah ter-commit); .env.example blank"
+
+  # ---- Batch 6 (16 Nov 2026, chat fix + per-session AI summary + purge) ----
+  - id: F4.1
+    title: Chat session-state propagation + zombie auto-close + send dedupe + room UI polish
+    phase: batch6
+    status: done
+    evidence: "commit fa84b53 — employeeEnd guard status==scheduled (cancelled 422); payload status+can_send; poll stop di terminal + backoff 5/10/30s; send dedupe; zombie checked-in >4h auto-done di sweep; confirm Akhiri; composer sticky"
+  - id: F4.2
+    title: Per-session AI summary + employee advice card
+    phase: batch6
+    status: done
+    evidence: "commit 34526de — session_summaries table + GenerateSessionSummary job (idempotent input_hash, redact via AiInsightService::redact, cap 8000c, prompt no-nama/no-diagnosis); karyawan: card 'Saran dari sesi kamu'; konsultan: summary di room; HR agregat-only (keputusan user); gagal AI tidak menggagalkan end"
+  - id: F4.3
+    title: Purge transkrip chat 24 jam pasca-end
+    phase: batch6
+    status: done
+    evidence: "commit 3f23cfb — chat:purge-ended harian; chat_messages sesi done>=24h hard-delete; summary persist; ChatPurgeTest 4/4"
+
+  # ---- Batch 7 (18 Nov 2026, onboarding massal: import CSV → akun → login pertama) ----
+  # Keputusan user: CSV saja (tanpa dependency baru); password awal dari kolom
+  # sheet + fallback acak, wajib diganti saat login pertama; divisi/kelas dari
+  # sheet tapi dikonfirmasi karyawan/siswa; HR boleh ubah pool konsultan sendiri
+  # kapan saja (dengan audit + tidak bisa menambah di luar kontrak).
+  - id: ONB.1
+    title: Departemen per tenant (prasyarat pilih divisi)
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.1-departement-tenant-scoping.md
+    verify: "php artisan test --filter=DepartementTenantTest hijau; HR tidak bisa pakai divisi tenant lain"
+  - id: ONB.2
+    title: Import CSV bikin akun massal (karyawan/siswa)
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.2-csv-bulk-import.md
+    verify: "php artisan test --filter=RosterCsvImportTest hijau; preview tidak menulis DB; baris gagal tidak menggagalkan batch"
+    depends_on: [ONB.1, ONB.3, ONB.4]
+  - id: ONB.3
+    title: Wajib ganti password saat login pertama
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.3-forced-password-change.md
+    verify: "php artisan test --filter=ForcePasswordChangeTest hijau; admin bypass; tidak ada redirect loop"
+  - id: ONB.4
+    title: Konfirmasi nama + pilih divisi/kelas saat login pertama
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.4-first-login-profile.md
+    verify: "php artisan test --filter=FirstLoginProfileTest hijau; consent_at tidak tersentuh"
+    depends_on: [ONB.1, ONB.3]
+  - id: ONB.5
+    title: HR/BK kelola sendiri pool konsultan tenant
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.5-tenant-consultant-pool-self-service.md
+    verify: "php artisan test --filter=TenantConsultantPoolTest hijau; toggle off hilang dari booking; tidak bisa tambah di luar pool"
+  - id: ONB.6
+    title: Paritas perusahaan↔sekolah + fix redirect role sekolah_staff
+    phase: batch7
+    status: pending
+    spec: docs/tasks/open/ONB.6-parity-and-role-redirect.md
+    verify: "php artisan test --filter=OnboardingParityTest hijau; login sekolah_staff mendarat di /sekolah-portal/staff"
+
+notes:
+  - "BATCH 7 ONBOARDING (18 Nov 2026): 6 task ONB.* di atas, spec lengkap di docs/tasks/open/. Urutan eksekusi — ONB.3 + ONB.1 dulu (fondasi kolom & tenant scope), lalu ONB.4, lalu ONB.2 (butuh keduanya), lalu ONB.5 & ONB.6. Migrasi baru = ASK FIRST sebelum jalan di DB non-lokal. Temuan laten yang ikut diperbaiki — RosterController.php:42 query kolom `perusahaan_id` yang tidak ada di `departements` (ONB.1), dan role `sekolah_staff` belum ada di main (ONB.6)."
+  - FINAL STATE (16 Nov 2026, post batch 6): branch goal/production-foundation @ 3824056 (PRD doc committed). Suite 222 tests / 852 assertions / 0 failures.
+  - "SUPERADMIN CONTROL CENTER (17 Nov 2026): branch goal/superadmin-control-center @ ec0c093 — task.md 19/19 task + 6/6 success criteria, QA PASS. Suite 319 tests / 1287 assertions / 0 failures. Fase A (tenant mgmt, lifecycle, provisioning wizard, switcher, audit viewer, system health, ops queue), B (view-as multi-role read-only 30 mnt, deny-by-default middleware, UI), C (pervorma 3 vertikal: hap=klinik, sap=sekolah, cap=perusahaan; assign associate; dashboard associate multi-vertikal; admin pay 3 vertikal). Known gap terdokumentasi: tidak ada code path SekolahSession done → SAP stage 2/3 belum punya trigger natural. Belum di-push/di-merge (ASK FIRST)."
+  - PRD baru: docs/PRD-2026-11-16-current-state.md (v3.0, current-state faktual, supersedes Platform PRD v1.2 untuk "apa yang ada").
+  - Semua spec docs/tasks/open DONE kecuali: T4.1 (Laravel 12 skeleton — app sudah jalan di 12, low value, skip), F3.x (dev-workflow tooling — di luar scope app).
+  - T7.4 cancelled by design.
+  - PR #1 merged (916ef59), PR #2 merged (f5d56d1), PR #3 merged (f26bd50) — semua oleh Kuli_ku.
+  - PR #4 open @ 8622142 (goal/superadmin-control-center, 88 commits) — MERGEABLE/CLEAN per GitHub, menunggu review + merge.
+  - Worktree `fix/p0-2-ai-insight-name-redaction` @ 04ef65f REDUNDANT — fix P0.2 sudah di main sebagai 069af33 (merged via PR #1). Aman dihapus.
+  - Deployment: menunggu PR #4 merge + deploy + set AI env vars dengan KEY YANG SUDAH DI-ROTATE + pastikan cron schedule:run aktif (zombie sweep + purge 24 jam jalan di situ).
+  - QA.2 (manual browser pass) menunggu staging ter-deploy dengan state terbaru.
+  - Known latent bug (pre-existing, bukan batch 6): employee.blade.php L425-426 `@php $ans = ... ?? 0; @endphp` — kombinasi `??` + `@endphp` meninggalkan Blade compiler dalam state broken diam-diam. Batch 6 menghindari dengan long-form; cleanup pre-existing line direkomendasikan terpisah.
