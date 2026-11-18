@@ -159,7 +159,10 @@ class RosterCsvImport
         if ($this->rosterQuery($vertical, $tenantId)->where('email', $data['email'])->exists()) {
             return ['duplicate', 'Email sudah ada di roster.'];
         }
-        if ($data['division'] !== '' && $this->divisionId($vertical, $tenantId, $data['division'], false) === null) {
+        // Kelas sekolah string bebas — tidak ada tabel master untuk divalidasi.
+        // Hanya perusahaan yang punya himpunan divisi terbatas.
+        if ($vertical === 'perusahaan' && $data['division'] !== ''
+            && $this->divisionId($vertical, $tenantId, $data['division'], false) === null) {
             return ['error', 'Divisi/kelas tidak dikenal untuk tenant ini.'];
         }
 

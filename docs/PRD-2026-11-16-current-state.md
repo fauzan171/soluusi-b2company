@@ -1,9 +1,9 @@
 # PRD — Soluusi B2B Platform (Current State)
 
-> Versi: 3.0 (rebased ke kode)
-> Tanggal: 16 Nov 2026
-> Status: **current-state** — mendeskripsikan sistem yang SUDAH ADA, bukan aspirasi
-> Sumber kebenaran: branch `goal/production-foundation` @ `3f23cfb` (PR #3, menunggu merge/deploy)
+> Versi: 3.2 (Batch 7 diimplementasi di branch `feat/onboarding-bulk-accounts`)
+> Tanggal: 18 Nov 2026
+> Status: **current-state `main`** + satu bagian berlabel cabang. Bagian berlabel diperiksa per kalimat: §5.6 & §6.1 = **sudah ada di branch `feat/onboarding-bulk-accounts`** (belum di-merge/deploy), sisanya = kondisi `main` @ `82888ec`.
+> Sumber kebenaran kode: `main` @ `82888ec` + branch `feat/onboarding-bulk-accounts` (5 commit + 1 fix, 369 test Feature hijau).
 > Menggantikan: `Soluusi B2B Platform - PRD.md` v1.2 (5 Agu 2026) — dokumen itu tetap north-star bisnis, tapi 16 klaim di dalamnya sudah usang vs kode (lihat §14)
 
 ---
@@ -55,7 +55,7 @@ Prinsip privasi struktural: HR/BK tidak pernah melihat isi sesi; dashboard merek
 
 - Multi-tenant per vertikal: `kliniks` / `perusahaans` / `sekolahs`. Row tenant punya `brand`, `domain` (klinik), `ai_enabled` (bool, default false).
 - Isolasi: `TenantScope` global scope di 6 model tenant-scoped (PerusahaanSession/Employee/Assessment + mirror Sekolah). Aktif HANYA saat auth + context ter-resolve; inert di console/queue/guest. Sengaja TIDAK di Schedule/CheckoutLink (ponytail).
-- Auth: single guard `web`, password + Google OAuth (Socialite, token di `social_accounts.provider_token`), password reset broker bawaan (throttle 5/m). View-as superadmin = session-scoped, read-only, ter-audit.
+- Auth: single guard `web`, password + Google OAuth (Socialite, token di `social_accounts.provider_token`), password reset broker bawaan (throttle 5/m). View-as superadmin = session-scoped, read-only, ter-audit. Di `main` **belum ada halaman ganti password** dan `users` tidak punya `must_change_password` / `password_changed_at`. Branch `feat/onboarding-bulk-accounts` menambahkan keduanya (§5.6, ONB.3).
 
 ---
 
@@ -88,7 +88,7 @@ Vertikal paling lengkap. Loop: roster → assessment → request/booking → HR 
 
 ### 5.1 Booking & scheduling
 
-Onboarding karyawan: HR input roster manual atau undang via signed-URL `/daftar/{type}` (self-register, token undangan roster).
+Onboarding karyawan: HR input roster manual atau undang via signed-URL `/daftar/{type}` (self-register, token undangan roster). Jalur import CSV (menggantikan undangan selama email belum tersedia) ada di branch `feat/onboarding-bulk-accounts`, lihat §5.6.
 - `BookingService`: pool konsultan (`ConsultantPool`), overlap check, kuota per karyawan/bulan (`sessions_per_employee_month`), claim table, cancel cutoff 2 jam.
 - **Request tanpa slot**: karyawan kirim request (dengan `request_notes`) → masuk HR review queue (encoded: `status=scheduled + scheduled_at NULL + consultant_id NULL`) → HR approve (+opsi override konsultan + reason, audit) / reject (kuota balik).
 - **Slot proposal**: konsultan propose 2-3 slot (`session_slot_proposals`) → karyawan confirm 1 → auto-book (`lockForUpdate` + overlap re-check).
@@ -118,6 +118,67 @@ Onboarding karyawan: HR input roster manual atau undang via signed-URL `/daftar/
 - Tidak ada notifikasi ke konsultan saat slot proposal di-confirm (ponytail).
 - Booking CAP sudah slot-nyata + anti double-book (claim table) — klaim lama "bisa double-book" sudah usang.
 
+### 5.6 Onboarding massal (Batch 7) — ADA DI BRANCH `feat/onboarding-bulk-accounts`
+
+Konteks: pengiriman email belum tersedia, jadi jalur undangan signed-URL
+(`RosterInvitation::issue` + `SelfRegisterController`) belum bisa dipakai untuk
+onboarding baru. Penggantinya: HR upload CSV, sistem yang membuat akun.
+
+**Alur target (perusahaan)**
+
+```
+Superadmin provision tenant + akun HR + pool konsultan awal   (SUDAH ADA)
+  └─ HR upload CSV: name, email, password, divisi             (BARU — ONB.2)
+       └─ preview per baris (valid / duplikat / error)        (BARU)
+       └─ commit → user + roster row ter-link, tanpa email    (BARU)
+  └─ Karyawan login dengan password dari CSV
+       ├─ gerbang 1: wajib ganti password                     (BARU — ONB.3)
+       └─ gerbang 2: konfirmasi nama + pilih divisi           (BARU — ONB.4)
+  └─ Portal karyawan (booking, asesmen, chat, saran AI)       (SUDAH ADA)
+  └─ HR mengubah sendiri konsultan aktif di pool tenant       (BARU — ONB.5)
+```
+
+**Aturan yang mengikat**
+
+- Password awal dari kolom CSV; kalau kolomnya kosong → acak 12 char
+  (`Str::password`). Apapun asalnya, password itu kedaluwarsa saat login
+  pertama (`users.must_change_password`). Password di file Excel HR tidak
+  pernah menjadi password permanen.
+- CSV = satu-satunya format. Tidak menambah library spreadsheet;
+  `str_getcsv`/`fgetcsv` (stdlib) dipakai untuk parsing.
+- Divisi diambil dari kolom CSV, tapi karyawan **mengonfirmasi**-nya di layar
+  login pertama — bukan otomatis dipercaya. Alasan: file HR sering salah
+  divisi, dan divisi memengaruhi agregat dashboard.
+- `departements` harus di-scope per perusahaan dulu (ONB.1). Hari ini tabel
+  itu global sehingga dua perusahaan berbagi divisi bernama sama.
+- Pool konsultan: HR hanya bisa menyalakan/mematikan konsultan yang **sudah**
+  di-assign Soluusi (`consultant_pools.is_active`). Menambah konsultan baru di
+  luar kontrak tetap wewenang superadmin. Setiap toggle → `admin_actions`.
+- Consent (`consent_at`) TIDAK dicatat oleh alur ini — tetap lewat
+  `ProgramConsent` oleh HR.
+- Import = create only. Tidak ada update/undo batch.
+
+**Yang sudah ada dan tidak perlu dibangun ulang**: provisioning tenant + akun
+HR (1 transaksi), assign konsultan ke pool, `TenantScope`, kuota per karyawan,
+audit `admin_actions`, `RosterInvitation` (tetap dipakai kalau email nanti
+aktif).
+
+**Batas yang belum diputuskan**: apakah import boleh dipakai saat tenant masih
+`is_active = false`. Default desain: tidak — sama dengan gerbang POST yang
+sudah ada di roster.
+
+**Status implementasi (18 Nov 2026)**: lima commit di branch
+`feat/onboarding-bulk-accounts`, 369 test Feature / 1443 assertions / 0
+failures. File utama: `app/Services/RosterCsvImport.php`,
+`app/Http/Controllers/Perusahaan/RosterImportController.php`,
+`app/Http/Middleware/ForcePasswordChange.php`,
+`app/Http/Middleware/EnsureProfileConfirmed.php`,
+`app/Http/Controllers/Onboarding/ProfileController.php`,
+`app/Http/Controllers/TenantConsultantPoolController.php`. Rute:
+`/ubah-password`, `/onboarding/{perusahaan,sekolah}/profil`,
+`/perusahaan/employees/import`, `/perusahaan/konsultan`,
+`/sekolah-portal/konsultan`. Belum di-push, belum di-merge, belum migrate.
+
 ---
 
 ## 6. Vertikal Sekolah (SAP) — Subset CAP
@@ -130,6 +191,35 @@ Onboarding karyawan: HR input roster manual atau undang via signed-URL `/daftar/
 ### Batas
 - Consent ortu: diterima di form, jalur pencatatan belum rapi (audit lama).
 - Instrumen skrining: hanya WHO-5. DASS-21/MMCI/MMPI/DISC = north-star, belum ada (lisensi MHCU masih NEEDS FOUNDER).
+
+### 6.1 Onboarding massal sekolah (Batch 7) — SERVICE SIAP, CONTROLLER MENUNGGU PARITY
+
+Identik dengan §5.6, bedanya hanya kosakata dan sumber data:
+
+| Langkah | Perusahaan | Sekolah |
+|---|---|---|
+| Upload | CSV `name,email,password,divisi` | CSV `name,email,password,kelas[,tipe]` |
+| Gerbang 1 | wajib ganti password | sama |
+| Gerbang 2 | konfirmasi nama + pilih **divisi** (`departements`) | konfirmasi nama + pilih **kelas** (string, `sekolah_students.kelas`) |
+| Pengelola pool | HR | BK |
+| Role akun | `employee` | `student` (atau `sekolah_staff` kalau `tipe=staff`) |
+
+Kelas sengaja tetap string bebas (dengan saran dari daftar kelas yang sudah ada
+di sekolah itu), bukan tabel baru — sekolah memakai format kelas masing-masing.
+
+Celah lama yang ikut ditutup (ONB.6): role `sekolah_staff` belum ada di `main`
+sama sekali — E.1 hidup di branch `goal/sekolah-flow-parity` (worktree
+`/home/seva-ojan/wt/soluusib2b-goal-sekolah-flow` @ `436f7bb`, BELUM di-merge).
+Batch 7 dieksekusi SETELAH branch itu masuk main; kalau tidak, gerbang onboarding
+hanya terpasang di satu grup role.
+
+**Status implementasi (18 Nov 2026)**: gerbang 1 dan gerbang 2 sudah ada di
+branch `feat/onboarding-bulk-accounts` dan berlaku untuk vertikal sekolah juga
+(`/onboarding/sekolah/profil` dengan input `kelas`). `RosterCsvImport` sudah
+mendukung vertikal `sekolah` (header `name,email,password,kelas`, role
+`student`, `kelas` disimpan sebagai string, tanpa `tipe`). Yang belum:
+controller + view tipis untuk BK, dan kolom `tipe` / role `sekolah_staff`.
+Keduanya menunggu `goal/sekolah-flow-parity` merge.
 
 ---
 
@@ -149,6 +239,10 @@ Semua di-gate `role:admin`, setiap aksi ter-audit di `admin_actions`:
 - Consultant assignment ke pool tenant.
 - View-as karyawan (read-only, audit start/stop).
 - `/progress` halaman status presentasi (gated).
+
+Batas peran yang disepakati 18 Nov 2026 (Batch 7, §5.6): **masuk** ke pool
+konsultan tenant = wewenang superadmin; **menyalakan/mematikan** konsultan yang
+sudah masuk pool = wewenang HR/BK tenant itu sendiri (ONB.5, ter-audit).
 
 ### 8.1 Roadmap: Superadmin Control Center (approved 16 Nov 2026)
 
@@ -206,7 +300,7 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 ## 11. Teknologi & Operasi
 
 - Laravel 12, PHP 8.2+ (dev 8.5.4), Blade + Tailwind, vanilla JS (chat polling).
-- DB: SQLite dev/test, MySQL prod. 131 migrasi.
+- DB: SQLite dev/test, MySQL prod. 135 migrasi (Batch 7 menambah 4: ONB.1, ONB.3, ONB.4, ONB.5).
 - Queue: `database` (sync di test). Cache: database. Session: database. Broadcast: log (tidak dipakai).
 - Scheduler (`schedule:run` wajib aktif):
   - every 5 min: sweep expired payment
@@ -221,8 +315,11 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 
 ## 12. Status Delivery
 
-- Branch `goal/production-foundation` @ `3f23cfb`, PR #3 open (6 commit terbaru: AI seam, UI polish, CheckoutFlow extract, chat fixes, session summary, purge). PR #1 & #2 sudah merged.
-- Deploy blocker (eksternal): merge PR #3 → `php artisan migrate` (2 migrasi baru) → env AI dengan **key Tokengateway yang SUDAH di-rotate** (key lama bocor di chat) → set `ai_enabled=1` per tenant → pastikan cron `schedule:run` jalan.
+- `main` @ `82888ec` (PR #4 merged: Superadmin Control Center + Employee Booking UI redesign). PR #1–#4 semua merged.
+- Branch `goal/sekolah-flow-parity` (worktree `/home/seva-ojan/wt/soluusib2b-goal-sekolah-flow` @ `436f7bb`) — parity SAP + E.1 staf sekolah, 474 tests / 1777 assertions / 0 failures. **Belum di-push, belum di-merge** (menunggu approval).
+- **Batch 7 (onboarding massal)** — branch `feat/onboarding-bulk-accounts` @ `92bf3fa`, 5 commit: ONB.1 + ONB.3 + ONB.4 + ONB.2 (perusahaan) + ONB.5 selesai; ONB.6 dan varian siswa ONB.2 menunggu `goal/sekolah-flow-parity`. 369 test Feature / 1443 assertions / 0 failures. **Belum di-push, belum di-merge, belum migrate.**
+- Deploy blocker (eksternal): merge PR #3 → `php artisan migrate` (2 migrasi baru) → env AI dengan **key Tokengateway yang SUDAH di-rotate** (key lama bocor di chat) → set `ai_enabled=1` per tenant → pastikan cron `schedule:run` jalan. Batch 7 menambah 4 migrasi lagi ke antrean deploy.
+- Urutan kerja yang disepakati: merge `goal/sekolah-flow-parity` → merge `feat/onboarding-bulk-accounts` → ONB.6 + varian siswa ONB.2 (dikerjakan di atas kedua branch).
 
 ---
 
@@ -236,6 +333,11 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 6. Chat & AI per-sesi: CAP only.
 7. Roles flat (string), tidak ada permission granular.
 8. Prod lama B2C Hostinger: terpisah, jangan disentuh.
+9. **Import massal (CSV/XLSX)**: belum ada di `main`. Ada di branch `feat/onboarding-bulk-accounts` (ONB.2, vertikal perusahaan). Hanya CSV, tidak ada library spreadsheet. Varian siswa menunggu parity.
+10. **Ganti password mandiri**: belum ada di `main`. Ada di branch `feat/onboarding-bulk-accounts` (ONB.3: `/ubah-password` + gerbang `force.password`).
+11. **Onboarding mandiri tanpa file**: tidak ada. Tanpa CSV, akun hanya bisa dibuat satu-satu oleh HR/BK atau lewat undangan signed-URL (yang butuh email).
+12. **Divisi per tenant**: di `main` `departements` masih global. Branch ONB.1 menambahkan `perusahaan_id` (nullable, row legacy tetap lintas tenant).
+13. **HR/BK mengelola pool konsultan**: di `main` belum ada UI, hanya superadmin. Branch ONB.5 menambahkan toggle `is_active`, dengan batas *tidak* bisa menambah konsultan di luar kontrak Soluusi.
 
 ---
 
@@ -243,7 +345,7 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 
 | Dokumen | Status | Pakai untuk |
 |---|---|---|
-| **Dokumen ini** | current-state v3.0 | Kebenaran teknis "apa yang ada" |
+| **Dokumen ini** | current-state v3.1 | Kebenaran teknis "apa yang ada" |
 | Master Playbook | VALID | GTM, pricing indikatif, komisi, persona buyer |
 | PRD-Soluusi-B2B-Reframed (v2.0) | VALID | Marketing site structure (4 route) — sudah implemented |
 | Vertical Specs (Klinik/Sekolah/Perusahaan) | PARTIAL | Model bisnis & pricing; flow detail banyak yang usang |
@@ -252,5 +354,6 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 | Platform PRD v1.2 (Agu) | PARTIAL→SUPERSEDED | North-star bisnis; stack L9→L12, repo merge→standalone, MVP Klinik-first→CAP/SAP-mature sudah usang |
 | memory.md (Agu) | STALE | Snapshot pre-development; jangan dijadikan acuan status |
 | mom-client-updates.md | STALE | Draft kickoff, klaim banyak yang sudah tidak akurat |
+| `tasks.yaml` phase `batch7` + `docs/tasks/open/ONB.1–ONB.6` | **SEBAGIAN TERIMPLEMENTASI** | Onboarding massal (§5.6/§6.1) — ONB.1/3/4/2(perusahaan)/5 dikerjakan di branch `feat/onboarding-bulk-accounts`; ONB.6 + ONB.2(siswa) menunggu merge `goal/sekolah-flow-parity` |
 
 Kontras kunci yang sudah berubah sejak dokumen lama: Laravel 9→12; repo standalone; employee/student punya akun (self-register) walau pasien klinik tetap guest; chat+AI summary+purge baru ada (batch 6); split sudah ledger lokal; Midtrans webhook verify sudah aktif.

@@ -281,4 +281,57 @@ class RosterCsvImportTest extends TestCase
             ->assertOk()
             ->assertSee('CSV');
     }
+
+    // --- Vertikal sekolah: service sudah dua-vertikal, controller menyusul ---
+    // Test langsung ke service (bukan HTTP) karena rute BK menunggu
+    // goal/sekolah-flow-parity merge. Ini menjaga klaim "service siap" jujur.
+
+    private function csvPath(string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'roster') . '.csv';
+        file_put_contents($path, $content);
+
+        return $path;
+    }
+
+    public function test_sekolah_vertical_creates_students_with_kelas(): void
+    {
+        $sekolah = \App\Models\Sekolah\Sekolah::create([
+            'name' => 'SMA Impor', 'brand' => 'SMA Impor',
+            'sessions_per_student_month' => 2, 'student_count' => 3,
+            'is_active' => true, 'status' => 'active',
+        ]);
+
+        $service = new \App\Services\RosterCsvImport();
+        $rows = $service->read($this->csvPath(
+            "name,email,password,kelas\n"
+            . "Siswa Satu,siswa1@sekolah.local,,X IPA 1\n"
+            . "Siswa Dua,siswa2@sekolah.local,Rahasia123,X IPA 2\n"
+        ));
+        $service->assertHeader($rows, 'sekolah');
+
+        $result = $service->commit($rows, 'sekolah', $sekolah->id);
+
+        $this->assertSame(2, $result['created']);
+        $this->assertSame(0, $result['error']);
+
+        $siswa = \App\Models\User::where('email', 'siswa1@sekolah.local')->firstOrFail();
+        $this->assertSame('student', $siswa->role->name);
+        $this->assertTrue($siswa->must_change_password);
+        $this->assertTrue($siswa->must_confirm_profile);
+
+        $row = \App\Models\Sekolah\SekolahStudent::where('email', 'siswa1@sekolah.local')->firstOrFail();
+        $this->assertSame($sekolah->id, $row->sekolah_id);
+        $this->assertSame($siswa->id, $row->user_id);
+        $this->assertSame('X IPA 1', $row->kelas);
+    }
+
+    public function test_sekolah_header_requires_kelas_column(): void
+    {
+        $service = new \App\Services\RosterCsvImport();
+        $rows = $service->read($this->csvPath("name,email,password,divisi\nSiswa,s@sekolah.local,x,X\n"));
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $service->assertHeader($rows, 'sekolah');
+    }
 }

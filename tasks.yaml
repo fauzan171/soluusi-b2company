@@ -372,41 +372,43 @@ tasks:
   - id: ONB.1
     title: Departemen per tenant (prasyarat pilih divisi)
     phase: batch7
-    status: pending
+    status: done
     spec: docs/tasks/open/ONB.1-departement-tenant-scoping.md
     verify: "php artisan test --filter=DepartementTenantTest hijau; HR tidak bisa pakai divisi tenant lain"
   - id: ONB.2
     title: Import CSV bikin akun massal (karyawan/siswa)
     phase: batch7
-    status: pending
+    status: done
     spec: docs/tasks/open/ONB.2-csv-bulk-import.md
     verify: "php artisan test --filter=RosterCsvImportTest hijau; preview tidak menulis DB; baris gagal tidak menggagalkan batch"
     depends_on: [ONB.1, ONB.3, ONB.4]
+    partial: "Vertikal perusahaan selesai (service + controller + route + view + 13 test). Varian sekolah (controller/view tipis di atas service yang sama) menunggu sekolah_students.type dari branch goal/sekolah-flow-parity — lihat C2 di task.md."
   - id: ONB.3
     title: Wajib ganti password saat login pertama
     phase: batch7
-    status: pending
+    status: done
     spec: docs/tasks/open/ONB.3-forced-password-change.md
     verify: "php artisan test --filter=ForcePasswordChangeTest hijau; admin bypass; tidak ada redirect loop"
   - id: ONB.4
     title: Konfirmasi nama + pilih divisi/kelas saat login pertama
     phase: batch7
-    status: pending
+    status: done
     spec: docs/tasks/open/ONB.4-first-login-profile.md
     verify: "php artisan test --filter=FirstLoginProfileTest hijau; consent_at tidak tersentuh"
     depends_on: [ONB.1, ONB.3]
   - id: ONB.5
     title: HR/BK kelola sendiri pool konsultan tenant
     phase: batch7
-    status: pending
+    status: done
     spec: docs/tasks/open/ONB.5-tenant-consultant-pool-self-service.md
     verify: "php artisan test --filter=TenantConsultantPoolTest hijau; toggle off hilang dari booking; tidak bisa tambah di luar pool"
   - id: ONB.6
     title: Paritas perusahaan↔sekolah + fix redirect role sekolah_staff
     phase: batch7
-    status: pending
+    status: deferred
     spec: docs/tasks/open/ONB.6-parity-and-role-redirect.md
     verify: "php artisan test --filter=OnboardingParityTest hijau; login sekolah_staff mendarat di /sekolah-portal/staff"
+    blocked_by: "role sekolah_staff belum ada di main; branch goal/sekolah-flow-parity belum merge ke main"
 
 notes:
   - "BATCH 7 ONBOARDING (18 Nov 2026): 6 task ONB.* di atas, spec lengkap di docs/tasks/open/. Urutan eksekusi — ONB.3 + ONB.1 dulu (fondasi kolom & tenant scope), lalu ONB.4, lalu ONB.2 (butuh keduanya), lalu ONB.5 & ONB.6. Migrasi baru = ASK FIRST sebelum jalan di DB non-lokal. Temuan laten yang ikut diperbaiki — RosterController.php:42 query kolom `perusahaan_id` yang tidak ada di `departements` (ONB.1), dan role `sekolah_staff` belum ada di main (ONB.6)."
