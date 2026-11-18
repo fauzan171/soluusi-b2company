@@ -32,6 +32,22 @@ class EnsureProfileConfirmed
             default => null,
         };
 
-        return $route ? redirect()->route($route) : $next($request);
+        // Tanpa row roster tidak ada yang bisa dikonfirmasi — dan halaman
+        // konfirmasi sendiri 403 untuk akun tanpa row. Gate diam di sini,
+        // jangan mengunci user di redirect yang tidak pernah selesai.
+        if ($route && $this->hasRosterRow($user, $route === 'sekolah.profile')) {
+            return redirect()->route($route);
+        }
+
+        return $next($request);
+    }
+
+    private function hasRosterRow($user, bool $sekolah): bool
+    {
+        $model = $sekolah
+            ? \App\Models\Sekolah\SekolahStudent::class
+            : \App\Models\Perusahaan\PerusahaanEmployee::class;
+
+        return $model::where('user_id', $user->id)->exists();
     }
 }

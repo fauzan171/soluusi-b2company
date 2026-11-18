@@ -100,6 +100,19 @@ class FirstLoginProfileTest extends TestCase
         $this->assertSame('Nama Sebenarnya', $fresh->name);
         $this->assertSame($dept->id, $fresh->departement_id);
         $this->assertFalse($fresh->user->fresh()->must_confirm_profile);
+
+        // Nama akun ikut terkoreksi, bukan hanya row roster.
+        $user = $fresh->user->fresh();
+        $this->assertSame('Nama', $user->firstname);
+        $this->assertSame('Sebenarnya', $user->lastname);
+        $this->assertSame('Nama Sebenarnya', $user->fullname);
+    }
+
+    public function test_onboarding_route_rejects_roles_without_a_roster_row(): void
+    {
+        $this->actingAs($this->user('bk.profil@uji.local', 'bk'))
+            ->get(route('perusahaan.profile'))
+            ->assertForbidden();
     }
 
     public function test_division_of_other_tenant_is_rejected(): void
@@ -226,6 +239,33 @@ class FirstLoginProfileTest extends TestCase
         $admin = $this->user('admin.profil@uji.local', 'admin');
 
         $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
+    }
+
+    /**
+     * Regresi: flag menyala tapi row roster hilang (HR hapus/pindah tenant
+     * sebelum login pertama). Tanpa row, halaman profil sendiri 403 — gate
+     * harus diam, bukan mengunci user di redirect yang tidak pernah selesai.
+     */
+    public function test_flag_alone_without_roster_row_does_not_lock_the_user_out(): void
+    {
+        $user = $this->user('tanpa.row@uji.local', 'employee');
+        $user->update(['must_confirm_profile' => true]);
+
+        // Controller boleh 403 (memang tanpa row), yang penting gate TIDAK
+        // melempar ke halaman profil — di sana user akan 403 selamanya.
+        $response = $this->actingAs($user)->get(route('perusahaan.employee'));
+
+        $this->assertFalse($response->isRedirect(route('perusahaan.profile')));
+    }
+
+    public function test_student_flag_without_roster_row_is_not_gated(): void
+    {
+        $user = $this->user('siswa.tanpa.row@uji.local', 'student');
+        $user->update(['must_confirm_profile' => true]);
+
+        $response = $this->actingAs($user)->get(route('sekolah.student'));
+
+        $this->assertFalse($response->isRedirect(route('sekolah.profile')));
     }
 
     /**

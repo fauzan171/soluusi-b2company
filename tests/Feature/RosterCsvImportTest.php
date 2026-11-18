@@ -334,4 +334,74 @@ class RosterCsvImportTest extends TestCase
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         $service->assertHeader($rows, 'sekolah');
     }
+
+    /**
+     * File CSV menyimpan password awal plaintext. Commit harus menghapusnya,
+     * dan respons tidak boleh membawa nama file yang masih ada di disk.
+     */
+    public function test_commit_deletes_the_stored_file(): void
+    {
+        $perusahaan = $this->perusahaan();
+        $hr = $this->hr($perusahaan);
+
+        $this->actingAs($hr)->post(route('perusahaan.employees.import.preview'), ['file' => $this->validCsv()]);
+        $file = session('import_file');
+        $path = 'private/imports/perusahaan-' . $perusahaan->id . '/' . $file;
+
+        $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('local')->exists($path));
+
+        $this->actingAs($hr)->post(route('perusahaan.employees.import.commit'));
+
+        $this->assertFalse(\Illuminate\Support\Facades\Storage::disk('local')->exists($path));
+        $this->assertNull(session('import_file'));
+    }
+
+    /** Jalur gagal (header salah) juga harus menghapus file yang sudah ditulis. */
+    public function test_rejected_upload_leaves_no_file_behind(): void
+    {
+        $perusahaan = $this->perusahaan();
+        $hr = $this->hr($perusahaan);
+        $dir = storage_path('app/private/imports/perusahaan-' . $perusahaan->id);
+        $before = glob($dir . '/*.csv') ?: [];
+
+        $this->actingAs($hr)->post(route('perusahaan.employees.import.preview'), [
+            'file' => $this->csv("nama,mail,sandi\nAndi,and@import.local,x\n"),
+        ])->assertStatus(422);
+
+        $this->assertSame($before, glob($dir . '/*.csv') ?: []);
+    }
+
+    /** Excel "CSV UTF-8" menulis BOM; file yang benar tidak boleh ditolak. */
+    public function test_header_with_utf8_bom_is_accepted(): void
+    {
+        $perusahaan = $this->perusahaan();
+        $hr = $this->hr($perusahaan);
+
+        $this->actingAs($hr)
+            ->post(route('perusahaan.employees.import.preview'), [
+                'file' => $this->csv("\xEF\xBB\xBFname,email,password,divisi\nAndi,and@import.local,x,\n"),
+            ])
+            ->assertOk()
+            ->assertSee('Andi');
+    }
+
+    /** Sweeper menghapus file pratinjau yang ditinggal HR. */
+    public function test_prune_command_removes_stale_import_files(): void
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        $dir = 'private/imports/prune-' . uniqid();
+        $stale = $dir . '/lama.csv';
+        $fresh = $dir . '/baru.csv';
+        // Directory lewat put(); file lama dibuat manual agar mtime bisa di-set.
+        $disk->put($stale, "name,email,password,divisi\n");
+        $disk->put($fresh, "name,email,password,divisi\n");
+        touch($disk->path($stale), now()->subHours(3)->timestamp);
+
+        $this->artisan('imports:prune')->assertSuccessful();
+
+        $this->assertFalse($disk->exists($stale));
+        $this->assertTrue($disk->exists($fresh));
+
+        $disk->deleteDirectory($dir);
+    }
 }

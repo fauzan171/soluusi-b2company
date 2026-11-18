@@ -46,7 +46,10 @@ Route::controller(\App\Http\Controllers\Auth\ChangePasswordController::class)
     });
 
 // --- Onboarding login pertama: konfirmasi profil (ONB.4) ---
-Route::controller(\App\Http\Controllers\Onboarding\ProfileController::class)->middleware('auth')->group(function () {
+Route::controller(\App\Http\Controllers\Onboarding\ProfileController::class)
+    // Urutan gerbang sama dengan portal: ganti password dulu, baru konfirmasi
+    // profil. Guard role membuat endpoint tidak bisa dijangkau role lain.
+    ->middleware(['auth', 'force.password', 'role:employee,student,admin'])->group(function () {
     Route::get('/onboarding/perusahaan/profil', 'show')->defaults('vertical', 'perusahaan')->name('perusahaan.profile');
     Route::post('/onboarding/perusahaan/profil', 'store')->defaults('vertical', 'perusahaan')->name('perusahaan.profile.store');
     Route::get('/onboarding/sekolah/profil', 'show')->defaults('vertical', 'sekolah')->name('sekolah.profile');

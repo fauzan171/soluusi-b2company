@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -33,6 +34,11 @@ class ChangePasswordController extends Controller
             'must_change_password' => false,
             'password_changed_at' => now(),
         ])->save();
+
+        // Password awal bisa bocor lewat file CSV yang dipegang HR, jadi sesi
+        // lain milik user ini harus mati dan ID sesi sekarang dirotasi.
+        Auth::logoutOtherDevices($request->string('password'));
+        $request->session()->regenerate();
 
         return $auth->redirectByRole($user);
     }

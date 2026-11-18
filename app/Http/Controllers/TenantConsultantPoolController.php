@@ -40,12 +40,19 @@ abstract class TenantConsultantPoolController extends Controller
         ]);
 
         $tenant = $this->tenant();
+        $other = static::VERTICAL === 'perusahaan' ? 'sekolah_id' : 'perusahaan_id';
 
         // Guard kepemilikan: row harus ada di pool tenant ini. Row tenant lain
         // (atau konsultan yang belum pernah di-assign) → 404, bukan 403, supaya
         // keberadaan pool tenant lain tidak bocor.
+        //
+        // Row yang punya KEDUA kolom tenant (skema membolehkan, dan assign()
+        // firstOrCreate bisa mendarat di sana) sengaja dikecualikan: satu bit
+        // is_active dipakai bersama, jadi HR A mematikan konsultan di sekolah S.
+        // Serahkan row ambigu itu ke superadmin.
         $pool = ConsultantPool::where('consultant_id', $data['consultant_id'])
             ->where(static::VERTICAL . '_id', $tenant->id)
+            ->whereNull($other)
             ->firstOrFail();
 
         $pool->update(['is_active' => !$pool->is_active]);
@@ -65,6 +72,9 @@ abstract class TenantConsultantPoolController extends Controller
     private function rows($tenant)
     {
         return ConsultantPool::where(static::VERTICAL . '_id', $tenant->id)
+            // Sama dengan toggle(): row yang juga terhubung ke vertikal lain
+            // hanya boleh diubah superadmin.
+            ->whereNull(static::VERTICAL === 'perusahaan' ? 'sekolah_id' : 'perusahaan_id')
             ->whereHas('consultant', fn ($q) => $q
                 ->where('status', Consultant::ACCEPT)
                 ->whereHas('user', fn ($u) => $u->where('is_active', true)))

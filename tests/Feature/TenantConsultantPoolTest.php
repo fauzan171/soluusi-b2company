@@ -61,7 +61,7 @@ class TenantConsultantPoolTest extends TestCase
 
     private function hr(Perusahaan $p): User
     {
-        $user = $this->user('hr-' . $p->id . '@pool.local', 'hr_admin');
+        $user = $this->user('hr-' . $p->id . '.' . uniqid() . '@pool.local', 'hr_admin');
         PerusahaanAdmin::create(['perusahaan_id' => $p->id, 'user_id' => $user->id]);
 
         return $user;
@@ -69,7 +69,7 @@ class TenantConsultantPoolTest extends TestCase
 
     private function bk(Sekolah $s): User
     {
-        $user = $this->user('bk-' . $s->id . '@pool.local', 'bk');
+        $user = $this->user('bk-' . $s->id . '.' . uniqid() . '@pool.local', 'bk');
         DB::table('sekolah_admins')->insert([
             'sekolah_id' => $s->id, 'user_id' => $user->id, 'role' => 'bk',
             'created_at' => now(), 'updated_at' => now(),
@@ -149,6 +149,36 @@ class TenantConsultantPoolTest extends TestCase
             ->assertNotFound();
 
         $this->assertTrue($row->fresh()->is_active);
+    }
+
+    /**
+     * Skema membolehkan satu row dengan kedua kolom tenant terisi (unique
+     * consultant_id+sekolah_id+perusahaan_id). Satu bit is_active berarti HR A
+     * akan mematikan konsultan yang sama di sekolah S — cross-tenant write.
+     * Row seperti itu hanya boleh diubah superadmin.
+     */
+    public function test_hr_cannot_toggle_a_row_shared_with_another_vertical(): void
+    {
+        $p = $this->perusahaan('PT A');
+        $s = $this->sekolah('SMA S');
+        $c = $this->consultant('Konsultan Bersama');
+        $row = ConsultantPool::create([
+            'consultant_id' => $c->id,
+            'perusahaan_id' => $p->id,
+            'sekolah_id' => $s->id,
+        ]);
+
+        $this->actingAs($this->hr($p))
+            ->post(route('perusahaan.consultants.pool.toggle'), ['consultant_id' => $c->id])
+            ->assertNotFound();
+
+        $this->assertTrue($row->fresh()->is_active);
+
+        // Tidak muncul di daftar HR — yang tampil hanya konsultan miliknya sendiri.
+        $this->actingAs($this->hr($p))
+            ->get(route('perusahaan.consultants.pool'))
+            ->assertSee('Pool Konsultan')
+            ->assertDontSee('Konsultan Bersama');
     }
 
     public function test_bk_can_toggle_own_school_pool(): void

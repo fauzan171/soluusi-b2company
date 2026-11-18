@@ -60,8 +60,15 @@ class ProfileController extends Controller
         }
 
         $row->forceFill($data)->save();
-        // Flag di user: satu sumber kebenaran untuk gerbang, independen dari row roster.
-        auth()->user()->forceFill(['must_confirm_profile' => false])->save();
+        // Nama yang dikonfirmasi menggantikan hasil split CSV di level akun;
+        // tanpa ini `$user->fullname` di layar lain tetap nama lama.
+        [$firstname, $lastname] = array_pad(preg_split('/\s+/', trim($data['name']), 2) ?: [], 2, '');
+        auth()->user()->forceFill([
+            'firstname' => $firstname,
+            'lastname' => $lastname,
+            // Flag di user: satu sumber kebenaran untuk gerbang, independen dari row roster.
+            'must_confirm_profile' => false,
+        ])->save();
 
         return redirect()->route($vertical === 'perusahaan' ? 'perusahaan.employee' : 'sekolah.student');
     }

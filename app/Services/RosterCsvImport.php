@@ -63,6 +63,12 @@ class RosterCsvImport
         abort_unless($expected, 422, 'Vertikal tidak dikenal.');
 
         $first = $rows[0]['cells'] ?? [];
+        // Excel "CSV UTF-8" menulis BOM di depan sel pertama; tanpa strip,
+        // file yang benar ditolak 422 dan HR buntu.
+        if (isset($first[0])) {
+            $first[0] = ltrim($first[0], "\u{FEFF}");
+        }
+
         abort_unless($first === $expected, 422,
             'Header CSV harus: ' . implode(',', $expected));
     }
@@ -128,7 +134,14 @@ class RosterCsvImport
                 DB::transaction(fn () => $this->createRow($row, $vertical, $tenantId, (int) $roleId));
                 $result['created']++;
             } catch (\Throwable $e) {
-                report($e);
+                // Pesan QueryException MySQL menyertakan email mentah
+                // ("Duplicate entry 'andi@corp.local'"). Jangan teruskan detail
+                // driver ke log; nomor baris cukup untuk diagnosis.
+                report(new \RuntimeException(
+                    'roster import: baris ' . ($row['line'] ?? '?') . ' gagal dibuat',
+                    0,
+                    $e
+                ));
                 $result['error']++;
             }
         }

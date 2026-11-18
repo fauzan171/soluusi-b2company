@@ -24,7 +24,7 @@ class RosterImportController extends Controller
     {
         return view('perusahaan.roster-import', [
             'perusahaan' => $this->tenant(),
-            'preview' => session('import_preview'),
+            'preview' => null,
         ]);
     }
 
@@ -32,10 +32,19 @@ class RosterImportController extends Controller
     {
         $tenant = $this->tenant();
         $path = $this->storeUpload($request, $tenant->id);
-        $rows = $import->read(Storage::disk('local')->path($path));
-        $import->assertHeader($rows, self::VERTICAL);
 
-        $preview = $import->preview($rows, self::VERTICAL, $tenant->id);
+        // File CSV berisi password awal dalam bentuk plaintext. Setiap jalur
+        // gagal WAJIB menghapusnya — kalau tidak, file menumpuk di disk
+        // selamanya pada setiap upload yang tidak jadi di-commit.
+        try {
+            $rows = $import->read(Storage::disk('local')->path($path));
+            $import->assertHeader($rows, self::VERTICAL);
+            $preview = $import->preview($rows, self::VERTICAL, $tenant->id);
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($path);
+            throw $e;
+        }
+
         $preview['file'] = basename($path);
 
         // Nama file disimpan di session: satu-satunya sumber untuk commit,
@@ -48,10 +57,10 @@ class RosterImportController extends Controller
         ]);
     }
 
-    public function commit(Request $request, RosterCsvImport $import)
+    public function commit(RosterCsvImport $import)
     {
         $tenant = $this->tenant();
-        $file = session('import_file') ?: $request->input('file');
+        $file = session('import_file');
         abort_unless(is_string($file) && $file !== '', 422, 'Tidak ada file pratinjau. Unggah ulang.');
 
         $path = $this->importDir($tenant->id) . '/' . basename($file);
@@ -60,10 +69,12 @@ class RosterImportController extends Controller
         abort_unless(Storage::disk('local')->lastModified($path) > now()->subHour()->timestamp, 422, 'File import kedaluwarsa. Unggah ulang.');
 
         $rows = $import->read(Storage::disk('local')->path($path));
-        $result = $import->commit($rows, self::VERTICAL, $tenant->id);
-
+        // File dihapus SEBELUM commit: kalau commit melempar, password tidak
+        // tertinggal di disk. Baris yang sudah dibuat tetap ada (per-baris).
         Storage::disk('local')->delete($path);
         session()->forget('import_file');
+
+        $result = $import->commit($rows, self::VERTICAL, $tenant->id);
 
         AdminAction::record(auth()->id(), 'roster.import', $tenant, [
             'vertical' => self::VERTICAL,
