@@ -189,7 +189,7 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
 > Butuh Phase A + Phase B (butuh `must_change_password` dan
 > `profile_confirmed_at` supaya hasil import langsung memicu dua gerbang).
 
-- [ ] **C1 / ONB.2 (L, `c-import`) — Service + controller + route + view import (perusahaan).**
+- [x] **C1 / ONB.2 (L, `c-import`) — Service + controller + route + view import (perusahaan).**
   Spec: `docs/tasks/open/ONB.2-csv-bulk-import.md`.
   **Files:**
   - `app/Services/RosterCsvImport.php` (new)
@@ -214,7 +214,7 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
   **Verify:** `php artisan test --filter=RosterCsvImportTest`
   **Acceptance:** 3 baris valid → 3 user + 3 row ter-link; tanpa password → acak + `must_change_password` true; duplikat dalam file → baris kedua ditolak, lainnya jalan; email sudah ada di `users` → dilewati & password lama utuh; header salah → 422 tanpa row; divisi tenant lain → baris error; HR A tidak bisa import ke B (403); file >5 MB / >2000 baris → 422; **preview tidak menulis DB**; `php -l`.
 
-- [ ] **C2 / ONB.2-lanjutan (M, `c-import`) — Varian sekolah dari import.**
+- [-] **C2 / ONB.2-lanjutan (M, `c-import`) — Varian sekolah dari import.** BLOCKED: butuh `sekolah_students.type` + role `sekolah_staff` dari branch `goal/sekolah-flow-parity` (belum merge). Varian siswa sudah didukung oleh service yang sama (`RosterCsvImport` vertikal `sekolah`), tinggal controller+view tipis setelah parity masuk.
   **Files:**
   - `app/Http/Controllers/Sekolah/RosterImportController.php` (new, tipis — delegasi ke service)
   - `routes/web.php` (3 route di grup `role:bk,admin` sekolah)

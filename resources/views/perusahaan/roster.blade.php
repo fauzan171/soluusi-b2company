@@ -13,6 +13,7 @@
         <p class="text-sm text-gray-500">Halaman administratif — data individu hanya untuk pengelolaan program. Konten sesi tidak pernah tampil.</p>
     </div>
     <a href="{{ route('perusahaan.dashboard') }}" class="text-sm text-pine-700 hover:underline">← Dashboard</a>
+    <a href="{{ route('perusahaan.employees.import') }}" class="text-sm font-semibold text-pine-700 hover:underline">Import CSV →</a>
 </div>
 
 {{-- Summary cards --}}

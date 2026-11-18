@@ -125,6 +125,10 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'store'])->name('employees.store');
         Route::post('/employees/{employee}/consent', [\App\Http\Controllers\Perusahaan\RosterController::class, 'consent'])->name('employees.consent');
         Route::post('/employees/invite', [\App\Http\Controllers\Perusahaan\RosterController::class, 'invite'])->name('employees.invite');
+        // ONB.2: import CSV massal (tanpa email).
+        Route::get('/employees/import', [\App\Http\Controllers\Perusahaan\RosterImportController::class, 'index'])->name('employees.import');
+        Route::post('/employees/import', [\App\Http\Controllers\Perusahaan\RosterImportController::class, 'preview'])->middleware('throttle:10,1')->name('employees.import.preview');
+        Route::post('/employees/import/commit', [\App\Http\Controllers\Perusahaan\RosterImportController::class, 'commit'])->middleware('throttle:10,1')->name('employees.import.commit');
         Route::get('/review', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'index'])->name('review');
         Route::post('/review/{session}/approve', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'approve'])->middleware('throttle:10,1')->name('review.approve');
         Route::post('/review/{session}/reject', [\App\Http\Controllers\Perusahaan\HrReviewController::class, 'reject'])->middleware('throttle:10,1')->name('review.reject');

@@ -1,0 +1,248 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Departement;
+use App\Models\Perusahaan\PerusahaanEmployee;
+use App\Models\Sekolah\SekolahStudent;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+/**
+ * ONB.2 — import roster massal dari CSV.
+ *
+ * Satu service dua vertikal. Email belum bisa dikirim, jadi akun dibuat
+ * langsung dari isi file; kolom `password` opsional (kosong → acak) dan
+ * pemiliknya wajib menggantinya saat login pertama.
+ *
+ * Preview tidak menyentuh DB sama sekali. Commit berjalan per baris dalam
+ * transaksi baris itu sendiri, supaya satu baris gagal tidak menggagalkan
+ * 199 baris lain tapi juga tidak meninggalkan user setengah jadi.
+ */
+class RosterCsvImport
+{
+    public const MAX_BYTES = 5 * 1024 * 1024;
+    public const MAX_ROWS = 2000;
+
+    public const HEADERS = [
+        'perusahaan' => ['name', 'email', 'password', 'divisi'],
+        'sekolah' => ['name', 'email', 'password', 'kelas'],
+    ];
+
+    private const ROLE = [
+        'perusahaan' => 'employee',
+        'sekolah' => 'student',
+    ];
+
+    /** Baca file CSV → array baris mentah (tanpa validasi bisnis). */
+    public function read(string $path): array
+    {
+        $handle = fopen($path, 'r');
+        abort_unless($handle !== false, 422, 'File CSV tidak bisa dibaca.');
+
+        $rows = [];
+        $line = 0;
+        while (($cells = fgetcsv($handle)) !== false) {
+            $line++;
+            if ($cells === [null] || $cells === []) {
+                continue; // baris kosong
+            }
+            $rows[] = ['line' => $line, 'cells' => array_map(fn ($c) => trim((string) $c), $cells)];
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+
+    /** Header file harus persis sama dengan yang diharapkan vertikal ini. */
+    public function assertHeader(array $rows, string $vertical): void
+    {
+        $expected = self::HEADERS[$vertical] ?? null;
+        abort_unless($expected, 422, 'Vertikal tidak dikenal.');
+
+        $first = $rows[0]['cells'] ?? [];
+        abort_unless($first === $expected, 422,
+            'Header CSV harus: ' . implode(',', $expected));
+    }
+
+    /**
+     * Validasi per baris tanpa menulis apa pun.
+     *
+     * @return array{rows: array<int, array>, summary: array{valid:int, duplicate:int, error:int}}
+     */
+    public function preview(array $rows, string $vertical, int $tenantId): array
+    {
+        $header = self::HEADERS[$vertical];
+        $seen = [];
+        $out = [];
+        $summary = ['valid' => 0, 'duplicate' => 0, 'error' => 0];
+
+        foreach (array_slice($rows, 1) as $row) {
+            $cells = $row['cells'];
+            $data = [
+                'line' => $row['line'],
+                'name' => $cells[0] ?? '',
+                'email' => Str::lower($cells[1] ?? ''),
+                'password' => $cells[2] ?? '',
+                'division' => $cells[3] ?? '',
+            ];
+            [$status, $error] = $this->classify($data, $vertical, $tenantId, $seen);
+
+            $summary[$status]++;
+            $out[] = $data + ['status' => $status, 'error' => $error];
+        }
+
+        return ['rows' => $out, 'summary' => $summary, 'header' => $header];
+    }
+
+    /**
+     * Buat akun + row roster untuk setiap baris valid.
+     *
+     * @return array{created:int, duplicate:int, error:int}
+     */
+    public function commit(array $rows, string $vertical, int $tenantId): array
+    {
+        // Role harus ada sebelum satu baris pun dibuat: kegagalan konfigurasi
+        // tidak boleh jadi "0 dibuat, semua error" yang tidak kelihatan.
+        $roleId = DB::table('roles')->where('name', self::ROLE[$vertical])->value('id');
+        abort_unless($roleId, 422, 'Role ' . self::ROLE[$vertical] . ' belum ada di sistem.');
+
+        $preview = $this->preview($rows, $vertical, $tenantId);
+        $result = ['created' => 0, 'duplicate' => 0, 'error' => 0];
+
+        foreach ($preview['rows'] as $row) {
+            if ($row['status'] === 'duplicate') {
+                $result['duplicate']++;
+                continue;
+            }
+            if ($row['status'] === 'error') {
+                $result['error']++;
+                continue;
+            }
+
+            // Transaksi per baris: satu baris gagal tidak merusak baris lain,
+            // tapi juga tidak meninggalkan user tanpa row roster.
+            try {
+                DB::transaction(fn () => $this->createRow($row, $vertical, $tenantId, (int) $roleId));
+                $result['created']++;
+            } catch (\Throwable $e) {
+                report($e);
+                $result['error']++;
+            }
+        }
+
+        return $result;
+    }
+
+    private function classify(array $data, string $vertical, int $tenantId, array &$seen): array
+    {
+        if ($data['name'] === '' || mb_strlen($data['name']) > 255) {
+            return ['error', 'Nama wajib diisi (maks 255 karakter).'];
+        }
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL) || mb_strlen($data['email']) > 255) {
+            return ['error', 'Email tidak valid.'];
+        }
+        if (!empty($data['password']) && mb_strlen($data['password']) < 8) {
+            return ['error', 'Password minimal 8 karakter.'];
+        }
+        if (isset($seen[$data['email']])) {
+            return ['duplicate', 'Email duplikat di dalam file.'];
+        }
+
+        $seen[$data['email']] = true;
+
+        if (User::where('email', $data['email'])->exists()) {
+            return ['duplicate', 'Email sudah terdaftar.'];
+        }
+        if ($this->rosterQuery($vertical, $tenantId)->where('email', $data['email'])->exists()) {
+            return ['duplicate', 'Email sudah ada di roster.'];
+        }
+        if ($data['division'] !== '' && $this->divisionId($vertical, $tenantId, $data['division'], false) === null) {
+            return ['error', 'Divisi/kelas tidak dikenal untuk tenant ini.'];
+        }
+
+        return ['valid', null];
+    }
+
+    private function createRow(array $row, string $vertical, int $tenantId, int $roleId): void
+    {
+        [$firstname, $lastname] = $this->splitName($row['name']);
+
+        $user = User::create([
+            'username' => $this->uniqueUsername($row['email']),
+            'email' => $row['email'],
+            'password' => Hash::make($row['password'] !== '' ? $row['password'] : Str::random(12)),
+            'firstname' => $firstname,
+            'lastname' => $lastname,
+            'role_id' => $roleId,
+            'is_active' => true,
+            'must_change_password' => true,
+            'must_confirm_profile' => true,
+        ]);
+
+        $attributes = [
+            'user_id' => $user->id,
+            'name' => $row['name'],
+            'email' => $row['email'],
+            $vertical === 'perusahaan' ? 'perusahaan_id' : 'sekolah_id' => $tenantId,
+        ];
+
+        if ($vertical === 'perusahaan') {
+            $attributes['departement_id'] = $this->divisionId($vertical, $tenantId, $row['division']);
+        } else {
+            $attributes['kelas'] = $row['division'] !== '' ? $row['division'] : null;
+        }
+
+        $this->rosterModel($vertical)::create($attributes);
+    }
+
+    private function rosterQuery(string $vertical, int $tenantId)
+    {
+        return $vertical === 'perusahaan'
+            ? PerusahaanEmployee::where('perusahaan_id', $tenantId)
+            : SekolahStudent::where('sekolah_id', $tenantId);
+    }
+
+    /** @return class-string<\Illuminate\Database\Eloquent\Model> */
+    private function rosterModel(string $vertical): string
+    {
+        return $vertical === 'perusahaan' ? PerusahaanEmployee::class : SekolahStudent::class;
+    }
+
+    private function divisionId(string $vertical, int $tenantId, string $name, bool $create = false): ?int
+    {
+        if ($vertical !== 'perusahaan') {
+            return null; // kelas tetap string
+        }
+        if ($name === '') {
+            return null;
+        }
+
+        $dept = Departement::where('name', $name)
+            ->where(fn ($q) => $q->where('perusahaan_id', $tenantId)->orWhereNull('perusahaan_id'))
+            ->first();
+
+        return $dept?->id;
+    }
+
+    private function splitName(string $name): array
+    {
+        $parts = preg_split('/\s+/', trim($name), 2) ?: [$name];
+
+        return [$parts[0], $parts[1] ?? ''];
+    }
+
+    private function uniqueUsername(string $email): string
+    {
+        $base = Str::slug(Str::before($email, '@'), '.') ?: 'user';
+        $username = $base;
+        $i = 1;
+        while (User::where('username', $username)->exists()) {
+            $username = $base . '.' . $i++;
+        }
+
+        return $username;
+    }
+}
