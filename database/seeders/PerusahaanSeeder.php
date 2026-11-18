@@ -29,12 +29,7 @@ class PerusahaanSeeder extends Seeder
         $hrRoleId = DB::table('roles')->where('name', 'hr_admin')->value('id');
         $employeeRoleId = DB::table('roles')->where('name', 'employee')->value('id');
 
-        // Departemen (tabel departements sudah ada, kosong).
-        $depts = [];
-        foreach (['Engineering', 'Marketing', 'Finance', 'HR', 'Operations'] as $name) {
-            $depts[$name] = Departement::firstOrCreate(['name' => $name])->id;
-        }
-
+        // ONB.1: departemen milik perusahaan — dibuat per tenant di dalam loop.
         $companies = [
             ['name' => 'PT Solusi Digital Indonesia', 'brand' => 'Solusi Digital', 'employees' => 24, 'nps' => 4.2],
             ['name' => 'PT Maju Bersama Sejahtera', 'brand' => 'Maju Bersama', 'employees' => 12, 'nps' => 3.8],
@@ -53,6 +48,15 @@ class PerusahaanSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
+
+            // ONB.1: divisi milik tenant ini.
+            $depts = [];
+            foreach (['Engineering', 'Marketing', 'Finance', 'HR', 'Operations'] as $name) {
+                $depts[$name] = Departement::firstOrCreate([
+                    'perusahaan_id' => $p->id,
+                    'name' => $name,
+                ])->id;
+            }
 
             // Karyawan dummy spread departemen.
             $firstNames = ['Andi', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fira', 'Galih', 'Hana', 'Irfan', 'Joko', 'Kiki', 'Lina', 'Maya', 'Nadia', 'Oka', 'Putri', 'Rizky', 'Sari', 'Tono', 'Umar', 'Vina', 'Wawan', 'Yuni', 'Zaki'];

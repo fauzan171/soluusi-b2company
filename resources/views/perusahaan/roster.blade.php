@@ -48,6 +48,15 @@
                 <span class="text-gray-600">Email</span>
                 <input type="email" name="email" value="{{ old('email') }}" required class="mt-1 block w-full rounded border-gray-300 text-sm focus:border-pine-500 focus:ring-pine-500">
             </label>
+            <label class="block text-sm">
+                <span class="text-gray-600">Divisi <span class="text-gray-400">(opsional)</span></span>
+                <select name="departement_id" class="mt-1 block w-full rounded border-gray-300 text-sm focus:border-pine-500 focus:ring-pine-500">
+                    <option value="">— Belum ditentukan —</option>
+                    @foreach($departements as $dept)
+                        <option value="{{ $dept->id }}" @selected(old('departement_id') == $dept->id)>{{ $dept->name }}</option>
+                    @endforeach
+                </select>
+            </label>
         </div>
         <button class="btn-pine text-sm">Simpan</button>
     </form>

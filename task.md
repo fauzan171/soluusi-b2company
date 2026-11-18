@@ -132,7 +132,7 @@ Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
   **Verify:** `php artisan test --filter=ForcePasswordChangeTest`
   **Acceptance:** flag nyala → semua route portal redirect; `/ubah-password` sendiri tidak redirect loop; password <8 → 422; password sama → 422; sukses → flag false + mendarat di dashboard role yang benar; user normal tidak pernah di-redirect; superadmin bypass; `php -l` semua file berubah.
 
-- [ ] **A2 / ONB.1 (M, `a-tenant`) — `departements` jadi milik perusahaan.**
+- [x] **A2 / ONB.1 (M, `a-tenant`) — `departements` jadi milik perusahaan.**
   Spec: `docs/tasks/open/ONB.1-departement-tenant-scoping.md`.
   **Files:**
   - `database/migrations/2026_11_18_000002_add_perusahaan_id_to_departements.php` (new)
