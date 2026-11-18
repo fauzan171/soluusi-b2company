@@ -80,8 +80,21 @@ class RosterCsvImport
         }
 
         // ONB.6: kolom opsional (`tipe` untuk sekolah) boleh muncul setelah
-        // kolom wajib, urutan tetap. Ukuran slice mengikuti jumlah wajib.
-        abort_unless(array_slice($first, 0, count($expected)) === $expected, 422,
+        // kolom wajib, urutan tetap, dan harus bernama persis `tipe` kalau
+        // ada — selain itu exact match (perilaku perusahaan tidak berubah).
+        $opt = self::OPTIONAL_HEADERS[$vertical] ?? [];
+        if (count($opt) > 0) {
+            $trailing = array_slice($first, count($expected));
+            // File tanpa kolom opsional: hanya kolom wajib, tidak lebih.
+            abort_unless($trailing === [] || $trailing === $opt, 422,
+                'Header CSV harus: ' . implode(',', $expected)
+                . ' (kolom kelima opsional: ' . implode(',', $opt) . ')');
+            if ($trailing === $opt) {
+                $expected = array_merge($expected, $opt);
+            }
+        }
+
+        abort_unless($first === $expected, 422,
             'Header CSV harus: ' . implode(',', $expected));
     }
 
@@ -96,7 +109,11 @@ class RosterCsvImport
         $seen = [];
         $out = [];
         $summary = ['valid' => 0, 'duplicate' => 0, 'error' => 0];
-        $optHeader = self::OPTIONAL_HEADERS[$vertical] ?? [];
+        // `tipe` hanya diinterpretasi kalau file ini benar-benar punya kolom
+        // ke-5 (header-nya `tipe`) — sel trailing-comma di file 4 kolom
+        // tidak boleh dibaca sebagai tipe.
+        $hasTipe = in_array('tipe', self::OPTIONAL_HEADERS[$vertical] ?? [], true)
+            && count($rows[0]['cells'] ?? []) > count($header);
 
         foreach (array_slice($rows, 1) as $row) {
             $cells = $row['cells'];
@@ -108,7 +125,7 @@ class RosterCsvImport
                 'division' => $cells[3] ?? '',
             ];
             // ONB.6: baris sekolah boleh menyisipkan `tipe` di kolom ke-5.
-            $tipe = in_array('tipe', $optHeader, true) ? Str::lower($cells[4] ?? '') : '';
+            $tipe = $hasTipe ? Str::lower($cells[4] ?? '') : '';
             [$status, $error] = $this->classify($data, $vertical, $tenantId, $seen, $tipe);
 
             $summary[$status]++;
@@ -148,7 +165,7 @@ class RosterCsvImport
         };
 
         $preview = $this->preview($rows, $vertical, $tenantId);
-        $result = ['created' => 0, 'duplicate' => 0, 'error' => 0];
+        $result = ['created' => 0, 'created_staff' => 0, 'duplicate' => 0, 'error' => 0];
 
         foreach ($preview['rows'] as $row) {
             if ($row['status'] === 'duplicate') {
@@ -165,6 +182,9 @@ class RosterCsvImport
             try {
                 DB::transaction(fn () => $this->createRow($row, $vertical, $tenantId, $roleId((bool) $row['is_staff'])));
                 $result['created']++;
+                if ($row['is_staff']) {
+                    $result['created_staff']++;
+                }
             } catch (\Throwable $e) {
                 // Pesan QueryException MySQL menyertakan email mentah
                 // ("Duplicate entry 'andi@corp.local'"). Jangan teruskan detail
@@ -205,8 +225,11 @@ class RosterCsvImport
         if (User::where('email', $data['email'])->exists()) {
             return ['duplicate', 'Email sudah terdaftar.'];
         }
+        // Pesan identik dengan cek users di atas: pesan yang membedakan
+        // "akun global ada" vs "ada di roster tenant ini" jadi oracle
+        // keberadaan email lintas tenant (data sensitif sektor kesehatan).
         if ($this->rosterQuery($vertical, $tenantId)->where('email', $data['email'])->exists()) {
-            return ['duplicate', 'Email sudah ada di roster.'];
+            return ['duplicate', 'Email sudah terdaftar.'];
         }
         // Kelas sekolah string bebas — tidak ada tabel master untuk divalidasi.
         // Hanya perusahaan yang punya himpunan divisi terbatas.

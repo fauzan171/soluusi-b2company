@@ -26,9 +26,15 @@
 
         @if($isSekolah)
             <div>
-                <label for="kelas" class="mb-2 block text-sm font-medium text-[#26342e]">Kelas <span class="text-terra-600">*</span></label>
+                @php
+                    // ONB.6: staf (guru/karyawan) tidak punya kelas — kolom opsional.
+                    $isStaff = $row->type === \App\Models\Sekolah\SekolahStudent::TYPE_STAFF;
+                @endphp
+                <label for="kelas" class="mb-2 block text-sm font-medium text-[#26342e]">Kelas
+                    @if($isStaff)<span class="text-gray-400">(opsional untuk staf)</span>@else<span class="text-terra-600">*</span>@endif
+                </label>
                 <input id="kelas" type="text" name="kelas" list="kelas-options" value="{{ old('kelas', $row->kelas) }}"
-                    required maxlength="100" autocomplete="off"
+                    @unless($isStaff) required @endunless maxlength="100" autocomplete="off"
                     class="w-full rounded-xl border px-4 py-3 text-sm bg-white outline-none transition
                         {{ $errors->has('kelas') ? 'border-red-400 focus:border-red-500' : 'border-[#dcd7cd] focus:border-pine-500' }}">
                 <datalist id="kelas-options">

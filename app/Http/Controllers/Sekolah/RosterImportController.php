@@ -44,7 +44,9 @@ class RosterImportController extends Controller
         }
 
         $preview['file'] = basename($path);
-        session(['import_file' => basename($path)]);
+        // Key per vertikal: superadmin yang bolak-balik preview dua portal
+        // tidak saling menimpa file pratinjau.
+        session(['import_file_' . self::VERTICAL => basename($path)]);
 
         return view('sekolah.roster-import', [
             'sekolah' => $tenant,
@@ -55,7 +57,7 @@ class RosterImportController extends Controller
     public function commit(RosterCsvImport $import)
     {
         $tenant = $this->tenant();
-        $file = session('import_file');
+        $file = session('import_file_' . self::VERTICAL);
         abort_unless(is_string($file) && $file !== '', 422, 'Tidak ada file pratinjau. Unggah ulang.');
 
         $path = $this->importDir($tenant->id) . '/' . basename($file);
@@ -66,20 +68,21 @@ class RosterImportController extends Controller
         $rows = $import->read(Storage::disk('local')->path($path));
         // Hapus SEBELUM commit: password plaintext tidak tertinggal di disk.
         Storage::disk('local')->delete($path);
-        session()->forget('import_file');
+        session()->forget('import_file_' . self::VERTICAL);
 
         $result = $import->commit($rows, self::VERTICAL, $tenant->id);
 
         AdminAction::record(auth()->id(), 'roster.import', $tenant, [
             'vertical' => self::VERTICAL,
             'created' => $result['created'],
+            'created_staff' => $result['created_staff'] ?? 0,
             'duplicate' => $result['duplicate'],
             'error' => $result['error'],
         ]);
 
         return redirect()->route('sekolah.students')->with('success', sprintf(
-            'Import selesai: %d akun dibuat, %d duplikat dilewati, %d baris gagal.',
-            $result['created'], $result['duplicate'], $result['error']
+            'Import selesai: %d akun dibuat (%d staf), %d duplikat dilewati, %d baris gagal.',
+            $result['created'], $result['created_staff'] ?? 0, $result['duplicate'], $result['error']
         ));
     }
 

@@ -188,6 +188,56 @@ class SekolahRosterImportTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_staff_role_cannot_reach_the_import_routes(): void
+    {
+        $sekolah = $this->sekolah();
+
+        $this->actingAs($this->user('guru@sekolah.local', 'sekolah_staff'))
+            ->get(route('sekolah.students.import'))
+            ->assertForbidden();
+
+        $this->actingAs($this->user('guru2@sekolah.local', 'sekolah_staff'))
+            ->post(route('sekolah.students.import.preview'), [
+                'file' => $this->upload("name,email,password,kelas\nA,a@b.local,,X\n"),
+            ])
+            ->assertForbidden();
+    }
+
+    /**
+     * ONB.6 — gate chain penuh untuk staf hasil import:
+     * ganti password dulu, baru konfirmasi profil, mendarat di portal staf.
+     */
+    public function test_imported_staff_full_gate_chain(): void
+    {
+        $sekolah = $this->sekolah();
+        $bk = $this->bk($sekolah);
+
+        $csv = "name,email,password,kelas,tipe\nGuru Satu,guru1@sekolah.local,Rahasia123,,staff\n";
+        $this->actingAs($bk)->post(route('sekolah.students.import.preview'), ['file' => $this->upload($csv)]);
+        $this->actingAs($bk)->post(route('sekolah.students.import.commit'));
+
+        $staff = User::where('email', 'guru1@sekolah.local')->firstOrFail();
+
+        // 1) Login pertama: wajib ganti password dulu.
+        $this->actingAs($staff)->get(route('sekolah.staff'))
+            ->assertRedirect(route('password.change'));
+
+        // 2) Setelah password berganti: wajib konfirmasi profil.
+        $staff->forceFill(['must_change_password' => false])->save();
+        $this->actingAs($staff)->get(route('sekolah.staff'))
+            ->assertRedirect(route('sekolah.profile'));
+
+        // 3) Konfirmasi profil tanpa kelas (opsional untuk staf) → portal staf.
+        $this->actingAs($staff)->post(route('sekolah.profile.store'), [
+            'name' => 'Guru Satu',
+        ])->assertRedirect(route('sekolah.staff'));
+
+        $this->assertFalse($staff->refresh()->must_confirm_profile);
+
+        // 4) Gate terbuka: portal staf bisa diakses.
+        $this->actingAs($staff)->get(route('sekolah.staff'))->assertOk();
+    }
+
     public function test_commit_records_an_audit_row_without_pii(): void
     {
         $sekolah = $this->sekolah();
