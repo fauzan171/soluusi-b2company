@@ -1,88 +1,302 @@
-# Superadmin Control Center
+# Onboarding Massal — Import CSV → Akun → Login Pertama
 
-Branch: `goal/superadmin-control-center` (base `b61552c`). Worktree: `/home/seva-ojan/wt/soluusib2b-production-foundation`.
+Worktree: buat sendiri, branch `feat/onboarding-bulk-accounts` dari `main`.
+Base: `main` @ `82888ec`.
+Spec detail per task: `docs/tasks/open/ONB.*.md`. Status mesin: `tasks.yaml` phase `batch7`.
 
 ## Goal
-Satu control center superadmin: kelola 3 vertikal tenant (klinik/perusahaan/sekolah), impersonation penuh read-only ke semua role, dan pervorma/commission associate untuk 3 vertikal.
+
+HR/BK bisa meng-upload satu file CSV berisi nama, email, password, dan
+divisi/kelas; sistem membuat akun login + roster row untuk setiap baris valid
+**tanpa mengirim email apa pun**. Saat karyawan/siswa login pertama kali, dia
+wajib mengganti password, lalu mengonfirmasi nama dan memilih divisi/kelasnya.
+HR/BK kemudian bisa menyalakan/mematikan sendiri konsultan mana yang aktif
+untuk organisasinya, dibatasi pada konsultan yang sudah dikontrak Soluusi.
 
 ## Context
-- Route admin ada di `routes/web.php:158-201` (grup `role:admin`); portal tenant pakai `role:X,admin` KECUALI `consultant` (web.php:138) dan `associate` (web.php:152) → superadmin 403 di dua portal itu.
-- ViewAs sekarang employee-only (`app/Support/ViewAs.php:16`), read-only via guard manual di `EmployeeController.php:54-69` (bukan middleware; POST `booking.cancel` + `start-chat` lolos guard), hanya `PerusahaanContext` yang kenal view-as, tanpa expiry, tanpa UI start.
-- Provisioning terpecah: perusahaan = form transaksi (`AdminPerusahaanController::store`), klinik = self-register publik → approval queue, sekolah = SEEDER SAJA (tanpa UI admin sama sekali).
-- Associate HAP: `kliniks.associate_id`, tabel `hap_pervormas` unique(klinik_id,stage), `HapPervormaService` 3-stage 5/25/40 window 90 hari idempotent. Playbook: HAP 250K/250K/500K; SAP 300K/400K/800K; CAP 600K/800K/1.6M (stage 1=tenant activated, 2=50 sesi, 3=150 sesi).
+
+Kenapa arsitekturnya begini — baca ini sebelum menyentuh kode:
+
+- **Email belum bisa dikirim.** Jalur onboarding existing adalah undangan
+  signed-URL (`RosterInvitation::issue` + `SelfRegisterController`, 7 hari,
+  sha256 token hash, wajib nama cocok persis). Jalur itu TETAP ADA dan tidak
+  dibongkar — hanya tidak dipakai sampai SMTP jalan. CSV import adalah jalur
+  paralel, bukan pengganti.
+- **`departements` masih GLOBAL** (`2023_11_09_153649_create_departements_table.php`:
+  cuma `id, name, created_at, updated_at`; `Departement::$fillable = ['name']`).
+  Dua perusahaan berbagi divisi bernama "Finance". Ini harus diperbaiki dulu
+  atau "pilih divisi" tidak bisa benar.
+- **Bug laten** `app/Http/Controllers/Perusahaan/RosterController.php:42`:
+  `Departement::whereKey($id)->where('perusahaan_id', $perusahaan->id)` —
+  kolomnya tidak ada. Query tidak pernah match, jadi jalur itu selalu 422.
+  Mati hari ini hanya karena form roster tidak pernah mengirim
+  `departement_id`. ONB.1 memperbaiki guard ini, TIDAK menghapusnya.
+- **Belum ada halaman ganti password.** `users` tidak punya
+  `must_change_password` maupun `password_changed_at`. Satu-satunya jalur
+  reset adalah `Auth/PasswordResetController` via email — yang belum bisa
+  dipakai. ONB.3 membangunnya.
+- **`sekolah_staff` belum ada di `main`.** E.1 (staf sekolah) hidup di branch
+  `goal/sekolah-flow-parity` (worktree `/home/seva-ojan/wt/soluusib2b-goal-sekolah-flow`
+  @ `436f7bb`, BELUM di-merge; menambah kolom `sekolah_students.type` +
+  role `sekolah_staff`). Kalau branch itu sudah masuk main sebelum batch ini
+  dikerjakan, pakai; kalau belum, **jangan** menduplikasi E.1 di sini —
+  kerjakan ONB.1, ONB.3, ONB.4, ONB.5 lebih dulu dan tandai ONB.2 (varian
+  sekolah) + ONB.6 sebagai blocked.
+- `composer.json` tidak punya library spreadsheet. CSV dibaca dengan
+  `fgetcsv`/`str_getcsv` (stdlib PHP) — sudah dipakai di
+  `Perusahaan/DashboardController::export()` dan `Sekolah/DashboardController`.
+  **Jangan** menambah dependency.
+- Multi-tenant: `TenantScope` (`app/Models/Scopes/TenantScope.php`) aktif hanya
+  saat auth ada DAN context resolve. `PerusahaanContext::current()` /
+  `SekolahContext::current()` adalah sumber tenant. Superadmin bypass lewat
+  `canSwitch()` + `?{tenant}_id=`.
+- Audit: `AdminAction::record($actorId, $action, $target, $payload)` —
+  append-only, payload TIDAK boleh mengandung PII (email/nama mentah).
 
 ## Architecture Decision
-- Additive pages di prefix `admin` existing (tiru pattern `AdminPerusahaanController` + blade `resources/views/admin/*.blade.php`); NO new packages (no spatie/filament) — pattern-nya saja yang ditiru.
-- Impersonation: generalize `ViewAs` struct session `{target_user_id, target_role, vertical, tenant_id, started_at, expires_at}` + middleware read-only deny-by-default di grup `web` (tutup 2 lubang POST existing sekaligus). Reject: per-route guard manual (sudah terbukti bocor) dan act-on-behalf tulis-as-target (riskan untuk data healthcare; read-only cukup — YAGNI).
-- Pervorma 3 vertikal: tabel mirror `perusahaan_pervormas` + `sekolah_pervormas` (schema identik `hap_pervormas`, unique(tenant_id,stage)) — konsisten dengan pattern tabel-per-vertikal codebase. Reject: tabel polymorphic tunggal + rename `hap_pervormas` (diff besar, migrasi data, beda dari konvensi codebase).
+
+1. **Satu import service, dua vertikal.** `App\Services\RosterCsvImport` dengan
+   parameter `$vertical` (`perusahaan`|`sekolah`), bukan dua service kembar.
+   View juga satu: `resources/views/roster-import.blade.php` dengan label
+   bercabang. Alasan: user secara eksplisit bilang dua flow "hampir sama,
+   bedanya cuma tulisan".
+2. **Preview → commit, dua langkah.** Preview menulis file ke
+   `storage/app/private/imports/{vertical}-{tenantId}/{uuid}.csv` lalu
+   menampilkan tabel per-baris. Commit membaca ulang file itu. Alasan: HR harus
+   bisa melihat baris mana yang salah sebelum membuat 200 akun; dan preview
+   tidak boleh menulis DB sama sekali (bisa dites).
+3. **Commit per-baris dalam transaksi baris itu sendiri.** Satu baris gagal
+   tidak boleh menggagalkan 199 baris lain, tapi satu baris yang gagal di
+   tengah tidak boleh meninggalkan user setengah jadi. `DB::transaction()`
+   per baris.
+4. **Create only.** Tidak ada update, tidak ada upsert, tidak ada undo batch.
+   Email yang sudah ada di `users` ATAU di roster tenant → dilewati dengan
+   status `duplicate`, bukan error fatal dan bukan menimpa.
+5. **Dua gerbang login pertama sebagai middleware terpisah**, bukan satu
+   middleware gabungan: `ForcePasswordChange` lalu `EnsureProfileConfirmed`.
+   Alasan: student/karyawan lama (dibuat lewat self-register) tidak boleh
+   kena gerbang kedua; dan urutannya harus deterministic saat dua-duanya nyala.
+6. **Pool konsultan: flag, bukan filter.** `consultant_pools.is_active`.
+   Menambah baris pool tetap wewenang superadmin (kontrak & lisensi); HR/BK
+   hanya bisa toggle yang sudah ada. Alasan: user minta "HR bisa ubah sendiri
+   kapan saja" TAPI juga "guard against adding outside contract" — flag
+   memenuhi dua-duanya tanpa memindahkan wewenang kontrak ke HR.
+7. **Kelas sekolah tetap string.** `sekolah_students.kelas` sudah string,
+   dipakai di banyak view. Ditambah `datalist` berisi kelas yang sudah ada di
+   sekolah itu. Tidak ada tabel kelas baru.
+
+**Rejected:**
+- Menerjemahkan CSV ke undangan (`RosterInvitation`) lalu memaksa `SelfRegister`
+  — butuh email, dan user secara eksplisit minta jalur tanpa email.
+- Satu tabel `onboarding_imports` untuk riwayat batch — YAGNI. Riwayat cukup
+  dari `admin_actions`; file mentah dihapus setelah commit.
+- Menyimpan password awal di DB — jelas tidak.
+- Form multi-step wizard di frontend — tiga halaman terpisah lebih mudah
+  di-debug, dan redirect gerbang middleware sudah memberi urutan yang sama.
 
 ## Phases
+
 Format task: `id (size, parallel_group) — deskripsi — files — verify`.
-Est: S=<½ hari, M=1 hari, L=2 hari. Semua aksi admin baru WAJIB `AdminAction::record` + test audit.
+Est: S=<½ hari, M=1 hari, L=2 hari.
 
-### Phase A — Fondasi control center
-**Dependency: A1→A2→A3→A4 (chain, sama-sama menyentuh `resources/views/admin/tenants/` + routes admin). A5/A6/A7 independen — parallel_group `a-indep`, boleh jalan paralel setelah A2 (butuh status/kolom A2 untuk badge A7) DAN paralel terhadap chain A3/A4.**
+**No drive-by edits.** Jangan sentuh `EmployeeController` quota (`$monthStart`
+di baris 78–83) — itu utang terpisah di `EmployeeController`, bukan di
+`StudentController`/`StaffController` yang sudah dibersihkan di branch parity.
+Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
 
-- [x] A1 (L, `a-tenant`) — Tenant management pages: list+detail+edit untuk klinik+perusahaan, list+create+detail+edit untuk sekolah (dari nol, sekarang seeder saja). Search/filter nama+status, layout konsisten (max-w-7xl, Tailwind, flash `session('success')`). Controller `Admin\Tenant\{Klinik,Perusahaan,Sekolah}Controller` + blade `resources/views/admin/tenants/{klinik,perusahaan,sekolah}/index|show|edit.blade.php`.
-  verify: `php artisan test --filter=TenantManagementTest` hijau (list 3 vertikal, search, detail render, edit update ter-audit)
-- [x] A2 (M, `a-tenant`) — Tenant lifecycle: kolom `status` (active/suspended/archived — migration ke 3 tabel tenant, default active) + suspend/activate route dengan alasan WAJIB (validated) + `AdminAction::record`. Suspend = blokir login admin tenant (cek di login/middleware role + tenant suspended → ditolak) + blokir context resolve portal.
-  verify: `php artisan test --filter=TenantLifecycleTest` hijau (suspend tanpa alasan → 422; suspended → admin tenant login/portal ditolak; audit row ada; active tenant tidak terpengaruh)
-- [x] A3 (L, `a-tenant`) — Provisioning wizard 1 pintu: form create 3 tipe tenant + akun admin tenant dalam 1 transaksi DB (pola `AdminPerusahaanController::store`: tenant + user + role attach), assign consultant pool opsional (klinik/perusahaan saja). Route `GET/POST admin/provision`. Klinik self-register `/daftar-mitra` TETAP jalan → masuk approval queue (jangan duplikasi).
-  verify: `php artisan test --filter=ProvisioningWizardTest` hijau (3 vertikal create + user admin + audit; rollback saat user invalid tidak meninggalkan tenant yatim)
-- [x] A4 (S, `a-tenant`) — Tenant switcher navbar admin: dropdown di layout admin list tenant, ganti `?{tenant}_id=` context override existing (PerusahaanContext/KlinikContext/SekolahContext sudah support).
-  verify: `php artisan test --filter=TenantSwitcherTest` hijau (pilih tenant → context admin berubah; tenant lain tidak bocor); grep dropdown ada di `resources/views/layouts/`
-- [x] A5 (M, `a-indep`) — Audit log viewer: `GET admin/audit-logs` list `admin_actions` + filter (admin, action, target type, tanggal) + pagination. Payload TIDAK dirender mentah: values ter-mask (email→`e***@domain`, nama→inisial) atau keys saja. Migration index `admin_id` + `created_at` (tabel sudah ada).
-  verify: `php artisan test --filter=AuditLogViewerTest` hijau (filter bekerja; email user TIDAK muncul utuh di response — assert masked substring; pagination 25/page)
-- [x] A6 (M, `a-indep`) — System health: `GET admin/system-health` — failed_jobs list + retry/delete action (route POST, audit), queue size, schedule last-run (cache timestamp `schedule:last-run:{command}` via event callback — no new table).
-  verify: `php artisan test --filter=SystemHealthTest` hijau (failed job muncul, retry requeue, delete ter-audit)
-- [x] A7 (M, `a-indep`) — Ops work queue terpadu: `GET admin/ops-queue` — satu halaman antrean gabungan read-only: sesi `needs_ops_review` + klinik pending approval + pervorma payout due + aktivasi perusahaan/sekolah pending. Tab/filter `?type=`, link ke aksi existing (verify/approve/pay/activate route yang sudah ada — JANGAN duplikasi write path). Badge count di `admin.dashboard`.
-  verify: `php artisan test --filter=OpsQueueTest` hijau (item tiap tipe muncul sesuai fixture; aksi link ke route existing; badge count = jumlah antrean); `AdminOpsReviewDashboardTest` tetap hijau
+---
 
-### Phase B — Impersonation penuh (guardrail healthcare)
-**Dependency chain: B1→B2→B3→B4→B5→B6. File menyentuh `app/Support/ViewAs.php`, 3 Context, routes, middleware — serialize.**
+### Phase A — Fondasi: kolom, tenant scope, ganti password
 
-- [x] B1 (M) — Generalize ViewAs: struct session `{target_user_id, target_role, vertical, tenant_id, started_at, expires_at}`. Target semua role kecuali `admin` (blok impersonate sesama admin → 422). Route start/stop TETAP `role:admin` SAJA prefix admin. Resolve tenant dari identitas target user (bukan dari context admin).
-  verify: `php artisan test --filter=ViewAsTest` hijau — update test dengan asersi baru (multi-role start sukses; start target admin → 422; anonymous start → redirect login)
-- [x] B2 (M) — Context wiring: `KlinikContext` + `SekolahContext` override saat view-as aktif (ikuti pola `PerusahaanContext.php:24-26`); tenant resolve dari target user. `PerusahaanSessionPolicy` tetap resolve REAL user identity (jangan dilonggarkan).
-  verify: `php artisan test --filter=TenancyIsolationTest` hijau; test baru: view-as hr_admin → data ter-scope ke tenant target, bukan tenant admin
-- [x] B3 (S) — Route grup consultant+associate tambah admin: `role:consultant,admin` (web.php:138) + `role:associate,admin` (web.php:152).
-  verify: `php artisan route:list --path=consultant` exit 0; test: admin GET `/consultant/sessions` + `/associate/dashboard` → 200 (dengan view-as aktif sesuai B1)
-- [x] B4 (M) — Middleware read-only: `app/Http/Middleware/ViewAsReadOnly.php` dipasang di grup `web` setelah auth — saat view-as aktif: tolak semua non-GET di luar prefix `admin` + whitelist eksplisit (`view-as.stop`, form-filter POST kecil) → 403. Deny-by-default. Otomatis tutup 2 lubang existing (`booking.cancel`, chat store saat view-as).
-  verify: `php artisan test --filter=ViewAsReadOnlyTest` hijau (POST booking.cancel/start-chat saat view-as → 403; POST saat tidak view-as → normal; GET → 200; stop view-as POST → 200)
-- [x] B5 (S) — Expiry 30 menit: middleware cek `expires_at` → auto-stop + flash "view-as expired". Audit `view_as.start`/`view_as.stop` full payload (target role, tenant, reason optional). 30 menit hardcode konstanta (ponytail: naikkan ke config saat ada tenant-level SLA).
-  verify: `php artisan test --filter=ViewAsTest` hijau (manipulate session `expires_at` ke masa lalu → next request auto-stop + flash + `admin_actions` row)
-- [x] B6 (S) — UI: form start view-as di detail tenant (A1 show page) — pilih user tenant + reason optional + tombol "Masuk sebagai". Banner existing `layouts/app.blade.php:150-156` + info sisa waktu + tombol stop.
-  verify: `php artisan test --filter=ViewAsUiTest` hijau (form render di detail tenant; start dari form → session view-as aktif + banner menampilkan role target + sisa waktu)
+> Phase ini tidak bergantung pada branch parity. Boleh mulai sekarang.
+> ONB.1 dan ONB.3 menyentuh file yang berbeda (`departements` vs `users`) →
+> boleh paralel.
 
-### Phase C — Associate 3 vertikal
-**Dependency chain: C1→C2→C3→C4→C5→C6. Migration → config → service → admin → dashboard — serialize.**
+- [x] **A1 / ONB.3 (M, `a-auth`) — Gerbang wajib ganti password.**
+  Spec: `docs/tasks/open/ONB.3-forced-password-change.md`.
+  **Files:**
+  - `database/migrations/2026_11_18_000001_add_must_change_password_to_users.php` (new)
+  - `app/Http/Middleware/ForcePasswordChange.php` (new)
+  - `app/Http/Controllers/Auth/ChangePasswordController.php` (new)
+  - `app/Http/Kernel.php` (alias `force.password`)
+  - `routes/web.php` (route group `auth`: `GET|POST /ubah-password`, name `password.change`)
+  - `app/Http/Controllers/AuthController.php` (`redirectByRole`: cek flag sebelum match role)
+  - `resources/views/auth/change-password.blade.php` (new)
+  - `tests/Feature/ForcePasswordChangeTest.php` (new)
+  **Action:**
+  - Migrasi: `must_change_password` boolean default `false`, `password_changed_at` timestamp nullable.
+  - Middleware: kalau `auth()->user()->must_change_password` → redirect `password.change`, kecuali `routeIs('password.change*')` atau `logout`. Kalau tidak login → lewati (biar `auth` yang menangani).
+  - Middleware **dipasang manual per-grup portal**, bukan di `web` global: grup `perusahaan` (`role:hr_admin,admin` + `role:employee,admin`), `sekolah-portal` (`role:bk,admin` + `role:student,admin`), `consultant`, `associate`, `klinik`. **JANGAN** di grup `admin`. **JANGAN** di `web` global — halaman landing/login harus tetap jalan.
+  - Controller: validasi `current_password` benar (`Hash::check`), `password` `min:8|confirmed`, `different:current`. Simpan → flag false + `password_changed_at`. Redirect pakai `AuthController::redirectByRole()` — jangan duplikasi match role.
+  - Throttle `throttle:6,1` di POST.
+  **Verify:** `php artisan test --filter=ForcePasswordChangeTest`
+  **Acceptance:** flag nyala → semua route portal redirect; `/ubah-password` sendiri tidak redirect loop; password <8 → 422; password sama → 422; sukses → flag false + mendarat di dashboard role yang benar; user normal tidak pernah di-redirect; superadmin bypass; `php -l` semua file berubah.
 
-- [x] C1 (M) — Migrasi: `perusahaans.associate_id` + `sekolahs.associate_id` (nullable FK users, mirror `kliniks.associate_id` 2026_08_05_000010). Tabel `perusahaan_pervormas` + `sekolah_pervormas` mirror schema `hap_pervormas` (unique(tenant_id, stage), field payout sama). `hap_pervormas` TIDAK di-rename/diubah.
-  verify: `php artisan migrate` exit 0; `php artisan test --filter=HpaKlinikPortalTest` tetap hijau (HAP existing tidak regresi)
-- [x] C2 (S) — `config/pervorma.php`: stage rates per vertikal — hap 250K/250K/500K @5/25/40 sesi (window 90 hari stage-1 tetap di service), sap 300K/400K/800K @5/25/40, cap 600K/800K/1.6M @trigger 1=mou_at(activated)/2=50 sesi/3=150 sesi. Default persis playbook.
-  verify: `php artisan test --filter=PervormaConfigTest` hijau (assert nilai rates + stage 3 vertikal dari config)
-- [x] C3 (L) — `PervormaService` generalize: driver per vertikal (hap/sap/cap), evaluator dipanggil dari titik trigger yang sama seperti sekarang: klinik=verify sesi (`SessionVerificationController`), perusahaan/sekolah=sesi done + tenant activated. Idempotent firstOrCreate per (tenant, stage). `HapPervormaService` jadi delegasi ke driver hap (smallest diff — caller existing tidak berubah).
-  verify: `php artisan test --filter=PervormaServiceTest` hijau (3 vertikal: stage naik di trigger benar; CAP stage-1 saat mou_at saja; idempotent — evaluator 2x = 1 row; `KlinikMoneyFlowTest` tetap hijau)
-- [x] C4 (S) — Admin assign associate ke tenant 3 vertikal: form di detail tenant (A1 show, section associate) + POST route + audit. Validasi: user role associate.
-  verify: `php artisan test --filter=AssociateAssignmentTest` hijau (assign 3 vertikal ter-audit; non-associate user → 422)
-- [x] C5 (M) — Associate dashboard multi-vertikal: tab klinik/perusahaan/sekolah di `resources/views/associate/dashboard.blade.php`, list tenant per vertikal (ganti hardcode `Klinik::where('associate_id')` di `Associate/DashboardController.php:22,61,68`), pervorma progress per vertikal, request payout per item (route existing generalized).
-  verify: `php artisan test --filter=AssociateMultiVerticalTest` hijau (associate dengan tenant 3 vertikal lihat semuanya; abort_unless pervorma ownership tetap — pervorma tenant lain → 403)
-- [x] C6 (M) — Admin pervorma pay 3 vertikal: `AdminDashboardController::pervormaSessions` + `Admin\PervormaController::pay` handle 3 tabel (filter `?vertical=`), evaluator trigger CAP stage-2/3 dari titik yang sama dengan C3. Pay ter-audit (pattern existing).
-  verify: `php artisan test --filter=AdminPervormaPayTest` hijau (pay per vertikal ter-audit + status paid; filter vertical bekerja)
+- [ ] **A2 / ONB.1 (M, `a-tenant`) — `departements` jadi milik perusahaan.**
+  Spec: `docs/tasks/open/ONB.1-departement-tenant-scoping.md`.
+  **Files:**
+  - `database/migrations/2026_11_18_000002_add_perusahaan_id_to_departements.php` (new)
+  - `app/Models/Departement.php`
+  - `database/seeders/PerusahaanSeeder.php` (baris ~33–36)
+  - `app/Http/Controllers/Perusahaan/RosterController.php` (`store()` + `index()`)
+  - `resources/views/perusahaan/roster.blade.php` (dropdown divisi)
+  - `tests/Feature/DepartementTenantTest.php` (new)
+  **Action:**
+  - Migrasi: `perusahaan_id` nullable + FK `nullOnDelete` + index. **Nullable** supaya row legacy dan `consultant_education` (FK ke `departements`) tidak putus.
+  - Model: `perusahaan_id` masuk `$fillable`, relasi `perusahaan()`, dan `static forPerusahaan(int $id)` → koleksi divisi (milik tenant + row legacy `perusahaan_id IS NULL`, urut `name`).
+  - Seeder: `Departement::firstOrCreate(['perusahaan_id' => $p->id, 'name' => $name])` di dalam loop perusahaan, bukan sekali di luar.
+  - `RosterController::store()`: **perbaiki bug laten**. Ganti
+    `abort_unless(...->where('perusahaan_id', ...)->exists())` (kolom tidak ada → dead) dengan
+    pengecekan `Departement::forPerusahaan($perusahaan->id)->contains('id', $data['departement_id'])`. Bug ini diperbaiki, bukan dihapus.
+  - `index()`: kirim `$departements` ke view.
+  **Verify:** `php artisan test --filter=DepartementTenantTest`
+  **Acceptance:** divisi tenant A tidak muncul di dropdown B; POST divisi milik B → 422; divisi sendiri → tersimpan; seeder dua kali tidak menduplikasi; `departement_id` null tetap boleh; `php -l`.
+
+---
+
+### Phase B — Gerbang onboarding login pertama
+
+> Butuh Phase A selesai (kolom `departement_id` yang benar + middleware
+> sudah punya pola pemasangan).
+
+- [ ] **B1 / ONB.4 (M, `b-onboard`) — Konfirmasi nama + pilih divisi/kelas.**
+  Spec: `docs/tasks/open/ONB.4-first-login-profile.md`.
+  **Files:**
+  - `database/migrations/2026_11_18_000003_add_profile_confirmed_at_to_roster_tables.php` (new)
+  - `app/Models/Perusahaan/PerusahaanEmployee.php` (fillable + casts)
+  - `app/Models/Sekolah/SekolahStudent.php` (fillable + casts)
+  - `app/Http/Middleware/EnsureProfileConfirmed.php` (new)
+  - `app/Http/Controllers/Onboarding/ProfileController.php` (new)
+  - `app/Http/Kernel.php` (alias `profile.confirmed`)
+  - `routes/web.php` (2 route: `perusahaan.profile`, `sekolah.profile`)
+  - `resources/views/onboarding/profile.blade.php` (new — satu view, `$vertical`)
+  - `tests/Feature/FirstLoginProfileTest.php` (new)
+  **Action:**
+  - Migrasi: `profile_confirmed_at` timestamp nullable di `perusahaan_employees` **dan** `sekolah_students`.
+  - Middleware: cari row roster milik user lewat relasi (`PerusahaanEmployee::where('user_id',…)` / `SekolahStudent::where('user_id',…)`). Ada row dengan `profile_confirmed_at IS NULL` → redirect `{vertical}.profile`. Tidak punya row → lewati. Role `admin`/`hr_admin`/`bk`/`consultant`/`associate`/`klinik_admin` → lewati.
+  - Controller: `show()` prefill nama dari row; opsi divisi dari `Departement::forPerusahaan()` (perusahaan) atau daftar distinct `kelas` milik sekolah (sekolah, input bebas + `datalist`). `store()`: `name` wajib `max:255`; `departement_id` harus lolos `forPerusahaan()` (guard yang sama dengan roster); `kelas` wajib di sekolah. Set row + `profile_confirmed_at = now()`.
+  - **Jangan sentuh** `consent_at` / `parent_consent_at` — consent tetap lewat `ProgramConsent` oleh HR/BK.
+  - Middleware dipasang SETELAH `force.password` di grup yang sama.
+  **Verify:** `php artisan test --filter=FirstLoginProfileTest`
+  **Acceptance:** karyawan hasil import → redirect profil; simpan → flag terisi + divisi benar; divisi tenant lain → 422; nama kosong → 422; siswa simpan kelas → kolom ter-update; user terkonfirmasi tidak di-redirect lagi; `consent_at` tetap NULL; dua gerbang nyala → `/ubah-password` menang; `php -l`.
+
+---
+
+### Phase C — Import CSV
+
+> Butuh Phase A + Phase B (butuh `must_change_password` dan
+> `profile_confirmed_at` supaya hasil import langsung memicu dua gerbang).
+
+- [ ] **C1 / ONB.2 (L, `c-import`) — Service + controller + route + view import (perusahaan).**
+  Spec: `docs/tasks/open/ONB.2-csv-bulk-import.md`.
+  **Files:**
+  - `app/Services/RosterCsvImport.php` (new)
+  - `app/Http/Controllers/Perusahaan/RosterImportController.php` (new)
+  - `routes/web.php` (3 route di grup `role:hr_admin,admin`:
+    `GET /perusahaan/employees/import`,
+    `POST /perusahaan/employees/import` → preview,
+    `POST /perusahaan/employees/import/commit` → commit)
+  - `resources/views/perusahaan/roster-import.blade.php` (new)
+  - `resources/views/perusahaan/roster.blade.php` (link ke halaman import)
+  - `tests/Feature/RosterCsvImportTest.php` (new)
+  **Action:**
+  - `RosterCsvImport::preview($path, string $vertical, int $tenantId): array` →
+    `['rows' => [[line, name, email, division, status, error]], 'summary' => [valid, duplicate, error]]`.
+    `status` ∈ `valid|duplicate|error`. Validasi per baris: `name` wajib; `email` format valid + lowercase-trim; `password` opsional (kosong → nanti acak); divisi/kelas opsional tapi kalau diisi harus milik tenant.
+  - `RosterCsvImport::commit(...)`: baca ulang file; per baris `DB::transaction()`. Buat `User` (`uuid`, `username` unik, `firstname`/`lastname` di-split, `email`, `Hash::make($password ?: Str::random(12))`, `is_active = true`, `role_id` = `employee`/`student`, `must_change_password = true`), lalu link `roster.user_id`, dan `profile_confirmed_at` tetap NULL (memunculkan gerbang B1). Perusahaan: `departement_id` kalau kolom divisi cocok. Sekolah: `kelas` dari kolom.
+  - Duplikat: email sudah ada di `users` **atau** di roster tenant → `duplicate`, dilewati. Jangan menimpa password user lama.
+  - Upload: simpan ke `storage/app/private/imports/{vertical}-{tenantId}/{uuid}.csv` (disk `local`, root `storage/app`), TTL 1 jam, hapus setelah commit sukses. Batas: 5 MB, 2000 baris, ekstensi `.csv` saja.
+  - Header CSV wajib cocok: `name,email,password,divisi` (perusahaan) / `name,email,password,kelas` (sekolah). Header salah → 422 tanpa menulis apa pun.
+  - Audit `AdminAction::record(...)` dengan **jumlah** baris (ok/skip) saja — **tanpa** email/nama di payload.
+  - Guard: `abort_unless($perusahaan->is_active)` — ikut gerbang POST roster existing.
+  **Verify:** `php artisan test --filter=RosterCsvImportTest`
+  **Acceptance:** 3 baris valid → 3 user + 3 row ter-link; tanpa password → acak + `must_change_password` true; duplikat dalam file → baris kedua ditolak, lainnya jalan; email sudah ada di `users` → dilewati & password lama utuh; header salah → 422 tanpa row; divisi tenant lain → baris error; HR A tidak bisa import ke B (403); file >5 MB / >2000 baris → 422; **preview tidak menulis DB**; `php -l`.
+
+- [ ] **C2 / ONB.2-lanjutan (M, `c-import`) — Varian sekolah dari import.**
+  **Files:**
+  - `app/Http/Controllers/Sekolah/RosterImportController.php` (new, tipis — delegasi ke service)
+  - `routes/web.php` (3 route di grup `role:bk,admin` sekolah)
+  - `resources/views/sekolah/roster-import.blade.php` (new)
+  - `resources/views/sekolah/roster.blade.php` (link)
+  - `tests/Feature/SekolahRosterCsvImportTest.php` (new)
+  **Action:** header `name,email,password,kelas`. **BLOKER:** kolom `type` di `sekolah_students` dan role `sekolah_staff` baru ada di branch `goal/sekolah-flow-parity`. Kalau branch itu sudah di main, dukung kolom opsional `tipe=staff|siswa` (default siswa) dan untuk baris staff buat `SekolahAdmin(role='sekolah_staff')`. Kalau belum → **kerjakan versi siswa saja**, tandai `[-]` blocked untuk varian staff, dan tulis satu baris alasan di task.md.
+  **Verify:** `php artisan test --filter=SekolahRosterCsvImportTest`
+  **Acceptance:** CSV sekolah → user role `student` + row `user_id` terisi; kelas tersimpan; BK sekolah A tidak bisa import ke B; header salah → 422.
+
+---
+
+### Phase D — Pool konsultan self-service + paritas
+
+> Boleh paralel dengan Phase C (file berbeda), tapi butuh Phase A selesai.
+
+- [ ] **D1 / ONB.5 (M, `d-pool`) — HR/BK toggle konsultan aktif di pool tenant.**
+  Spec: `docs/tasks/open/ONB.5-tenant-consultant-pool-self-service.md`.
+  **Files:**
+  - `database/migrations/2026_11_18_000004_add_is_active_to_consultant_pools.php` (new)
+  - `app/Models/ConsultantPool.php` (`poolFor` filter `is_active`)
+  - `app/Http/Controllers/Perusahaan/ConsultantPoolController.php` (new)
+  - `app/Http/Controllers/Sekolah/ConsultantPoolController.php` (new — tipis)
+  - `routes/web.php` (`GET /perusahaan/konsultan`, `POST /perusahaan/konsultan/toggle` di `role:hr_admin,admin`; mirror di `role:bk,admin` sekolah)
+  - `resources/views/tenant/consultant-pool.blade.php` (new — satu view, `$vertical`)
+  - `tests/Feature/TenantConsultantPoolTest.php` (new)
+  **Action:**
+  - Migrasi: `consultant_pools.is_active` boolean default `true`. **Default true** supaya pool existing tidak hilang diam-diam.
+  - `poolFor()` tambahkan `->where('is_active', true)`.
+  - Controller: `index()` daftar konsultan di pool tenant (nama, kategori, status); `toggle()` flip `is_active` untuk row milik tenant sendiri. Guard kepemilikan tenant keras (403 kalau row bukan milik tenant ter-resolve).
+  - **Jangan** menyediakan jalur menambah konsultan baru — itu tetap `Admin\ConsultantAssignmentController`.
+  - Audit `AdminAction::record(auth()->id(), 'consultant_pool.toggle', $tenant, ['consultant_id','is_active'])` tanpa PII. Kalau semantik `admin_id` jadi rancu karena aktornya HR, **dokumentasikan di docblock `AdminAction`** bahwa kolom itu berarti "aktor"; jangan bikin tabel audit kedua.
+  **Verify:** `php artisan test --filter=TenantConsultantPoolTest`
+  **Acceptance:** HR A hanya lihat pool A; toggle off → hilang dari halaman booking karyawan; toggle on → muncul lagi; HR A tidak bisa toggle row B; BK bisa toggle sekolahnya; karyawan/siswa → 403; tidak ada jalur tambah konsultan baru; audit tercatat tanpa PII; konsultan `status != accept` tidak muncul; `php -l`.
+
+- [ ] **D2 / ONB.6 (M, `d-parity`) — Paritas dua vertikal + `sekolah_staff` redirect.**
+  Spec: `docs/tasks/open/ONB.6-parity-and-role-redirect.md`.
+  **Files:**
+  - `app/Http/Controllers/AuthController.php` (`redirectByRole`: verifikasi case `sekolah_staff` ada)
+  - `tests/Feature/OnboardingParityTest.php` (new)
+  **Action:**
+  - Cek apakah `'sekolah_staff' => redirect()->route('sekolah.staff')` ada di `redirectByRole()`. Di `main` role itu **belum ada sama sekali**; di branch parity sudah. Kalau branch parity sudah merge → cukup verifikasi. Kalau belum merge → tandai task ini `[-]` blocked, jangan bikin role `sekolah_staff` baru di sini.
+  - Pastikan urutan gerbang konsisten untuk semua role portal: `force.password` → `profile.confirmed` → dashboard.
+  - Test paritas data-provider: skenario identik dijalankan untuk perusahaan (divisi) dan sekolah (kelas); hasil harus identik.
+  **Verify:** `php artisan test --filter=OnboardingParityTest`
+  **Acceptance:** login `sekolah_staff` mendarat di `/sekolah-portal/staff`; staf sekolah kena dua gerbang; data provider 2 vertikal hijau; `php -l`.
+
+---
 
 ## Success Criteria
-- [x] `php artisan test` hijau total (baseline + semua suite baru); test existing yang merah by-design (view-as read-only) di-update dengan asersi lebih spesifik, TIDAK di-disable.
-- [x] Superadmin bisa: kelola 3 vertikal tenant (list/create/edit/suspend), impersonate semua non-admin role read-only 30 menit, lihat antrean ops terpadu + audit log ter-mask.
-- [x] Associate lihat + request payout 3 vertikal; admin pay 3 vertikal; HAP existing tidak regresi (`HpaKlinikPortalTest`, `KlinikMoneyFlowTest` hijau).
-- [x] Semua aksi admin baru (suspend, provisioning, retry/delete job, view-as start/stop, assign associate, pay pervorma) menghasilkan row `admin_actions` — diverifikasi via test.
-- [x] `php artisan route:cache` + `migrate` exit 0 di worktree.
-- [x] Tidak ada PII utuh di audit viewer response, log test, atau fixture (fake data saja).
+
+- [ ] HR bisa upload CSV 3 baris → 3 akun karyawan aktif dengan divisi terisi, tanpa email terkirim.
+- [ ] BK bisa upload CSV 3 baris → 3 akun siswa aktif dengan kelas terisi.
+- [ ] Karyawan login pertama → dipaksa ganti password → dipaksa konfirmasi nama + divisi → baru masuk portal.
+- [ ] Siswa login pertama → alur sama, kosakata "kelas".
+- [ ] Preview import menampilkan baris error per baris tanpa menulis DB.
+- [ ] HR toggle konsultan off → konsultan hilang dari halaman booking karyawan; toggle on → kembali.
+- [ ] HR tidak punya jalan menambah konsultan di luar pool kontrak.
+- [ ] Divisi perusahaan A tidak bocor ke perusahaan B (dropdown, POST, import).
+- [ ] Semua test pass: `php artisan test --testsuite=Feature` → 0 failures.
+- [ ] Lint: `./vendor/bin/pint` **tidak terpasang** di repo ini — verifikasi lewat `php -l` di setiap file berubah + suite Feature hijau.
+
+## Constraints (dari global working agreement)
+
+- Tidak push, tidak merge ke main, tidak deploy, tidak menyentuh remote.
+- Migrasi baru: **tidak dijalankan di DB non-lokal** tanpa izin. Dev/test SQLite saja.
+- Jangan menambah dependency Composer.
+- Tidak ada PII di log, test, commit, atau payload audit.
+- Jangan menonaktifkan/melonggarkan test untuk hijau.
+- Commit Conventional Commits, satu perubahan logis per commit, akhiran
+  `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
+- `guard.sh` hook salah resolve cwd — selalu pakai `git -C <worktree>`.
 
 ## Out of Scope
-- Act-on-behalf (aksi tulis sebagai user target saat view-as) — SKIP, YAGNI: read-only sudah cover kebutuhan "masuk semua dashboard"; aksi tetap lewat admin action sendiri. Naikkan kalau ada permintaan support yang benar-benar butuh tulis-as-target, dengan audit yang memisahkan actor real vs actor effective.
-- Consultant assignment untuk klinik pool (consultant_pools tidak punya klinik_id — struktur beda).
-- Rename/refactor tabel `hap_pervormas` ke polymorphic tunggal.
-- Package admin (spatie, filament).
-- UI start view-as per-user di luar halaman detail tenant (form B6 di detail tenant cukup).
 
-## Status: DONE — QA PASS (319 tests / 1287 assertions, 0 failures, 2026-11-17)
+- Mengirim email apa pun (SMTP belum ada). `RosterInvitation` tetap tidak dipakai.
+- XLSX/XLS (butuh dependency baru).
+- Update massal / upsert / undo batch import.
+- HR memilih konsultan dari seluruh database Soluusi.
+- Billing PEPM/subscription otomatis.
+- Refactor duplikasi `StudentController` ↔ `StaffController`.
+- Fix `$monthStart` quota di `Perusahaan/EmployeeController:78-83` (utang terpisah).
+- Edit profil setelah onboarding (tetap wewenang HR/BK).
+
+## Status
+
+Belum dieksekusi. 0 baris kode. Semua task `[ ]`.

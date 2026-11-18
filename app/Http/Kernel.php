@@ -68,5 +68,6 @@ class Kernel extends HttpKernel
         'role' => \App\Http\Middleware\CheckRole::class, // match B2C (RBAC §4.2)
         'klinik.active' => \App\Http\Middleware\KlinikActive::class,
         'notprod' => \App\Http\Middleware\NotProduction::class,
+        'force.password' => \App\Http\Middleware\ForcePasswordChange::class, // ONB.3
     ];
 }

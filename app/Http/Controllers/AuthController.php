@@ -114,8 +114,13 @@ class AuthController extends Controller
         return redirect()->route('loginIndex');
     }
 
-    protected function redirectByRole(User $user)
+    public function redirectByRole(User $user)
     {
+        // ONB.3: akun hasil import wajib ganti password dulu. Superadmin dikecualikan.
+        if ($user->must_change_password && $user->role?->name !== 'admin') {
+            return redirect()->route('password.change');
+        }
+
         return match ($user->role?->name) {
             'admin' => redirect()->route('admin.dashboard'),
             'klinik_admin' => redirect()->route('klinik.dashboard'),

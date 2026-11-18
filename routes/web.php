@@ -38,6 +38,13 @@ Route::controller(\App\Http\Controllers\Auth\PasswordResetController::class)->gr
     Route::post('/reset-password', 'update')->middleware('throttle:5,1')->name('password.update');
 });
 
+// --- Ganti password wajib saat login pertama (ONB.3) ---
+Route::controller(\App\Http\Controllers\Auth\ChangePasswordController::class)
+    ->middleware('auth')->group(function () {
+        Route::get('/ubah-password', 'show')->name('password.change');
+        Route::post('/ubah-password', 'store')->middleware('throttle:6,1')->name('password.change.store');
+    });
+
 // --- Landing page B2B (public) + vertical detail pages ---
 Route::get('/', [\App\Http\Controllers\LandingController::class, 'index'])->name('landing');
 Route::get('/klinik', fn () => view('verticals.klinik'))->name('landing.klinik');
@@ -51,7 +58,7 @@ Route::get('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::cl
 Route::post('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'store'])->middleware('throttle:5,1')->name('partner.register.store');
 
 // --- Klinik portal (Partner Admin/Staff) — Build-NEW #5/#6 ---
-Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,admin'])->group(function () {
+Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,admin', 'force.password'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Klinik\DashboardController::class, 'index'])->name('dashboard');
 
     Route::middleware('klinik.active')->group(function () {
@@ -74,7 +81,7 @@ Route::post('/daftar/{type}', [\App\Http\Controllers\SelfRegisterController::cla
 Route::get('/progress', [\App\Http\Controllers\ProgressController::class, 'index'])->middleware(['auth', 'role:admin'])->name('progress');
 
 // --- Sekolah portal (BK coordinator + siswa) ---
-Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(function () {
+Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.password'])->group(function () {
     Route::middleware('role:bk,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Sekolah\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Sekolah\DashboardController::class, 'export'])->name('dashboard.export');
@@ -99,7 +106,7 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth'])->group(fun
 });
 
 // --- Perusahaan portal (CAP — HR admin + karyawan) ---
-Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(function () {
+Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password'])->group(function () {
     Route::middleware('role:hr_admin,admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/export', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'export'])->name('dashboard.export');
@@ -135,7 +142,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth'])->group(func
 });
 
 // --- Konsultan (session + dual-confirm) — Build-NEW #4/#11 ---
-Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant,admin'])->group(function () {
+Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant,admin', 'force.password'])->group(function () {
     Route::get('/sessions', [\App\Http\Controllers\Klinik\SessionController::class, 'index'])->name('sessions');
     Route::post('/sessions/{session}/check-in', [\App\Http\Controllers\Klinik\SessionController::class, 'checkIn'])->name('sessions.checkIn');
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
@@ -149,7 +156,7 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---
-Route::prefix('associate')->as('associate.')->middleware(['auth', 'role:associate,admin'])->group(function () {
+Route::prefix('associate')->as('associate.')->middleware(['auth', 'role:associate,admin', 'force.password'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Associate\DashboardController::class, 'index'])->name('dashboard');
     Route::post('/pervormas/{vertical}/{pervorma}/request-payout', [\App\Http\Controllers\Associate\DashboardController::class, 'requestPayout'])->name('pervormas.request-payout');
 });
