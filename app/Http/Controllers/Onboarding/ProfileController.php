@@ -52,11 +52,15 @@ class ProfileController extends Controller
                 );
             }
         } else {
+            // Staf (guru/karyawan) tidak punya kelas: kolom boleh kosong.
+            $isStaff = $row->type === \App\Models\Sekolah\SekolahStudent::TYPE_STAFF;
             $data = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'kelas' => ['required', 'string', 'max:100'],
+                'kelas' => [$isStaff ? 'nullable' : 'required', 'string', 'max:100'],
             ]);
-            $data['kelas'] = Str::squish($data['kelas']);
+            $data['kelas'] = isset($data['kelas']) && $data['kelas'] !== ''
+                ? Str::squish($data['kelas'])
+                : null;
         }
 
         $row->forceFill($data)->save();
@@ -70,7 +74,19 @@ class ProfileController extends Controller
             'must_confirm_profile' => false,
         ])->save();
 
-        return redirect()->route($vertical === 'perusahaan' ? 'perusahaan.employee' : 'sekolah.student');
+        return redirect()->route($this->landingRoute($vertical, $row));
+    }
+
+    private function landingRoute(string $vertical, $row): string
+    {
+        if ($vertical === 'perusahaan') {
+            return 'perusahaan.employee';
+        }
+
+        // Staf mendarat di portal staf, bukan portal siswa.
+        return $row->type === \App\Models\Sekolah\SekolahStudent::TYPE_STAFF
+            ? 'sekolah.staff'
+            : 'sekolah.student';
     }
 
     /** @return array{0: PerusahaanEmployee|SekolahStudent, 1: mixed} */

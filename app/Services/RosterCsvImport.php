@@ -31,9 +31,19 @@ class RosterCsvImport
         'sekolah' => ['name', 'email', 'password', 'kelas'],
     ];
 
+    /**
+     * ONB.6 — sekolah boleh mencampur siswa dan staf dalam satu file lewat
+     * kolom `tipe` opsional. Tanpa kolom itu semua baris jadi siswa, jadi
+     * file lama tetap diterima apa adanya.
+     */
+    public const OPTIONAL_HEADERS = [
+        'sekolah' => ['tipe'],
+    ];
+
     private const ROLE = [
         'perusahaan' => 'employee',
         'sekolah' => 'student',
+        'sekolah_staff' => 'sekolah_staff',
     ];
 
     /** Baca file CSV → array baris mentah (tanpa validasi bisnis). */
@@ -69,7 +79,9 @@ class RosterCsvImport
             $first[0] = ltrim($first[0], "\u{FEFF}");
         }
 
-        abort_unless($first === $expected, 422,
+        // ONB.6: kolom opsional (`tipe` untuk sekolah) boleh muncul setelah
+        // kolom wajib, urutan tetap. Ukuran slice mengikuti jumlah wajib.
+        abort_unless(array_slice($first, 0, count($expected)) === $expected, 422,
             'Header CSV harus: ' . implode(',', $expected));
     }
 
@@ -84,6 +96,7 @@ class RosterCsvImport
         $seen = [];
         $out = [];
         $summary = ['valid' => 0, 'duplicate' => 0, 'error' => 0];
+        $optHeader = self::OPTIONAL_HEADERS[$vertical] ?? [];
 
         foreach (array_slice($rows, 1) as $row) {
             $cells = $row['cells'];
@@ -94,10 +107,16 @@ class RosterCsvImport
                 'password' => $cells[2] ?? '',
                 'division' => $cells[3] ?? '',
             ];
-            [$status, $error] = $this->classify($data, $vertical, $tenantId, $seen);
+            // ONB.6: baris sekolah boleh menyisipkan `tipe` di kolom ke-5.
+            $tipe = in_array('tipe', $optHeader, true) ? Str::lower($cells[4] ?? '') : '';
+            [$status, $error] = $this->classify($data, $vertical, $tenantId, $seen, $tipe);
 
             $summary[$status]++;
-            $out[] = $data + ['status' => $status, 'error' => $error];
+            $out[] = $data + [
+                'status' => $status,
+                'error' => $error,
+                'is_staff' => $tipe === 'staff',
+            ];
         }
 
         return ['rows' => $out, 'summary' => $summary, 'header' => $header];
@@ -112,8 +131,21 @@ class RosterCsvImport
     {
         // Role harus ada sebelum satu baris pun dibuat: kegagalan konfigurasi
         // tidak boleh jadi "0 dibuat, semua error" yang tidak kelihatan.
-        $roleId = DB::table('roles')->where('name', self::ROLE[$vertical])->value('id');
-        abort_unless($roleId, 422, 'Role ' . self::ROLE[$vertical] . ' belum ada di sistem.');
+        // Role `sekolah_staff` di-resolve lazy: file siswa-saja tidak boleh
+        // gagal hanya karena role staf belum ada di instalasi ini.
+        $roleIds = [];
+        $roleId = function (bool $isStaff) use (&$roleIds, $vertical): int {
+            $role = $isStaff && $vertical === 'sekolah'
+                ? self::ROLE['sekolah_staff']
+                : self::ROLE[$vertical];
+            if (!isset($roleIds[$role])) {
+                $id = DB::table('roles')->where('name', $role)->value('id');
+                abort_unless($id, 422, 'Role ' . $role . ' belum ada di sistem.');
+                $roleIds[$role] = (int) $id;
+            }
+
+            return $roleIds[$role];
+        };
 
         $preview = $this->preview($rows, $vertical, $tenantId);
         $result = ['created' => 0, 'duplicate' => 0, 'error' => 0];
@@ -131,7 +163,7 @@ class RosterCsvImport
             // Transaksi per baris: satu baris gagal tidak merusak baris lain,
             // tapi juga tidak meninggalkan user tanpa row roster.
             try {
-                DB::transaction(fn () => $this->createRow($row, $vertical, $tenantId, (int) $roleId));
+                DB::transaction(fn () => $this->createRow($row, $vertical, $tenantId, $roleId((bool) $row['is_staff'])));
                 $result['created']++;
             } catch (\Throwable $e) {
                 // Pesan QueryException MySQL menyertakan email mentah
@@ -149,7 +181,7 @@ class RosterCsvImport
         return $result;
     }
 
-    private function classify(array $data, string $vertical, int $tenantId, array &$seen): array
+    private function classify(array $data, string $vertical, int $tenantId, array &$seen, string $tipe = ''): array
     {
         if ($data['name'] === '' || mb_strlen($data['name']) > 255) {
             return ['error', 'Nama wajib diisi (maks 255 karakter).'];
@@ -159,6 +191,10 @@ class RosterCsvImport
         }
         if (!empty($data['password']) && mb_strlen($data['password']) < 8) {
             return ['error', 'Password minimal 8 karakter.'];
+        }
+        // ONB.6: nilai `tipe` selain siswa/staff menolak baris itu saja.
+        if ($tipe !== '' && !in_array($tipe, ['siswa', 'staff'], true)) {
+            return ['error', 'Tipe harus "siswa" atau "staff".'];
         }
         if (isset($seen[$data['email']])) {
             return ['duplicate', 'Email duplikat di dalam file.'];
@@ -209,9 +245,22 @@ class RosterCsvImport
             $attributes['departement_id'] = $this->divisionId($vertical, $tenantId, $row['division']);
         } else {
             $attributes['kelas'] = $row['division'] !== '' ? $row['division'] : null;
+            $attributes['type'] = $row['is_staff']
+                ? SekolahStudent::TYPE_STAFF
+                : SekolahStudent::TYPE_STUDENT;
         }
 
         $this->rosterModel($vertical)::create($attributes);
+
+        // ONB.6: staf butuh membership sekolah_admins supaya SekolahContext
+        // bisa me-resolve tenant-nya; row roster saja tidak cukup.
+        if ($vertical === 'sekolah' && $row['is_staff']) {
+            \App\Models\Sekolah\SekolahAdmin::create([
+                'sekolah_id' => $tenantId,
+                'user_id' => $user->id,
+                'role' => 'sekolah_staff',
+            ]);
+        }
     }
 
     private function rosterQuery(string $vertical, int $tenantId)

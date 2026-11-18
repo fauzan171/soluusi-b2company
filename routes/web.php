@@ -49,7 +49,7 @@ Route::controller(\App\Http\Controllers\Auth\ChangePasswordController::class)
 Route::controller(\App\Http\Controllers\Onboarding\ProfileController::class)
     // Urutan gerbang sama dengan portal: ganti password dulu, baru konfirmasi
     // profil. Guard role membuat endpoint tidak bisa dijangkau role lain.
-    ->middleware(['auth', 'force.password', 'role:employee,student,admin'])->group(function () {
+    ->middleware(['auth', 'force.password', 'role:employee,student,sekolah_staff,admin'])->group(function () {
     Route::get('/onboarding/perusahaan/profil', 'show')->defaults('vertical', 'perusahaan')->name('perusahaan.profile');
     Route::post('/onboarding/perusahaan/profil', 'store')->defaults('vertical', 'perusahaan')->name('perusahaan.profile.store');
     Route::get('/onboarding/sekolah/profil', 'show')->defaults('vertical', 'sekolah')->name('sekolah.profile');
@@ -104,6 +104,10 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
         Route::post('/students/refer', [\App\Http\Controllers\Sekolah\RosterController::class, 'refer'])->name('students.refer');
         Route::post('/students/{student}/consent', [\App\Http\Controllers\Sekolah\RosterController::class, 'consent'])->name('students.consent');
         Route::post('/students/invite', [\App\Http\Controllers\Sekolah\RosterController::class, 'invite'])->name('students.invite');
+        // ONB.6: import CSV massal siswa + staf (kolom `tipe` opsional).
+        Route::get('/students/import', [\App\Http\Controllers\Sekolah\RosterImportController::class, 'index'])->name('students.import');
+        Route::post('/students/import', [\App\Http\Controllers\Sekolah\RosterImportController::class, 'preview'])->middleware('throttle:10,1')->name('students.import.preview');
+        Route::post('/students/import/commit', [\App\Http\Controllers\Sekolah\RosterImportController::class, 'commit'])->middleware('throttle:10,1')->name('students.import.commit');
         // ONB.5: BK menyalakan/mematikan konsultan yang sudah di-assign Soluusi.
         Route::get('/konsultan', [\App\Http\Controllers\Sekolah\ConsultantPoolController::class, 'index'])->name('consultants.pool');
         Route::post('/konsultan/toggle', [\App\Http\Controllers\Sekolah\ConsultantPoolController::class, 'toggle'])->middleware('throttle:20,1')->name('consultants.pool.toggle');
