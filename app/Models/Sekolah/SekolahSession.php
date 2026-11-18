@@ -43,6 +43,7 @@ class SekolahSession extends Model
         'checked_in_at',
         'meeting_url',
         'location',
+        'transcript_purged_at',
         'delivery_status',
         'no_show_party',
         'request_notes',
@@ -56,6 +57,7 @@ class SekolahSession extends Model
         'completed_at' => 'datetime',
         'scheduled_at' => 'datetime',
         'ended_at' => 'datetime',
+        'transcript_purged_at' => 'datetime',
     ];
 
     public function sekolah()

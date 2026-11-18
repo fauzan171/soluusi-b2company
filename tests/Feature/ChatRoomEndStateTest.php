@@ -126,15 +126,38 @@ class ChatRoomEndStateTest extends TestCase
             ->assertSee('data-purged="0"', false);
     }
 
+    public function test_never_chatted_session_shows_empty_state_not_purge_copy(): void
+    {
+        [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
+        // Sesi selesai >24 jam lalu TANPA satu pesan pun — bukan kasus purge.
+        $session->update(['status' => 'done', 'completed_at' => now()->subDays(2)]);
+
+        $this->actingAs($empUser)->get(route('perusahaan.chat', $session))
+            ->assertOk()
+            ->assertSee('data-purged="0"', false)
+            ->assertDontSee('sudah dihapus otomatis 24 jam');
+    }
+
     public function test_purged_transcript_shows_retention_copy(): void
     {
         [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
-        $session->update(['status' => 'done', 'completed_at' => now()->subDays(2)]);
+        $session->update(['status' => 'done', 'completed_at' => now()->subDays(2),
+            'transcript_purged_at' => now()]);
 
         $this->actingAs($empUser)->get(route('perusahaan.chat', $session))
             ->assertOk()
             ->assertSee('kebijakan retensi')
             ->assertSee('sudah dihapus otomatis 24 jam')
             ->assertSee('data-purged="1"', false);
+    }
+    public function test_pending_request_room_does_not_offer_end_button(): void
+    {
+        [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
+        // Menunggu penjadwalan: room boleh dibuka, tapi G.7 menolak "akhiri sesi".
+        $session->update(['status' => 'scheduled', 'scheduled_at' => null]);
+
+        $this->actingAs($empUser)->get(route('perusahaan.chat', $session))
+            ->assertOk()
+            ->assertDontSee('Akhiri sesi');
     }
 }

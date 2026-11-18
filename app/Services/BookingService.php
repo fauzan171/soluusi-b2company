@@ -53,8 +53,12 @@ class BookingService
     {
         $start = \Illuminate\Support\Carbon::now()->startOfMonth();
         return $row->sessions()
-            ->where(fn ($q) => $q->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $start->copy()->addMonth())
-                ->orWhere(fn ($q2) => $q2->whereNull('scheduled_at')->where('status', 'scheduled')))
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $start->copy()->addMonth()))
+                ->orWhere(fn ($w) => $w->whereNull('scheduled_at')->where('status', 'scheduled'))
+                // Baris pending yang di-cancel dengan kuota tetap terpakai tidak
+                // punya anchor bulan — hitung apa pun statusnya.
+                ->orWhere(fn ($w) => $w->whereNull('scheduled_at')->where('quota_consumed', true)))
             ->where(fn ($q) => $q->whereIn('status', ['scheduled', 'done'])
                 ->orWhere(fn ($q2) => $q2->whereIn('status', ['cancelled', 'no_show'])->where('quota_consumed', true)))
             ->count();
@@ -94,9 +98,13 @@ class BookingService
             abort_if($session->schedule_id === $scheduleId, 422, 'Pilih slot baru.');
             // ADR 001: version jadwal lanjut ke sesi pengganti (cancel+book = reschedule).
             $nextVersion = (int) ($session->schedule_version ?? 0) + 1;
+            $mode = $session->mode;
             self::cancel($vertical, $session, 'Perubahan jadwal');
             return self::book($vertical, $row, [
                 'schedule_id' => $scheduleId, 'konsultan_type' => $session->konsultan_type,
+                // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
+                // senyap ditimpa mode slot baru.
+                'mode' => $mode,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
             ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
         });
@@ -134,8 +142,8 @@ class BookingService
                 'consultant_id' => $slot->consultant_id, 'schedule_id' => $slot->id,
                 'konsultan_type' => $data['konsultan_type'], 'status' => 'scheduled',
                 'scheduled_at' => $slot->started_at, 'ended_at' => $slot->ended_at,
-                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode]
-                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $slot->mode ?? 'online']),
+                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $data['mode'] ?? $slot->mode]
+                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $data['mode'] ?? $slot->mode ?? 'online']),
             ]);
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;

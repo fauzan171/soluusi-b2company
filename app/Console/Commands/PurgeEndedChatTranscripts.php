@@ -39,6 +39,9 @@ class PurgeEndedChatTranscripts extends Command
                 $deleted = DB::table('chat_messages')
                     ->whereIn($fk, $chunk)
                     ->delete();
+                // D.7: tandai sesi walau 0 pesan dihapus — sesi tanpa chat tetap
+                // butuh pembeda dari "sudah dipurge" untuk salinan UI.
+                DB::table($table)->whereIn('id', $chunk)->update(['transcript_purged_at' => now()]);
                 if ($deleted > 0) {
                     $totalMessages += $deleted;
                     $touchedSessions += $chunk->count();

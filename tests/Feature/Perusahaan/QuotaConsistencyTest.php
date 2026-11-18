@@ -124,4 +124,41 @@ class QuotaConsistencyTest extends TestCase
         $this->assertSame('scheduled', $session->status);
         $this->assertNull($session->scheduled_at);
     }
+    public function test_cancelled_unscheduled_row_with_consumed_quota_still_counts(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $session = $this->pendingSession($p, $emp);
+        // Skenario late-cancel pada baris pending: kuota tetap terpakai.
+        $session->update(['status' => 'cancelled', 'quota_consumed' => true, 'cancelled_at' => now()]);
+
+        $this->assertSame(1, \App\Services\BookingService::monthQuotaUsed($emp));
+    }
+
+    public function test_cancelled_unscheduled_row_without_consumed_quota_does_not_count(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $session = $this->pendingSession($p, $emp);
+        $session->update(['status' => 'cancelled', 'quota_consumed' => false, 'cancelled_at' => now()]);
+
+        $this->assertSame(0, \App\Services\BookingService::monthQuotaUsed($emp));
+    }
+    public function test_reschedule_keeps_employee_chosen_mode(): void
+    {
+        [$p, $user, $emp] = $this->fixture(3);
+        $session = \App\Models\Perusahaan\PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null, 'konsultan_type' => 'psikolog', 'mode' => 'offline',
+            'status' => 'scheduled', 'scheduled_at' => now()->addDay(),
+        ]);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $slot->update(['mode' => 'online']);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.reschedule', $session), [
+            'schedule_id' => $slot->id,
+        ])->assertRedirect();
+
+        $replacement = \App\Models\Perusahaan\PerusahaanSession::where('status', 'scheduled')
+            ->where('scheduled_at', '!=', null)->latest('id')->firstOrFail();
+        $this->assertSame('offline', $replacement->mode);
+    }
 }

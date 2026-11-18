@@ -23,12 +23,12 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                     @include('perusahaan.partials.icon', ['name' => 'calendar'])
                 </span>
                 <div>
-                    <div class="text-2xl font-bold text-pine-700">{{ max(0, $quota - $usedMonth - $scheduledMonth) }}<span class="text-sm font-normal text-gray-400"> / {{ $quota }}</span></div>
+                    <div class="text-2xl font-bold text-pine-700">{{ max(0, $quota - $usedMonth) }}<span class="text-sm font-normal text-gray-400"> / {{ $quota }}</span></div>
                     <div class="text-xs text-gray-500">Sisa sesi bulan ini</div>
                 </div>
             </div>
             <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-3">
-                <div class="h-full bg-pine-600 rounded-full transition-all duration-700" style="width: {{ min(100, round(($usedMonth + $scheduledMonth) / max(1, $quota) * 100)) }}%"></div>
+                <div class="h-full bg-pine-600 rounded-full transition-all duration-700" style="width: {{ min(100, round($usedMonth / max(1, $quota) * 100)) }}%"></div>
             </div>
         </div>
 
@@ -196,7 +196,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
             @foreach($upcoming as $h)
             <div class="flex items-center justify-between rounded-xl border border-pine-200 bg-white px-4 py-3">
                 <div>
-                    <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ ucfirst($h->mode) }}</p>
+                    <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ $h->mode === 'offline' ? 'Tatap muka' : 'Online' }}</p>
                     <p class="text-xs text-gray-500">
                         {{ $h->scheduled_at->translatedFormat('l, d M Y, H.i') }}
                         @if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif
@@ -253,7 +253,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
             @forelse($history->filter(fn ($h) => !($h->status === 'scheduled' && $h->scheduled_at === null)) as $h)
             <div class="flex items-center justify-between rounded-xl border border-[#e7e2d9] px-4 py-3">
                 <div>
-                    <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ ucfirst($h->mode) }}</p>
+                    <p class="text-sm font-medium">{{ ucfirst($h->konsultan_type) }} · {{ $h->mode === 'offline' ? 'Tatap muka' : 'Online' }}</p>
                     <p class="text-xs text-gray-500">{{ $h->scheduled_at?->translatedFormat('d M Y, H.i') }}@if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif</p>
                 </div>
                 @if($h->status === 'scheduled')

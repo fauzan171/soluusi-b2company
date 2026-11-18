@@ -53,7 +53,7 @@
         {{-- End session + rating --}}
         @if($isEmployee)
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white shrink-0">
-            @if($session->status === 'scheduled')
+            @if($session->status === 'scheduled' && $session->scheduled_at)
             <form method="POST" action="{{ $endUrl }}" class="flex items-center gap-3" onsubmit="return confirm('Akhiri sesi ini? Chat akan ditutup.');">
                 @csrf
                 <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
@@ -79,7 +79,7 @@
         @endif
         @if(!$isEmployee)
         <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-3 shrink-0">
-            @if($session->status === 'scheduled')
+            @if($session->status === 'scheduled' && $session->scheduled_at)
                 @if(!$session->checked_in_at)
                 <form method="POST" action="{{ $startUrl }}">
                     @csrf
@@ -133,6 +133,7 @@
     const postUrl = root.dataset.post;
     const token = root.dataset.token;
     let lastId = 0, first = true, sending = false, timer = null;
+    let peerReadUpto = 0;
     let delay = 5000; // backoff: 5s → 10s → 30s cap, reset on success
     let terminal = ['done', 'cancelled', 'no_show'].includes(root.dataset.status);
     const terminalAtLoad = terminal;
@@ -147,11 +148,21 @@
             : 'bg-white border border-[#e7e2d9] text-gray-800 rounded-bl-md'}">
             ${m.mine ? '' : `<div class="text-[11px] font-semibold text-pine-700 mb-0.5">${esc(m.name)}</div>`}
             <div class="whitespace-pre-wrap break-words leading-relaxed">${esc(m.body)}</div>
-            <div class="text-[10px] ${m.mine ? 'opacity-70' : 'text-gray-400'} mt-1 text-right">${esc(m.at)}</div>
+            <div class="text-[10px] ${m.mine ? 'opacity-70' : 'text-gray-400'} mt-1 text-right">${esc(m.at)}<span data-tick="${m.id}" class="ml-1">${m.mine && m.read ? '✓✓' : ''}</span></div>
         </div>`;
         log.appendChild(wrap);
         log.scrollTop = log.scrollHeight;
         if (m.id > lastId) lastId = m.id;
+    }
+
+    // D.5: tick "dibaca" untuk pesan sendiri. Server kirim id tertinggi yang
+    // sudah dibaca lawan; semua pesan sendiri <= id itu bertanda ✓✓.
+    function applyReadUpto(upto) {
+        if (!upto || upto <= peerReadUpto) return;
+        peerReadUpto = upto;
+        log.querySelectorAll('[data-tick]').forEach(el => {
+            if (Number(el.dataset.tick) <= upto) el.textContent = '✓✓';
+        });
     }
 
     function setStatus(text, tone) {
@@ -188,6 +199,7 @@
                 ? '<p class="text-center text-gray-400 py-6">Transkrip sudah dihapus sesuai kebijakan retensi.</p>'
                 : '<p class="text-center text-gray-400 py-6">Belum ada pesan. Sapa dulu.</p>'); }
             rows.forEach(add);
+            applyReadUpto(data.peer_read_upto);
             if (first) log.scrollTop = log.scrollHeight;
             first = false;
             delay = 5000;

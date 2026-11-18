@@ -143,6 +143,18 @@ class EmployeeProvisionerTest extends TestCase
         $this->assertSame(0, DB::table('roster_invitations')->count());
     }
 
+    public function test_roster_row_never_links_non_employee_account(): void
+    {
+        $p = $this->perusahaan('PT Test');
+        $hrUser = $this->user('boss@test.local', 'hr_admin');
+        $row = $this->employee($p, 'boss@test.local');
+
+        // Email milik akun HR: jangan ditarik jadi karyawan (role-nya bukan employee).
+        $this->assertNull(EmployeeProvisioner::ensure($row));
+        $this->assertNull($row->fresh()->user_id);
+        $this->assertSame($hrUser->role_id, $hrUser->fresh()->role_id);
+    }
+
     public function test_roster_row_never_links_user_from_another_tenant(): void
     {
         $tenantA = $this->perusahaan('PT Test A');

@@ -51,12 +51,7 @@ class StudentController extends Controller
     {
         $student = $this->resolveStudent();
         $sekolah = $student->sekolah;
-        $monthStart = now()->startOfMonth();
-
-        $usedMonth = $student->sessions()->where('status', 'done')
-            ->where('completed_at', '>=', $monthStart)->count();
-        $scheduledMonth = $student->sessions()->where('status', 'scheduled')
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        $usedMonth = \App\Services\BookingService::quotaUsed($student, now());
         $quota = $sekolah->sessions_per_student_month;
         $history = $student->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
@@ -77,7 +72,6 @@ class StudentController extends Controller
             'isPreview' => optional(auth()->user()->role)->name !== 'student',
             'quota' => $quota,
             'usedMonth' => $usedMonth,
-            'scheduledMonth' => $scheduledMonth,
             'history' => $history,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
@@ -128,11 +122,7 @@ class StudentController extends Controller
     {
         $student = $this->resolveStudent();
         $sekolah = $student->sekolah;
-        $monthStart = now()->startOfMonth();
-
-        $usedMonth = $student->sessions()
-            ->whereIn('status', ['scheduled', 'done'])
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        $usedMonth = \App\Services\BookingService::quotaUsed($student, now());
         $quota = $sekolah->sessions_per_student_month;
 
         return view('sekolah.booking', [

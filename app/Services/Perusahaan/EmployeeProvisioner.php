@@ -36,11 +36,13 @@ class EmployeeProvisioner
             }
 
             // Email sudah dipakai user lain? Link user itu, jangan duplikat akun —
-            // kecuali user itu sudah jadi karyawan tenant lain (membership ambigu).
+            // kecuali user itu bukan karyawan (HR/konsultan/admin) atau sudah
+            // jadi karyawan tenant lain (membership ambigu).
             $existing = User::where('email', $locked->email)->first();
-            if ($existing && PerusahaanEmployee::withoutGlobalScopes()
-                ->where('user_id', $existing->id)
-                ->where('perusahaan_id', '!=', $locked->perusahaan_id)->exists()) {
+            if ($existing && ($existing->role?->name !== 'employee'
+                || PerusahaanEmployee::withoutGlobalScopes()
+                    ->where('user_id', $existing->id)
+                    ->where('perusahaan_id', '!=', $locked->perusahaan_id)->exists())) {
                 return null;
             }
             $user = $existing ?? User::create([

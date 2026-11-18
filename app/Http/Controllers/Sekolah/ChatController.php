@@ -212,12 +212,26 @@ class ChatController extends Controller
                 'name' => $m->sender_id === $myId ? $myName : $peerLabel,
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
+                // D.5 parity: status baca hanya relevan untuk pesan sendiri.
+                'read' => $m->sender_id === $myId && $m->read_at !== null,
             ]);
+
+        // D.5 parity: tandai terbaca HANYA pesan lawan yang benar-benar terkirim
+        // di payload ini — sisanya di luar limit 200 belum dilihat user.
+        $delivered = $messages->where('mine', false)->pluck('id');
+        if ($delivered->isNotEmpty()) {
+            $session->chatMessages()
+                ->whereIn('id', $delivered)
+                ->whereNull('read_at')
+                ->update(['read_at' => now()]);
+        }
 
         return [
             'messages' => $messages,
             'status' => $session->status,
             'can_send' => $this->canSend($session),
+            'peer_read_upto' => (int) $session->chatMessages()
+                ->where('sender_id', $myId)->whereNotNull('read_at')->max('id'),
         ];
     }
 }

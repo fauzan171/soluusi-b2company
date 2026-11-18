@@ -133,11 +133,9 @@ class ChatController extends Controller
             'backUrl' => $backUrl,
             'isEmployee' => $isEmployee,
             'sessionSummary' => $sessionSummary,
-            // D.7: transkrip yang sudah dipurge (retensi 24 jam) tidak boleh
-            // tampil sama dengan "belum pernah chat".
-            'transcriptPurged' => $session->status === 'done'
-                && $session->completed_at?->lt(now()->subDay())
-                && $session->chatMessages()->doesntExist(),
+            // D.7: pembeda "transkrip dipurge" vs "belum pernah chat" — harus penanda
+// yang ditulis job purge, bukan doesntExist() (keduanya 0 pesan).
+            'transcriptPurged' => $session->transcript_purged_at !== null,
         ]);
     }
 
@@ -202,6 +200,7 @@ class ChatController extends Controller
                 'name' => $m->sender_id === $myId ? $myName : $peerLabel,
                 'body' => $m->body,
                 'at' => $m->created_at->format('H:i'),
+                'read' => $m->sender_id === $myId && $m->read_at !== null,
             ]);
 
         // D.5: tandai terbaca HANYA pesan lawan yang benar-benar terkirim di payload
@@ -218,6 +217,9 @@ class ChatController extends Controller
             'messages' => $messages,
             'status' => $session->status,
             'can_send' => $this->canSend($session),
+            // D.5: id pesan sendiri terakhir yang sudah dibaca lawan → tick live.
+            'peer_read_upto' => (int) $session->chatMessages()
+                ->where('sender_id', $myId)->whereNotNull('read_at')->max('id'),
         ];
     }
 }

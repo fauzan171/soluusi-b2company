@@ -56,12 +56,7 @@ class StaffController extends Controller
     {
         $staff = $this->resolveStaff();
         $sekolah = $staff->sekolah;
-        $monthStart = now()->startOfMonth();
-
-        $usedMonth = $staff->sessions()->where('status', 'done')
-            ->where('completed_at', '>=', $monthStart)->count();
-        $scheduledMonth = $staff->sessions()->where('status', 'scheduled')
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        $usedMonth = \App\Services\BookingService::quotaUsed($staff, now());
         $history = $staff->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
         $latest = $staff->assessments()->latest('taken_at')->first();
@@ -79,7 +74,6 @@ class StaffController extends Controller
             'isPreview' => optional(auth()->user()->role)->name !== 'sekolah_staff',
             'quota' => $sekolah->sessions_per_student_month,
             'usedMonth' => $usedMonth,
-            'scheduledMonth' => $scheduledMonth,
             'history' => $history,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
@@ -130,11 +124,7 @@ class StaffController extends Controller
     {
         $staff = $this->resolveStaff();
         $sekolah = $staff->sekolah;
-        $monthStart = now()->startOfMonth();
-
-        $usedMonth = $staff->sessions()
-            ->whereIn('status', ['scheduled', 'done'])
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        $usedMonth = \App\Services\BookingService::quotaUsed($staff, now());
         $quota = $sekolah->sessions_per_student_month;
 
         return view('sekolah.booking', [

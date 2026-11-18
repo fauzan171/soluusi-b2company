@@ -76,6 +76,17 @@ class ChatPurgeTest extends TestCase
         $this->artisan('chat:purge-ended')->assertSuccessful();
 
         $this->assertSame(0, DB::table('chat_messages')->where('perusahaan_session_id', $old->id)->count());
+        // D.7: penanda purge ditulis supaya UI bisa bedakan dari "belum pernah chat".
+        $this->assertNotNull($old->fresh()->transcript_purged_at);
+    }
+
+    public function test_never_chatted_done_session_still_gets_purge_marker(): void
+    {
+        $empty = $this->makeSession('done', now()->subHours(25), now()->subDays(2));
+
+        $this->artisan('chat:purge-ended')->assertSuccessful();
+
+        $this->assertNotNull($empty->fresh()->transcript_purged_at);
     }
 
     public function test_done_under_24h_is_kept(): void
@@ -86,6 +97,7 @@ class ChatPurgeTest extends TestCase
         $this->artisan('chat:purge-ended')->assertSuccessful();
 
         $this->assertSame(2, DB::table('chat_messages')->where('perusahaan_session_id', $recent->id)->count());
+        $this->assertNull($recent->fresh()->transcript_purged_at);
     }
 
     public function test_scheduled_session_is_kept(): void
