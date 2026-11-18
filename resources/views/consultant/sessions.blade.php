@@ -34,6 +34,7 @@
                     <th class="px-5 py-3 font-medium">Jadwal</th>
                     <th class="px-5 py-3 font-medium">Karyawan</th>
                     <th class="px-5 py-3 font-medium">Perusahaan</th>
+                    <th class="px-5 py-3 font-medium">Mode</th>
                     <th class="px-5 py-3 font-medium">Status</th>
                     <th class="px-5 py-3 font-medium">Aksi</th>
                 </tr>
@@ -52,17 +53,81 @@
                     <td class="px-5 py-3">Anonim #{{ $cs->employee_id }}</td>
                     <td class="px-5 py-3">{{ $cs->perusahaan?->brand ?? '—' }}</td>
                     <td class="px-5 py-3">
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">{{ ($cs->mode ?? 'online') === 'offline' ? 'Tatap muka' : 'Online' }}</span>
+                    </td>
+                    <td class="px-5 py-3">
                         <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $badge($cs->status) }}">{{ $label($cs->status) }}</span>
                     </td>
                     <td class="px-5 py-3">
                         <div class="flex flex-wrap items-center gap-2">
+                            @if($cs->scheduled_at)
                             <a href="{{ route('consultant.chat', $cs) }}" class="inline-flex items-center rounded-lg bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition-colors">Chat</a>
+                            @endif
                             @if(!$cs->scheduled_at && $cs->status === 'scheduled')
+                            <a href="{{ route('consultant.sessions.propose-slots.form', $cs) }}" class="inline-flex items-center rounded-lg border border-pine-300 text-pine-700 px-3 py-1.5 text-xs font-semibold hover:bg-pine-50 transition-colors">Usulkan opsi jadwal</a>
                             <form method="POST" action="{{ route('consultant.sessions.schedule', $cs) }}">
                                 @csrf
                                 <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
                                     <option value="">Set jadwal…</option>
                                     @foreach(\App\Services\BookingService::available('perusahaan', $cs->perusahaan_id) as $slot)
+                                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M H.i') }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</section>
+@endif
+
+@if($schoolSessions->isNotEmpty())
+<section class="portal-card overflow-hidden mb-6">
+    <header class="px-5 py-4 border-b border-[#e7e2d9]">
+        <h2 class="text-sm font-semibold text-ink">Sesi sekolah (SAP)</h2>
+        <p class="text-xs text-gray-500 mt-0.5">{{ $schoolSessions->count() }} sesi dari program sekolah</p>
+    </header>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-[#e7e2d9] text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th class="px-5 py-3 font-medium">Jadwal</th>
+                    <th class="px-5 py-3 font-medium">Peserta</th>
+                    <th class="px-5 py-3 font-medium">Sekolah</th>
+                    <th class="px-5 py-3 font-medium">Status</th>
+                    <th class="px-5 py-3 font-medium">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#f1ede4]">
+                @foreach($schoolSessions as $ss)
+                <tr class="{{ !$ss->scheduled_at ? 'bg-terra-50/60' : 'hover:bg-pine-50/40' }} transition-colors">
+                    <td class="px-5 py-3 whitespace-nowrap">
+                        @if($ss->scheduled_at)
+                            <span class="font-medium text-ink">{{ $ss->scheduled_at->translatedFormat('d M Y') }}</span>
+                            <span class="text-gray-500 text-xs block">{{ $ss->scheduled_at->translatedFormat('H.i') }} WIB</span>
+                        @else
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-terra-100 text-terra-800">Belum dijadwalkan</span>
+                        @endif
+                    </td>
+                    <td class="px-5 py-3">Anonim #{{ $ss->student_id }}</td>
+                    <td class="px-5 py-3">{{ $ss->sekolah?->brand ?? '—' }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $badge($ss->status) }}">{{ $label($ss->status) }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            @if($ss->scheduled_at)
+                            <a href="{{ route('consultant.sekolah.chat', $ss) }}" class="inline-flex items-center rounded-lg bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition-colors">Chat</a>
+                            @elseif($ss->status === 'scheduled')
+                            <form method="POST" action="{{ route('consultant.sekolah.schedule', $ss) }}">
+                                @csrf
+                                <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
+                                    <option value="">Set jadwal…</option>
+                                    @foreach(\App\Services\BookingService::available('sekolah', $ss->sekolah_id) as $slot)
                                     <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M H.i') }}</option>
                                     @endforeach
                                 </select>

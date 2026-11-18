@@ -93,6 +93,7 @@ class ViewAs
                 $st = SekolahStudent::withoutGlobalScopes()->where('user_id', $target->id)->first();
                 return ['sekolah', $st?->sekolah_id, null];
             case 'bk':
+            case 'sekolah_staff':
                 $sa = SekolahAdmin::where('user_id', $target->id)->first();
                 return ['sekolah', $sa?->sekolah_id, null];
             case 'klinik_admin':

@@ -8,6 +8,7 @@ use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanPervorma;
 use App\Models\Sekolah\Sekolah;
 use App\Models\Sekolah\SekolahPervorma;
+use App\Models\Sekolah\SekolahSession;
 use App\Services\Klinik\HapPervormaService;
 use Carbon\Carbon;
 
@@ -62,7 +63,11 @@ class PervormaService
      */
     protected static function evaluateSessionCount(Perusahaan|Sekolah $tenant, string $model, string $tenantKey, array $stages): array
     {
-        $doneCount = $tenant->sessions()->whereNotNull('completed_at')->count();
+        // SAP: komisi menghitung SEMUA sesi selesai termasuk staf (E.1) — Sekolah::sessions()
+        // sengaja mengecualikan staf demi agregat wellbeing BK, jadi jangan dipakai di sini.
+        $doneCount = $tenant instanceof Sekolah
+            ? SekolahSession::where('sekolah_id', $tenant->id)->whereNotNull('completed_at')->count()
+            : $tenant->sessions()->whereNotNull('completed_at')->count();
         $activated = $tenant->mou_at !== null;
 
         $created = [];

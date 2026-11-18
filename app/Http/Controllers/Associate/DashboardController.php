@@ -64,7 +64,11 @@ class DashboardController extends Controller
                     ];
                     $completed = $counts['sinceMou'];
                 } else {
-                    $doneCount = $tenant->sessions()->whereNotNull('completed_at')->count();
+                    // SAP: komisi menghitung SEMUA sesi selesai termasuk staf; Sekolah::sessions()
+                    // mengecualikan staf demi agregat wellbeing BK, jadi jangan dipakai di sini.
+                    $doneCount = $slug === 'sap'
+                        ? \App\Models\Sekolah\SekolahSession::where('sekolah_id', $tenant->id)->whereNotNull('completed_at')->count()
+                        : $tenant->sessions()->whereNotNull('completed_at')->count();
                     $activated = $tenant->mou_at !== null;
                     $progress = [];
                     foreach ($stages as $stage => $defStage) {

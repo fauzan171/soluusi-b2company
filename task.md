@@ -1,304 +1,272 @@
-# Onboarding Massal — Import CSV → Akun → Login Pertama
-
-Worktree: buat sendiri, branch `feat/onboarding-bulk-accounts` dari `main`.
-Base: `main` @ `82888ec`.
-Spec detail per task: `docs/tasks/open/ONB.*.md`. Status mesin: `tasks.yaml` phase `batch7`.
+# Task: Sekolah Flow Parity + Mode Khusus
 
 ## Goal
+Samakan flow konsultasi sekolah dengan perusahaan (parity 11/12) sambil menambah mode khusus sekolah: BK bisa request untuk siswa, siswa self-request, auto-provision akun siswa, chat + AI summary + advice card, pervorma SAP trigger saat sesi done, role `sekolah_staff` (mirror employee), dan mode orangtua email-only (tanpa akun login).
 
-HR/BK bisa meng-upload satu file CSV berisi nama, email, password, dan
-divisi/kelas; sistem membuat akun login + roster row untuk setiap baris valid
-**tanpa mengirim email apa pun**. Saat karyawan/siswa login pertama kali, dia
-wajib mengganti password, lalu mengonfirmasi nama dan memilih divisi/kelasnya.
-HR/BK kemudian bisa menyalakan/mematikan sendiri konsultan mana yang aktif
-untuk organisasinya, dibatasi pada konsultan yang sudah dikontrak Soluusi.
-
-## Context
-
-Kenapa arsitekturnya begini — baca ini sebelum menyentuh kode:
-
-- **Email belum bisa dikirim.** Jalur onboarding existing adalah undangan
-  signed-URL (`RosterInvitation::issue` + `SelfRegisterController`, 7 hari,
-  sha256 token hash, wajib nama cocok persis). Jalur itu TETAP ADA dan tidak
-  dibongkar — hanya tidak dipakai sampai SMTP jalan. CSV import adalah jalur
-  paralel, bukan pengganti.
-- **`departements` masih GLOBAL** (`2023_11_09_153649_create_departements_table.php`:
-  cuma `id, name, created_at, updated_at`; `Departement::$fillable = ['name']`).
-  Dua perusahaan berbagi divisi bernama "Finance". Ini harus diperbaiki dulu
-  atau "pilih divisi" tidak bisa benar.
-- **Bug laten** `app/Http/Controllers/Perusahaan/RosterController.php:42`:
-  `Departement::whereKey($id)->where('perusahaan_id', $perusahaan->id)` —
-  kolomnya tidak ada. Query tidak pernah match, jadi jalur itu selalu 422.
-  Mati hari ini hanya karena form roster tidak pernah mengirim
-  `departement_id`. ONB.1 memperbaiki guard ini, TIDAK menghapusnya.
-- **Belum ada halaman ganti password.** `users` tidak punya
-  `must_change_password` maupun `password_changed_at`. Satu-satunya jalur
-  reset adalah `Auth/PasswordResetController` via email — yang belum bisa
-  dipakai. ONB.3 membangunnya.
-- **`sekolah_staff` belum ada di `main`.** E.1 (staf sekolah) hidup di branch
-  `goal/sekolah-flow-parity` (worktree `/home/seva-ojan/wt/soluusib2b-goal-sekolah-flow`
-  @ `436f7bb`, BELUM di-merge; menambah kolom `sekolah_students.type` +
-  role `sekolah_staff`). Kalau branch itu sudah masuk main sebelum batch ini
-  dikerjakan, pakai; kalau belum, **jangan** menduplikasi E.1 di sini —
-  kerjakan ONB.1, ONB.3, ONB.4, ONB.5 lebih dulu dan tandai ONB.2 (varian
-  sekolah) + ONB.6 sebagai blocked.
-- `composer.json` tidak punya library spreadsheet. CSV dibaca dengan
-  `fgetcsv`/`str_getcsv` (stdlib PHP) — sudah dipakai di
-  `Perusahaan/DashboardController::export()` dan `Sekolah/DashboardController`.
-  **Jangan** menambah dependency.
-- Multi-tenant: `TenantScope` (`app/Models/Scopes/TenantScope.php`) aktif hanya
-  saat auth ada DAN context resolve. `PerusahaanContext::current()` /
-  `SekolahContext::current()` adalah sumber tenant. Superadmin bypass lewat
-  `canSwitch()` + `?{tenant}_id=`.
-- Audit: `AdminAction::record($actorId, $action, $target, $payload)` —
-  append-only, payload TIDAK boleh mengandung PII (email/nama mentah).
-
-## Architecture Decision
-
-1. **Satu import service, dua vertikal.** `App\Services\RosterCsvImport` dengan
-   parameter `$vertical` (`perusahaan`|`sekolah`), bukan dua service kembar.
-   View juga satu: `resources/views/roster-import.blade.php` dengan label
-   bercabang. Alasan: user secara eksplisit bilang dua flow "hampir sama,
-   bedanya cuma tulisan".
-2. **Preview → commit, dua langkah.** Preview menulis file ke
-   `storage/app/private/imports/{vertical}-{tenantId}/{uuid}.csv` lalu
-   menampilkan tabel per-baris. Commit membaca ulang file itu. Alasan: HR harus
-   bisa melihat baris mana yang salah sebelum membuat 200 akun; dan preview
-   tidak boleh menulis DB sama sekali (bisa dites).
-3. **Commit per-baris dalam transaksi baris itu sendiri.** Satu baris gagal
-   tidak boleh menggagalkan 199 baris lain, tapi satu baris yang gagal di
-   tengah tidak boleh meninggalkan user setengah jadi. `DB::transaction()`
-   per baris.
-4. **Create only.** Tidak ada update, tidak ada upsert, tidak ada undo batch.
-   Email yang sudah ada di `users` ATAU di roster tenant → dilewati dengan
-   status `duplicate`, bukan error fatal dan bukan menimpa.
-5. **Dua gerbang login pertama sebagai middleware terpisah**, bukan satu
-   middleware gabungan: `ForcePasswordChange` lalu `EnsureProfileConfirmed`.
-   Alasan: student/karyawan lama (dibuat lewat self-register) tidak boleh
-   kena gerbang kedua; dan urutannya harus deterministic saat dua-duanya nyala.
-6. **Pool konsultan: flag, bukan filter.** `consultant_pools.is_active`.
-   Menambah baris pool tetap wewenang superadmin (kontrak & lisensi); HR/BK
-   hanya bisa toggle yang sudah ada. Alasan: user minta "HR bisa ubah sendiri
-   kapan saja" TAPI juga "guard against adding outside contract" — flag
-   memenuhi dua-duanya tanpa memindahkan wewenang kontrak ke HR.
-7. **Kelas sekolah tetap string.** `sekolah_students.kelas` sudah string,
-   dipakai di banyak view. Ditambah `datalist` berisi kelas yang sudah ada di
-   sekolah itu. Tidak ada tabel kelas baru.
-
-**Rejected:**
-- Menerjemahkan CSV ke undangan (`RosterInvitation`) lalu memaksa `SelfRegister`
-  — butuh email, dan user secara eksplisit minta jalur tanpa email.
-- Satu tabel `onboarding_imports` untuk riwayat batch — YAGNI. Riwayat cukup
-  dari `admin_actions`; file mentah dihapus setelah commit.
-- Menyimpan password awal di DB — jelas tidak.
-- Form multi-step wizard di frontend — tiga halaman terpisah lebih mudah
-  di-debug, dan redirect gerbang middleware sudah memberi urutan yang sama.
+## Success Criteria
+- [x] Siswa bisa self-request konsultasi (`role:student` → form + submit, route ada).
+- [x] BK bisa request atas nama siswa (refer flow → session `pending`, request_notes tersimpan).
+- [x] Akun siswa auto-provision saat pertama kali di-request (lewat `RosterInvitation`, user_id terisi).
+- [x] Orangtua menerima email (no user account dibuat) — verifiable via `Mail::fake()` di test.
+- [x] Chat siswa ↔ konsultan berfungsi (start, end, message, rate) — route `sekolah.chat*`.
+- [x] AI summary + advice card muncul untuk sesi sekolah yang done (SessionSummary record ada dengan `sekolah_session_id` terisi).
+- [x] `PervormaService::evaluate('sap', …)` ter-call otomatis saat sesi sekolah → done.
+- [x] `BkReviewController` parity dengan `HrReviewController` (index/approve/reject).
+- [x] `SekolahSessionPolicy` authorize seluruh aksi BK + siswa + konsultan.
+- [x] Role `sekolah_staff` mirror employee (UI booking reuse komponen PR #4).
+- [x] Semua test pass: `php artisan test --testsuite=Feature --filter=Sekolah` → 148/148.
+- [x] Lint: `vendor/bin/pint` tidak terpasang di repo ini; verifikasi lewat `php -l` + suite Feature (474/474).
 
 ## Phases
 
-Format task: `id (size, parallel_group) — deskripsi — files — verify`.
-Est: S=<½ hari, M=1 hari, L=2 hari.
+### Phase A: Schema & Foundation
+**Depends on:** none
 
-**No drive-by edits.** Jangan sentuh `EmployeeController` quota (`$monthStart`
-di baris 78–83) — itu utang terpisah di `EmployeeController`, bukan di
-`StudentController`/`StaffController` yang sudah dibersihkan di branch parity.
-Jangan refactor `StudentController`↔`StaffController` yang duplikatif.
+#### Task A.1: Migration — kolom polymorphic + field parity (S, parallel_group: schema)
+- **Status:** DONE
+- **Files:**
+  - `database/migrations/2026_11_17_000001_add_sekolah_support_to_chat_tables.php` (new)
+  - `database/migrations/2026_11_17_000002_add_parity_fields_to_sekolah_sessions_table.php` (new)
+- **Action:**
+  - Tambah `sekolah_session_id` nullable + index di `chat_messages`, `session_summaries`, `session_slot_proposals`. `perusahaan_session_id` diubah jadi nullable. CHECK constraint: exactly one of the two non-null (SQLite-compatible via raw `DB::statement` guard di migrate up, skip di test sqlite jika perlu — ponytail: pakai conditional driver check).
+  - Tambah `request_notes` (text nullable), `schedule_version` (unsignedInteger default 1), `requested_by_user_id` (FK users nullable), `requested_for_role` (enum-ish string: 'self'|'bk'|'parent', default 'self') di `sekolah_sessions`.
+- **Verify:** `php artisan migrate:fresh --seed --env=testing` exit 0
+- **Acceptance:** Kolom ada di kedua DB sqlite+mysql schema; rollback sukses.
 
----
+#### Task A.2: Update model relations & fillable (S, parallel_group: schema)
+- **Status:** DONE
+- **Files:**
+  - `app/Models/ChatMessage.php`
+  - `app/Models/SessionSummary.php`
+  - `app/Models/SessionSlotProposal.php`
+  - `app/Models/Sekolah/SekolahSession.php`
+- **Action:**
+  - Tambah `sekolah_session_id` ke fillable + relasi `sekolahSession()` belongsTo di 3 model pertama. Mutator: set salah satu FK harus null-kan yang lain.
+  - `SekolahSession`: tambah `request_notes`, `schedule_version`, `requested_by_user_id`, `requested_for_role` ke fillable; relasi `chatMessages()`, `sessionSummaries()`, `slotProposals()`; relasi `requestedBy()` → User.
+- **Verify:** `php artisan tinker --execute="dd((new \App\Models\Sekolah\SekolahSession)->getFillable());"` exit 0
+- **Acceptance:** Tinker print menunjukkan 4 field baru.
 
-### Phase A — Fondasi: kolom, tenant scope, ganti password
-
-> Phase ini tidak bergantung pada branch parity. Boleh mulai sekarang.
-> ONB.1 dan ONB.3 menyentuh file yang berbeda (`departements` vs `users`) →
-> boleh paralel.
-
-- [x] **A1 / ONB.3 (M, `a-auth`) — Gerbang wajib ganti password.**
-  Spec: `docs/tasks/open/ONB.3-forced-password-change.md`.
-  **Files:**
-  - `database/migrations/2026_11_18_000001_add_must_change_password_to_users.php` (new)
-  - `app/Http/Middleware/ForcePasswordChange.php` (new)
-  - `app/Http/Controllers/Auth/ChangePasswordController.php` (new)
-  - `app/Http/Kernel.php` (alias `force.password`)
-  - `routes/web.php` (route group `auth`: `GET|POST /ubah-password`, name `password.change`)
-  - `app/Http/Controllers/AuthController.php` (`redirectByRole`: cek flag sebelum match role)
-  - `resources/views/auth/change-password.blade.php` (new)
-  - `tests/Feature/ForcePasswordChangeTest.php` (new)
-  **Action:**
-  - Migrasi: `must_change_password` boolean default `false`, `password_changed_at` timestamp nullable.
-  - Middleware: kalau `auth()->user()->must_change_password` → redirect `password.change`, kecuali `routeIs('password.change*')` atau `logout`. Kalau tidak login → lewati (biar `auth` yang menangani).
-  - Middleware **dipasang manual per-grup portal**, bukan di `web` global: grup `perusahaan` (`role:hr_admin,admin` + `role:employee,admin`), `sekolah-portal` (`role:bk,admin` + `role:student,admin`), `consultant`, `associate`, `klinik`. **JANGAN** di grup `admin`. **JANGAN** di `web` global — halaman landing/login harus tetap jalan.
-  - Controller: validasi `current_password` benar (`Hash::check`), `password` `min:8|confirmed`, `different:current`. Simpan → flag false + `password_changed_at`. Redirect pakai `AuthController::redirectByRole()` — jangan duplikasi match role.
-  - Throttle `throttle:6,1` di POST.
-  **Verify:** `php artisan test --filter=ForcePasswordChangeTest`
-  **Acceptance:** flag nyala → semua route portal redirect; `/ubah-password` sendiri tidak redirect loop; password <8 → 422; password sama → 422; sukses → flag false + mendarat di dashboard role yang benar; user normal tidak pernah di-redirect; superadmin bypass; `php -l` semua file berubah.
-
-- [x] **A2 / ONB.1 (M, `a-tenant`) — `departements` jadi milik perusahaan.**
-  Spec: `docs/tasks/open/ONB.1-departement-tenant-scoping.md`.
-  **Files:**
-  - `database/migrations/2026_11_18_000002_add_perusahaan_id_to_departements.php` (new)
-  - `app/Models/Departement.php`
-  - `database/seeders/PerusahaanSeeder.php` (baris ~33–36)
-  - `app/Http/Controllers/Perusahaan/RosterController.php` (`store()` + `index()`)
-  - `resources/views/perusahaan/roster.blade.php` (dropdown divisi)
-  - `tests/Feature/DepartementTenantTest.php` (new)
-  **Action:**
-  - Migrasi: `perusahaan_id` nullable + FK `nullOnDelete` + index. **Nullable** supaya row legacy dan `consultant_education` (FK ke `departements`) tidak putus.
-  - Model: `perusahaan_id` masuk `$fillable`, relasi `perusahaan()`, dan `static forPerusahaan(int $id)` → koleksi divisi (milik tenant + row legacy `perusahaan_id IS NULL`, urut `name`).
-  - Seeder: `Departement::firstOrCreate(['perusahaan_id' => $p->id, 'name' => $name])` di dalam loop perusahaan, bukan sekali di luar.
-  - `RosterController::store()`: **perbaiki bug laten**. Ganti
-    `abort_unless(...->where('perusahaan_id', ...)->exists())` (kolom tidak ada → dead) dengan
-    pengecekan `Departement::forPerusahaan($perusahaan->id)->contains('id', $data['departement_id'])`. Bug ini diperbaiki, bukan dihapus.
-  - `index()`: kirim `$departements` ke view.
-  **Verify:** `php artisan test --filter=DepartementTenantTest`
-  **Acceptance:** divisi tenant A tidak muncul di dropdown B; POST divisi milik B → 422; divisi sendiri → tersimpan; seeder dua kali tidak menduplikasi; `departement_id` null tetap boleh; `php -l`.
+#### Task A.3: SekolahSessionPolicy (M, parallel_group: policy) [x]
+- **Files:**
+  - `app/Policies/SekolahSessionPolicy.php` (new)
+  - `app/Providers/AuthServiceProvider.php` (register policy)
+- **Action:** Mirror `PerusahaanSessionPolicy`. Method: `view`, `update`, `cancel`, `reschedule`, `chat`, `rate`, `bkReview` (untuk approve/reject oleh BK), `requestFor` (BK request atas nama siswa). Scope: BK hanya tenant-nya, siswa hanya sesi miliknya, konsultan hanya sesi yang di-assign ke dia, `sekolah_staff` seperti employee.
+- **Verify:** `php artisan test --filter=SekolahSessionPolicyTest`
+- **Acceptance:** Policy test (TDD, ditulis dulu) hijau untuk 7 method × 4 role (bk/student/sekolah_staff/consultant) happy + negative path.
 
 ---
 
-### Phase B — Gerbang onboarding login pertama
+### Phase B: Request Flow (BK + Self-Request + Auto-Provision)
+**Depends on:** Phase A
 
-> Butuh Phase A selesai (kolom `departement_id` yang benar + middleware
-> sudah punya pola pemasangan).
+#### Task B.1: Student self-request endpoint (M, parallel_group: request)
+- **Status:** DONE (da57ca0)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/StudentController.php` (extend)
+  - `resources/views/sekolah/siswa/request-form.blade.php` (new, reuse komponen PR #4)
+  - `routes/web.php` (tambah 2 route di group `role:student`)
+- **Action:** Tambah `requestConsultation` form + store. Validasi: konsultan exists, slot future, throttle 10/1. Buat `SekolahSession` status `pending`, `requested_by_user_id=auth`, `requested_for_role='self'`. Reuse komponen booking UI dari PR #4.
+- **Verify:** `php artisan test --filter=SekolahStudentRequestTest`
+- **Acceptance:** Test: student POST → session pending dibuat; unauthorized role → 403; invalid payload → 422.
 
-- [x] **B1 / ONB.4 (M, `b-onboard`) — Konfirmasi nama + pilih divisi/kelas.**
-  Spec: `docs/tasks/open/ONB.4-first-login-profile.md`.
-  **Files:**
-  - `database/migrations/2026_11_18_000003_add_profile_confirmed_at_to_roster_tables.php` (new)
-  - `app/Models/User.php` (fillable + casts: `must_confirm_profile`)
-  - `app/Http/Middleware/EnsureProfileConfirmed.php` (new)
-  - `app/Http/Controllers/Onboarding/ProfileController.php` (new)
-  - `app/Http/Kernel.php` (alias `profile.confirmed`)
-  - `routes/web.php` (2 route: `perusahaan.profile`, `sekolah.profile`)
-  - `resources/views/onboarding/profile.blade.php` (new — satu view, `$vertical`)
-  - `tests/Feature/FirstLoginProfileTest.php` (new)
-  **Action:**
-  - Migrasi: `users.must_confirm_profile` boolean default false. **Ruling:** flag
-    ditaruh di `users`, bukan `profile_confirmed_at` di row roster — row lama
-    (input manual HR / self-register) tidak boleh mendadak kena gerbang; 63 test
-    existing regresi saat dicoba di row. Hanya import CSV menyalakan flag ini.
-  - Middleware: cari row roster milik user lewat relasi (`PerusahaanEmployee::where('user_id',…)` / `SekolahStudent::where('user_id',…)`). Ada row dengan `profile_confirmed_at IS NULL` → redirect `{vertical}.profile`. Tidak punya row → lewati. Role `admin`/`hr_admin`/`bk`/`consultant`/`associate`/`klinik_admin` → lewati.
-  - Controller: `show()` prefill nama dari row; opsi divisi dari `Departement::forPerusahaan()` (perusahaan) atau daftar distinct `kelas` milik sekolah (sekolah, input bebas + `datalist`). `store()`: `name` wajib `max:255`; `departement_id` harus lolos `forPerusahaan()` (guard yang sama dengan roster); `kelas` wajib di sekolah. Set row + `profile_confirmed_at = now()`.
-  - **Jangan sentuh** `consent_at` / `parent_consent_at` — consent tetap lewat `ProgramConsent` oleh HR/BK.
-  - Middleware dipasang SETELAH `force.password` di grup yang sama.
-  **Verify:** `php artisan test --filter=FirstLoginProfileTest`
-  **Acceptance:** karyawan hasil import → redirect profil; simpan → flag terisi + divisi benar; divisi tenant lain → 422; nama kosong → 422; siswa simpan kelas → kolom ter-update; user terkonfirmasi tidak di-redirect lagi; `consent_at` tetap NULL; dua gerbang nyala → `/ubah-password` menang; `php -l`.
+#### Task B.2: BK refer/request atas nama siswa + auto-provision (M, parallel_group: request)
+- **Status:** DONE (fbc9acf)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/RosterController.php` (extend `refer`)
+  - `app/Services/Sekolah/StudentProvisioner.php` (new)
+- **Action:**
+  - `StudentProvisioner::ensure(SekolahStudent $student): User` — jika `student.user_id` null, buat `User` role `student` + kirim `RosterInvitation` (audit trail), link `user_id`. Idempotent.
+  - `RosterController::refer` panggil `StudentProvisioner::ensure()` lalu buat `SekolahSession` dengan `requested_for_role='bk'`, `requested_by_user_id=bk_user_id`.
+- **Verify:** `php artisan test --filter=SekolahBkReferTest`
+- **Acceptance:** Test: BK refer siswa baru → user dibuat, invitation queued, session pending; refer siswa existing → reuse user.
 
----
-
-### Phase C — Import CSV
-
-> Butuh Phase A + Phase B (butuh `must_change_password` dan
-> `profile_confirmed_at` supaya hasil import langsung memicu dua gerbang).
-
-- [x] **C1 / ONB.2 (L, `c-import`) — Service + controller + route + view import (perusahaan).**
-  Spec: `docs/tasks/open/ONB.2-csv-bulk-import.md`.
-  **Files:**
-  - `app/Services/RosterCsvImport.php` (new)
-  - `app/Http/Controllers/Perusahaan/RosterImportController.php` (new)
-  - `routes/web.php` (3 route di grup `role:hr_admin,admin`:
-    `GET /perusahaan/employees/import`,
-    `POST /perusahaan/employees/import` → preview,
-    `POST /perusahaan/employees/import/commit` → commit)
-  - `resources/views/perusahaan/roster-import.blade.php` (new)
-  - `resources/views/perusahaan/roster.blade.php` (link ke halaman import)
-  - `tests/Feature/RosterCsvImportTest.php` (new)
-  **Action:**
-  - `RosterCsvImport::preview($path, string $vertical, int $tenantId): array` →
-    `['rows' => [[line, name, email, division, status, error]], 'summary' => [valid, duplicate, error]]`.
-    `status` ∈ `valid|duplicate|error`. Validasi per baris: `name` wajib; `email` format valid + lowercase-trim; `password` opsional (kosong → nanti acak); divisi/kelas opsional tapi kalau diisi harus milik tenant.
-  - `RosterCsvImport::commit(...)`: baca ulang file; per baris `DB::transaction()`. Buat `User` (`uuid`, `username` unik, `firstname`/`lastname` di-split, `email`, `Hash::make($password ?: Str::random(12))`, `is_active = true`, `role_id` = `employee`/`student`, `must_change_password = true`), lalu link `roster.user_id`, dan `profile_confirmed_at` tetap NULL (memunculkan gerbang B1). Perusahaan: `departement_id` kalau kolom divisi cocok. Sekolah: `kelas` dari kolom.
-  - Duplikat: email sudah ada di `users` **atau** di roster tenant → `duplicate`, dilewati. Jangan menimpa password user lama.
-  - Upload: simpan ke `storage/app/private/imports/{vertical}-{tenantId}/{uuid}.csv` (disk `local`, root `storage/app`), TTL 1 jam, hapus setelah commit sukses. Batas: 5 MB, 2000 baris, ekstensi `.csv` saja.
-  - Header CSV wajib cocok: `name,email,password,divisi` (perusahaan) / `name,email,password,kelas` (sekolah). Header salah → 422 tanpa menulis apa pun.
-  - Audit `AdminAction::record(...)` dengan **jumlah** baris (ok/skip) saja — **tanpa** email/nama di payload.
-  - Guard: `abort_unless($perusahaan->is_active)` — ikut gerbang POST roster existing.
-  **Verify:** `php artisan test --filter=RosterCsvImportTest`
-  **Acceptance:** 3 baris valid → 3 user + 3 row ter-link; tanpa password → acak + `must_change_password` true; duplikat dalam file → baris kedua ditolak, lainnya jalan; email sudah ada di `users` → dilewati & password lama utuh; header salah → 422 tanpa row; divisi tenant lain → baris error; HR A tidak bisa import ke B (403); file >5 MB / >2000 baris → 422; **preview tidak menulis DB**; `php -l`.
-
-- [-] **C2 / ONB.2-lanjutan (M, `c-import`) — Varian sekolah dari import.** BLOCKED: butuh `sekolah_students.type` + role `sekolah_staff` dari branch `goal/sekolah-flow-parity` (belum merge). Varian siswa kini BENAR-benar jalan di service (`RosterCsvImport` vertikal `sekolah`, diverifikasi `test_sekolah_vertical_creates_students_with_kelas` + `test_sekolah_header_requires_kelas_column` di `RosterCsvImportTest`); sisa pekerjaan hanya controller+view tipis setelah parity masuk.
-  **Files:**
-  - `app/Http/Controllers/Sekolah/RosterImportController.php` (new, tipis — delegasi ke service)
-  - `routes/web.php` (3 route di grup `role:bk,admin` sekolah)
-  - `resources/views/sekolah/roster-import.blade.php` (new)
-  - `resources/views/sekolah/roster.blade.php` (link)
-  - `tests/Feature/SekolahRosterCsvImportTest.php` (new)
-  **Action:** header `name,email,password,kelas`. **BLOKER:** kolom `type` di `sekolah_students` dan role `sekolah_staff` baru ada di branch `goal/sekolah-flow-parity`. Kalau branch itu sudah di main, dukung kolom opsional `tipe=staff|siswa` (default siswa) dan untuk baris staff buat `SekolahAdmin(role='sekolah_staff')`. Kalau belum → **kerjakan versi siswa saja**, tandai `[-]` blocked untuk varian staff, dan tulis satu baris alasan di task.md.
-  **Verify:** `php artisan test --filter=SekolahRosterCsvImportTest`
-  **Acceptance:** CSV sekolah → user role `student` + row `user_id` terisi; kelas tersimpan; BK sekolah A tidak bisa import ke B; header salah → 422.
+#### Task B.3: Orangtua email-only (no login) (S, parallel_group: request)
+- **Status:** DONE (fbc9acf)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/RosterController.php` (extend `refer` — parent mode)
+  - `app/Mail/Sekolah/ParentConsultationRequested.php` (new)
+  - `resources/views/emails/sekolah/parent-consultation-requested.blade.php` (new)
+- **Action:** Tambah field `parent_email` di form refer. Jika diisi: JANGAN buat user untuk parent. Kirim mail ke parent berisi detail sesi + link publik read-only (signed URL → show sesi summary). Audit `requested_for_role='bk'` + `parent_notified_at` timestamp.
+- **Verify:** `php artisan test --filter=SekolahParentEmailTest`
+- **Acceptance:** `Mail::fake()` assert mail terkirim ke parent; tidak ada user baru dengan email parent.
 
 ---
 
-### Phase D — Pool konsultan self-service + paritas
+### Phase C: Chat + AI Summary
+**Depends on:** Phase A
 
-> Boleh paralel dengan Phase C (file berbeda), tapi butuh Phase A selesai.
+#### Task C.1: SekolahChatController (L, parallel_group: chat)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/ChatController.php` (new)
+  - `resources/views/sekolah/chat/*.blade.php` (new — reuse komponen PR #4 chat partials)
+  - `routes/web.php` (tambah routes di group `role:student,sekolah_staff` + consultant side)
+- **Action:** Mirror `App\Http\Controllers\ChatController`. Method: `student`, `studentStore`, `studentEnd`, `studentRate`, `consultant`, `consultantStore`, `consultantStart`, `consultantEnd`. Semua type-hint `SekolahSession`. Authorize via `SekolahSessionPolicy`. Throttle: store 60/1, lainnya 10/1.
+- **Verify:** `php artisan test --filter=SekolahChatTest`
+- **Acceptance:** Test: student kirim pesan → `chat_messages.sekolah_session_id` terisi; consultant start/end; rate 1-5 tersimpan.
 
-- [x] **D1 / ONB.5 (M, `d-pool`) — HR/BK toggle konsultan aktif di pool tenant.**
-  Spec: `docs/tasks/open/ONB.5-tenant-consultant-pool-self-service.md`.
-  **Files:**
-  - `database/migrations/2026_11_18_000004_add_is_active_to_consultant_pools.php` (new)
-  - `app/Models/ConsultantPool.php` (`poolFor` filter `is_active`)
-  - `app/Http/Controllers/Perusahaan/ConsultantPoolController.php` (new)
-  - `app/Http/Controllers/Sekolah/ConsultantPoolController.php` (new — tipis)
-  - `routes/web.php` (`GET /perusahaan/konsultan`, `POST /perusahaan/konsultan/toggle` di `role:hr_admin,admin`; mirror di `role:bk,admin` sekolah)
-  - `resources/views/tenant/consultant-pool.blade.php` (new — satu view, `$vertical`)
-  - `tests/Feature/TenantConsultantPoolTest.php` (new)
-  **Action:**
-  - Migrasi: `consultant_pools.is_active` boolean default `true`. **Default true** supaya pool existing tidak hilang diam-diam.
-  - `poolFor()` tambahkan `->where('is_active', true)`.
-  - Controller: `index()` daftar konsultan di pool tenant (nama, kategori, status); `toggle()` flip `is_active` untuk row milik tenant sendiri. Guard kepemilikan tenant keras (403 kalau row bukan milik tenant ter-resolve).
-  - **Jangan** menyediakan jalur menambah konsultan baru — itu tetap `Admin\ConsultantAssignmentController`.
-  - Audit `AdminAction::record(auth()->id(), 'consultant_pool.toggle', $tenant, ['consultant_id','is_active'])` tanpa PII. Kalau semantik `admin_id` jadi rancu karena aktornya HR, **dokumentasikan di docblock `AdminAction`** bahwa kolom itu berarti "aktor"; jangan bikin tabel audit kedua.
-  **Verify:** `php artisan test --filter=TenantConsultantPoolTest`
-  **Acceptance:** HR A hanya lihat pool A; toggle off → hilang dari halaman booking karyawan; toggle on → muncul lagi; HR A tidak bisa toggle row B; BK bisa toggle sekolahnya; karyawan/siswa → 403; tidak ada jalur tambah konsultan baru; audit tercatat tanpa PII; konsultan `status != accept` tidak muncul; `php -l`.
+#### Task C.2: Extract GenerateSessionSummary → polymorphic (M, parallel_group: chat)
+- **Status:** DONE (2771057)
+- **Files:**
+  - `app/Jobs/GenerateSessionSummary.php` (refactor)
+  - `app/Services/SessionSummaryGenerator.php` (new, logic dipindah)
+- **Action:** Job terima `sessionId` + `vertical` (`perusahaan|sekolah`). Service handle kedua model. SessionSummary polymorphic via `perusahaan_session_id` XOR `sekolah_session_id`. Update semua call site (ChatController lama).
+- **Verify:** `php artisan test --filter=GenerateSessionSummaryTest`
+- **Acceptance:** Test existing perusahaan tetap hijau + test baru sekolah hijau. Kedua job produce SessionSummary dengan FK yang benar.
 
-- [-] **D2 / ONB.6 (M, `d-parity`) — Paritas dua vertikal + `sekolah_staff` redirect.** BLOCKED: `sekolah_staff` tidak ada di `main` (0 kemunculan di `app/`, `routes/`, `database/`) dan branch `goal/sekolah-flow-parity` belum merge. Sesuai spec, role baru TIDAK dibuat di task ini. Bagian yang tidak butuh parity (urutan gerbang `force.password` → `profile.confirmed`) sudah bernilai `[x]` lewat A1+B1 dan diverifikasi `ForcePasswordChangeTest` + `FirstLoginProfileTest`.
-  Spec: `docs/tasks/open/ONB.6-parity-and-role-redirect.md`.
-  **Files:**
-  - `app/Http/Controllers/AuthController.php` (`redirectByRole`: verifikasi case `sekolah_staff` ada)
-  - `tests/Feature/OnboardingParityTest.php` (new)
-  **Action:**
-  - Cek apakah `'sekolah_staff' => redirect()->route('sekolah.staff')` ada di `redirectByRole()`. Di `main` role itu **belum ada sama sekali**; di branch parity sudah. Kalau branch parity sudah merge → cukup verifikasi. Kalau belum merge → tandai task ini `[-]` blocked, jangan bikin role `sekolah_staff` baru di sini.
-  - Pastikan urutan gerbang konsisten untuk semua role portal: `force.password` → `profile.confirmed` → dashboard.
-  - Test paritas data-provider: skenario identik dijalankan untuk perusahaan (divisi) dan sekolah (kelas); hasil harus identik.
-  **Verify:** `php artisan test --filter=OnboardingParityTest`
-  **Acceptance:** login `sekolah_staff` mendarat di `/sekolah-portal/staff`; staf sekolah kena dua gerbang; data provider 2 vertikal hijau; `php -l`.
+#### Task C.3: Advice card UI untuk siswa/BK (S, parallel_group: chat)
+- **Files:**
+  - `resources/views/sekolah/siswa/session-detail.blade.php` (extend/new)
+  - `app/Http/Controllers/Sekolah/StudentController.php` (extend show)
+- **Action:** Render advice card dari SessionSummary (reuse partial dari perusahaan PR #4). Tampil di detail sesi siswa + dashboard BK (read-only).
+- **Verify:** `php artisan test --filter=SekolahAdviceCardTest` (HTTP test assert see text)
+- **Acceptance:** Sesi done → advice card muncul di UI siswa + BK.
 
 ---
 
-## Success Criteria
+### Phase D: Pervorma SAP + BK Review
+**Depends on:** Phase B, C
 
-- [ ] HR bisa upload CSV 3 baris → 3 akun karyawan aktif dengan divisi terisi, tanpa email terkirim.
-- [ ] BK bisa upload CSV 3 baris → 3 akun siswa aktif dengan kelas terisi.
-- [ ] Karyawan login pertama → dipaksa ganti password → dipaksa konfirmasi nama + divisi → baru masuk portal.
-- [ ] Siswa login pertama → alur sama, kosakata "kelas".
-- [ ] Preview import menampilkan baris error per baris tanpa menulis DB.
-- [ ] HR toggle konsultan off → konsultan hilang dari halaman booking karyawan; toggle on → kembali.
-- [ ] HR tidak punya jalan menambah konsultan di luar pool kontrak.
-- [ ] Divisi perusahaan A tidak bocor ke perusahaan B (dropdown, POST, import).
-- [ ] Semua test pass: `php artisan test --testsuite=Feature` → 0 failures.
-- [ ] Lint: `./vendor/bin/pint` **tidak terpasang** di repo ini — verifikasi lewat `php -l` di setiap file berubah + suite Feature hijau.
+#### Task D.1: SAP pervorma trigger saat sesi done (S, parallel_group: pervorma)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/ChatController.php` (consultantEnd hook)
+  - `app/Observers/SekolahSessionObserver.php` (new — alternative cleaner hook)
+- **Action:** Saat `SekolahSession.status` berubah → `done`, dispatch `PervormaService::evaluate('sap', $session->sekolah)`. Pakai observer untuk single-source trigger.
+- **Verify:** `php artisan test --filter=SekolahPervormaTriggerTest`
+- **Acceptance:** Test: tandai sesi done → `sekolah_pervormas` row updated (stage count +1).
 
-## Constraints (dari global working agreement)
+#### Task D.2: BkReviewController (M, parallel_group: review)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/BkReviewController.php` (new)
+  - `resources/views/sekolah/review/*.blade.php` (new — mirror `perusahaan/review`)
+  - `routes/web.php` (tambah di group `role:bk`)
+- **Action:** Method `index`, `approve`, `reject`. Mirror HrReviewController. Approve → status `approved`; Reject → `rejected` + catat reason. Authorize `bkReview` policy.
+- **Verify:** `php artisan test --filter=SekolahBkReviewTest`
+- **Acceptance:** Test: BK approve/reject; non-BK 403; tenant isolation (BK A tidak bisa review sesi sekolah B).
 
-- Tidak push, tidak merge ke main, tidak deploy, tidak menyentuh remote.
-- Migrasi baru: **tidak dijalankan di DB non-lokal** tanpa izin. Dev/test SQLite saja.
-- Jangan menambah dependency Composer.
-- Tidak ada PII di log, test, commit, atau payload audit.
-- Jangan menonaktifkan/melonggarkan test untuk hijau.
-- Commit Conventional Commits, satu perubahan logis per commit, akhiran
-  `Co-Authored-By: Claude Code <noreply@anthropic.com>`.
-- `guard.sh` hook salah resolve cwd — selalu pakai `git -C <worktree>`.
+---
 
-## Out of Scope
+### Phase E: Role sekolah_staff + Polish
+**Depends on:** Phase B, C
 
-- Mengirim email apa pun (SMTP belum ada). `RosterInvitation` tetap tidak dipakai.
-- XLSX/XLS (butuh dependency baru).
-- Update massal / upsert / undo batch import.
-- HR memilih konsultan dari seluruh database Soluusi.
-- Billing PEPM/subscription otomatis.
-- Refactor duplikasi `StudentController` ↔ `StaffController`.
-- Fix `$monthStart` quota di `Perusahaan/EmployeeController:78-83` (utang terpisah).
-- Edit profil setelah onboarding (tetap wewenang HR/BK).
+#### Task E.1: Role sekolah_staff + seeder + middleware (S, parallel_group: role)
+- **Files:**
+  - `database/seeders/RoleSeeder.php` (extend)
+  - `database/migrations/2026_11_17_000003_add_sekolah_staff_role.php` (new — insert role)
+  - `app/Http/Middleware/EnsureUserHasRole.php` (verify sudah support)
+- **Action:** Tambah role `sekolah_staff`. Migration insert role record. Seeder update. Staff bisa booking atas nama diri sendiri (mirror employee flow). UI: reuse komponen booking PR #4.
+- **Verify:** `php artisan test --filter=SekolahStaffRoleTest`
+- **Acceptance:** User dengan role `sekolah_staff` bisa akses `/sekolah-portal/staff/*` mirror `/perusahaan/employee/*`.
 
-## Status
+#### Task E.2: StaffController + routes (S, parallel_group: role)
+- **Files:**
+  - `app/Http/Controllers/Sekolah/StaffController.php` (new — mirror `Perusahaan/EmployeeController`)
+  - `routes/web.php`
+- **Action:** Method: `index`, `assessmentForm`, `assessmentStore`, `bookingForm`, `bookingStore`, `requestConsultation`, `bookingCancel`, `bookingReschedule`. Reuse `BookingService::book(..., type: 'sekolah')` yang sudah support.
+- **Verify:** `php artisan test --filter=SekolahStaffFlowTest`
+- **Acceptance:** Staff bisa self-booking end-to-end.
 
-Belum dieksekusi. 0 baris kode. Semua task `[ ]`.
+#### Task E.3: UX parity pass — reuse komponen PR #4 (S, parallel_group: ux)
+- **Files:** `resources/views/sekolah/**/*.blade.php`
+- **Action:** Audit visual: dashboard BK, daftar students, form request, chat, advice card. Reuse partials kelas/tokens dari PR #4 booking UI redesign. Tidak ada style inline baru.
+- **Verify:** `vendor/bin/pint --test` exit 0 + manual screenshot diff (tooling existing `shot-pages.mjs`)
+- **Acceptance:** Pint clean; visual diff vs PR #4 baseline konsisten (no inline style baru).
+
+---
+
+### Phase F: Tests + Lint + Docs
+**Depends on:** Phase A–E
+
+#### Task F.1: Full feature suite + edge cases (M, parallel_group: qa)
+- **Files:** `tests/Feature/Sekolah/*` (semua file test baru + existing update)
+- **Action:** Pastikan coverage: parity matrix (11 flow perusahaan × sekolah), tenant isolation, role-based access, pervorma trigger, auto-provision idempotent, parent email-only no user created, race condition (concurrent refer).
+- **Verify:** `php artisan test --testsuite=Feature` exit 0
+- **Acceptance:** Seluruh suite hijau.
+
+#### Task F.2: Pint + static analysis (S, parallel_group: qa)
+- **Files:** all touched
+- **Action:** `vendor/bin/pint` + pastikan tidak ada `@phpstan-ignore` baru.
+- **Verify:** `vendor/bin/pint --test` exit 0
+- **Acceptance:** Clean.
+
+#### Task F.3: Update docs (S, parallel_group: qa)
+- **Files:** `docs/flows/sekolah.md` (new) + `README.md` (link)
+- **Action:** Dokumentasi flow parity, role matrix, pervorma trigger, auto-provision logic.
+- **Verify:** file exists + markdown lint
+- **Acceptance:** Dokumen lengkap.
+
+---
+
+### Phase G: Mode konsultasi + jadwal dari konsultan (CAP)
+
+**Depends on:** Phase A–F done. Scope: portal perusahaan (karyawan). Sekolah sudah punya `mode` di `sekolah_sessions` dan `BookingService::available()`.
+
+**Konteks (bukti kode, bukan asumsi):**
+- Isi keluhan HR → SUDAH ditutup di commit `6f8b4ce` (`perusahaan/hr-review.blade.php`, dijaga `RequestNotesPrivacyTest`).
+- `perusahaan_sessions` TIDAK punya kolom `mode`; `sekolah_sessions` punya (`default 'online'`, migrasi `2026_09_19_000004:23`).
+- `BookingService::book()` hanya menyimpan `mode` untuk cabang sekolah (`BookingService.php:122`).
+- `Schedule.mode` ditulis HANYA oleh admin klinik (`Klinik\ScheduleController.php:89`) — konsultan tidak bisa menerbitkan slot sendiri, jadi "pilih mode" tidak bisa diturunkan dari `Schedule` untuk perusahaan.
+- Alur "konsultan kasih jadwal available" SUDAH ADA end-to-end: `Consultant\SlotProposalController` (propose 2–3 slot) → `perusahaan.slots.confirm` → `SessionStateMachine::schedule()`. Employee dashboard sudah merender `$pendingProposals`. Yang hilang: TIDAK ADA link dari `consultant/sessions.blade.php` ke form propose.
+
+#### Task G.1: Migration — kolom `mode` di `perusahaan_sessions` (S)
+- **Files:** `database/migrations/2026_11_18_000001_add_mode_to_perusahaan_sessions_table.php` (new)
+- **Action:** `$table->string('mode')->default('online');` — mirror `sekolah_sessions.mode`. Jangan rebuild tabel (CHECK constraint rebuild tidak perlu untuk kolom baru).
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Kolom ada, default `online`, migrasi reversible.
+
+#### Task G.2: Simpan mode dari request + self-booking (S)
+- **Files:** `app/Models/Perusahaan/PerusahaanSession.php`, `app/Http/Controllers/Perusahaan/EmployeeController.php`, `app/Services/BookingService.php`
+- **Action:** (a) `'mode'` masuk `$fillable`. (b) `requestConsultation` validasi `'mode' => ['required','in:online,offline']` dan simpan. (c) `BookingService::book()` cabang perusahaan ikut menyimpan `'mode' => $slot->mode ?? 'online'` supaya "pilih jadwal sendiri" juga membawa mode slot.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Request tersimpan dengan mode pilihan; booking manual menyimpan mode dari `Schedule`.
+
+#### Task G.3: Form pilih mode (S)
+- **Files:** `resources/views/perusahaan/employee.blade.php`
+- **Action:** Radio group di form request: "Online (via chat)" / "Tatap muka 1-on-1". Pakai komponen/kelas yang sudah ada di form (border-pine-500, focus ring). Default `old('mode', 'online')`. Update teks jaminan privasi kalau perlu.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Radio ter-render, required, error state konsisten dengan field lain.
+
+#### Task G.4: Tampilkan mode di kartu yang relevan (S)
+- **Files:** `resources/views/perusahaan/employee.blade.php`, `resources/views/perusahaan/hr-review.blade.php`, `resources/views/consultant/sessions.blade.php`, `resources/views/perusahaan/booking.blade.php`
+- **Action:** Badge kecil "Tatap muka" / "Online" di: kartu pending karyawan, kartu review HR (mode bukan data sensitif — HR butuh untuk siapkan ruang), baris sesi konsultan. Di `booking.blade.php:153` ganti `{{ $slot->mode }}` mentah jadi label Indonesia.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Tidak ada lagi string mentah `online`/`offline` yang tampil ke user.
+
+#### Task G.5: Entry point "Usulkan opsi jadwal" untuk konsultan (S)
+- **Files:** `resources/views/consultant/sessions.blade.php`
+- **Action:** Di blok `@if(!$cs->scheduled_at && $cs->status === 'scheduled')` tambah link ke `route('consultant.sessions.propose-slots.form', $cs)` ("Usulkan opsi jadwal"). Route + controller + view sudah ada; hanya link yang hilang.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Link muncul untuk sesi yang menunggu penjadwalan, mengarah ke form yang berfungsi.
+
+#### Task G.6: Test paritas mode + entry point (S)
+- **Files:** `tests/Feature/Perusahaan/ModeParityTest.php` (new)
+- **Action:** (1) request tanpa mode → 422/lolos? → wajibkan. (2) request dengan `mode=offline` tersimpan `offline`. (3) `bookingStore` dengan slot offline menyimpan `mode=offline`. (4) halaman review HR merender badge mode DAN tetap tidak merender `request_notes`. (5) `consultant.sessions` menampilkan link propose-slots untuk sesi pending. (6) halaman propose-slots bisa dibuka konsultan pemilik, 403 untuk konsultan lain.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Semua test hijau; full suite tetap hijau.
+
+#### Task G.7: Tutup celah "akhiri sesi" tanpa jadwal (S) — DEFECT, ikut Phase G
+- **Files:** `app/Http/Controllers/ChatController.php`
+- **Action:** `consultantEnd()` (`:63`) dan `employeeEnd()` (`:78`) saat ini hanya cek `status === 'scheduled'`. Sesi yang sudah di-assign konsultan tapi `scheduled_at` masih NULL (menunggu penjadwalan) bisa diakhiri → status `done` → `PervormaService::evaluate('cap')` bayar komisi + `GenerateSessionSummary` jalan di atas transkrip kosong + kuota terbakar. Tambahkan syarat `$session->scheduled_at !== null` di kedua method. Samakan dengan `send()` di `PerusahaanSessionPolicy` yang sudah mensyaratkan `scheduled_at`.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** End pada sesi assigned-belum-terjadwal → 422. Pervorma tidak ter-trigger. Test membuktikan keduanya.
+
+#### Task G.8: Sembunyikan tombol Chat pada baris CAP yang belum terjadwal (S) — DEFECT
+- **Files:** `resources/views/consultant/sessions.blade.php`
+- **Action:** `:59` merender link Chat tanpa syarat; sekolah sudah benar (`@if($ss->scheduled_at)` di `:116-117`). Bungkus link Chat CAP dengan `@if($cs->scheduled_at)` agar tidak membuka room mati yang menampilkan pesan untuk karyawan.
+- **Verify:** `./vendor/bin/phpunit --filter=ModeParityTest`
+- **Acceptance:** Sesi pending hanya menampilkan "Usulkan opsi jadwal" + select jadwal, tanpa Chat.
+
+**Out of scope (dicatat, tidak dikerjakan):** slot proposal untuk sesi sekolah (`SessionSlotProposal.sekolah_session_id` ada tapi `SlotProposalController` hanya terima `PerusahaanSession`); lokasi/ruang untuk sesi offline (`location` tetap NULL — perlu alur booking ruang terpisah).
+
+### Deferred — defect ditemukan saat audit, TIDAK masuk Phase G
+
+| # | Temuan | Bukti | Dampak |
+|---|---|---|---|
+| D.1 | Tidak ada auto-provision karyawan (sekolah punya `StudentProvisioner`, perusahaan tidak) | `Perusahaan/RosterController.php:32-46` vs `Sekolah/RosterController.php:93,104` | Program CAP kosong sampai tiap karyawan di-invite manual |
+| D.2 | `bookingReschedule`/`bookingCancel` menerima baris pending-review | `EmployeeController.php:280-309` + `BookingService.php:65-66` | Reschedule bypass review HR; cancel membakar kuota |
+| D.3 | Empat kalkulasi kuota berbeda | `EmployeeController.php:80,237,403` vs `BookingService.php:48-55` | Booking melebihi kuota bisa lolos |
+| D.4 | Sesi assigned-belum-terjadwal tidak pernah expire | `CancelExpiredSessions.php:81,124` | Sesi menggantung permanen |
+| D.5 | `read_at` di `chat_messages` tidak pernah ditulis | `ChatMessage.php:15` | Tidak ada indikator pesan belum dibaca |
+| D.6 | Rating & AI summary hanya server-render; JS menutup composer tanpa reload | `room.blade.php:52-67` vs `:149-156` | User tidak melihat form rating setelah sesi berakhir |
+| D.7 | Transkrip purged 24 jam tampil sama dengan "belum pernah chat" | `room.blade.php:167` | Ambiguitas setelah retensi |
+
+## Status: Phase F + Phase G DONE (G.1–G.8). Deferred D.1–D.7 DONE. Full Feature suite 458/458 green.

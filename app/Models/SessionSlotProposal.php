@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Sekolah\SekolahSession;
 use Illuminate\Database\Eloquent\Model;
 
 class SessionSlotProposal extends Model
@@ -12,6 +13,7 @@ class SessionSlotProposal extends Model
 
     protected $fillable = [
         'session_id',
+        'sekolah_session_id',
         'consultant_id',
         'proposed_at',
         'slots',
@@ -26,6 +28,11 @@ class SessionSlotProposal extends Model
     public function session()
     {
         return $this->belongsTo(\App\Models\Perusahaan\PerusahaanSession::class, 'session_id');
+    }
+
+    public function sekolahSession()
+    {
+        return $this->belongsTo(SekolahSession::class, 'sekolah_session_id');
     }
 
     public function consultant()

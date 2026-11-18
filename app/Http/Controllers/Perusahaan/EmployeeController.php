@@ -79,8 +79,8 @@ class EmployeeController extends Controller
 
         $usedMonth = $employee->sessions()->where('status', 'done')
             ->where('completed_at', '>=', $monthStart)->count();
-        $scheduledMonth = $employee->sessions()->where('status', 'scheduled')
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        // D.3: sisa kuota = kuota - monthQuotaUsed (termasuk request pending review).
+        $scheduledMonth = max(0, \App\Services\BookingService::monthQuotaUsed($employee) - $usedMonth);
         $quota = $perusahaan->sessions_per_employee_month;
         $history = $employee->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
@@ -137,7 +137,12 @@ class EmployeeController extends Controller
         abort_unless($session->status === 'scheduled' && $session->scheduled_at === null,
             422, 'Hanya permintaan yang belum terjadwal bisa dibatalkan di sini.');
 
-        \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+        DB::transaction(function () use ($session) {
+            \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+            // D.2: proposal slot yang masih pending tidak boleh menggantung.
+            \App\Models\SessionSlotProposal::where('session_id', $session->id)
+                ->where('status', 'pending')->update(['status' => 'rejected']);
+        });
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Permintaan konsultasi dibatalkan. Kuota kamu kembali.');
@@ -232,11 +237,8 @@ class EmployeeController extends Controller
     {
         $employee = $this->resolveEmployee();
         $perusahaan = $employee->perusahaan;
-        $monthStart = now()->startOfMonth();
 
-        $usedMonth = $employee->sessions()
-            ->whereIn('status', ['scheduled', 'done'])
-            ->where('scheduled_at', '>=', $monthStart)->count();
+        $usedMonth = \App\Services\BookingService::monthQuotaUsed($employee);
         $quota = $perusahaan->sessions_per_employee_month;
 
         $pool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id);
@@ -282,6 +284,10 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         abort_unless($session->employee_id === $employee->id, 403);
         abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa dibatalkan.');
+        // D.2: baris pending-review dibatalkan lewat jalur yang mengembalikan kuota.
+        if ($session->scheduled_at === null) {
+            return $this->cancelPendingRequest($session);
+        }
 
         request()->validate(['reason' => ['required', 'string', 'max:1000']]);
         $restored = \App\Services\BookingService::cancel('perusahaan', $session, request('reason'));
@@ -295,6 +301,8 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         abort_unless($session->employee_id === $employee->id, 403);
         abort_unless($session->status === 'scheduled', 422, 'Hanya sesi terjadwal yang bisa diubah.');
+        // D.2: reschedule tidak boleh bypass review HR untuk permintaan pending.
+        abort_if($session->scheduled_at === null, 422, 'Permintaan masih menunggu review.');
 
         // ADR 001: max 3 jadwal total per sesi. Enforced di perusahaan flow;
         // ponytail: sekolah/BookingService belum — samakan saat reschedule mereka dimigrasi.
@@ -393,17 +401,15 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             'topic_category' => ['nullable', 'string', 'max:100'],
             'body' => ['required', 'string', 'max:2000'],
+            'mode' => ['required', 'in:online,offline'],
         ]);
 
         $perusahaan = $employee->perusahaan;
         abort_if($employee->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
             422, 'Masih ada permintaan menunggu review.');
 
-        $monthStart = now()->startOfMonth();
-        $usedMonth = $employee->sessions()
-            ->whereIn('status', ['scheduled', 'done'])
-            ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))->count();
-        abort_if($usedMonth >= $perusahaan->sessions_per_employee_month, 422, 'Kuota bulan ini habis.');
+        abort_if(\App\Services\BookingService::monthQuotaUsed($employee) >= $perusahaan->sessions_per_employee_month,
+            422, 'Kuota bulan ini habis.');
 
         // Gate review HR: 'scheduled' + scheduled_at NULL + consultant_id NULL
         // (nilai 'pending' tidak lolos CHECK constraint status — lihat migrasi 2026_10_21).
@@ -418,6 +424,7 @@ class EmployeeController extends Controller
             'status' => 'scheduled',
             'scheduled_at' => null,
             'request_notes' => $validated['body'],
+            'mode' => $validated['mode'],
         ]);
 
         return redirect()->route('perusahaan.employee')

@@ -1,0 +1,164 @@
+<?php
+
+namespace Tests\Feature\Perusahaan;
+
+use App\Models\Perusahaan\Perusahaan;
+use App\Models\Perusahaan\PerusahaanEmployee;
+use App\Models\Perusahaan\PerusahaanSession;
+use App\Models\SessionSlotProposal;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+/**
+ * D.3: satu kalkulasi kuota untuk semua jalur (pending review ikut memakai kuota).
+ * D.2: reschedule ditolak untuk baris pending-review; cancel pending mengembalikan kuota.
+ */
+class QuotaConsistencyTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function user(string $email, string $role): User
+    {
+        $roleId = DB::table('roles')->where('name', $role)->value('id')
+            ?? DB::table('roles')->insertGetId(['name' => $role, 'created_at' => now(), 'updated_at' => now()]);
+
+        return User::create([
+            'uuid' => Str::uuid(), 'firstname' => 'U', 'lastname' => $role,
+            'username' => Str::slug($email), 'email' => $email,
+            'password' => bcrypt('password'), 'is_active' => true, 'role_id' => $roleId,
+        ]);
+    }
+
+    /** [$perusahaan, $user, $employee] */
+    private function fixture(int $quota = 1): array
+    {
+        $p = Perusahaan::create([
+            'name' => 'PT Test', 'brand' => 'TestCo', 'sessions_per_employee_month' => $quota,
+            'employee_count' => 3, 'is_active' => true,
+        ]);
+        $user = $this->user('emp@test.local', 'employee');
+        $emp = PerusahaanEmployee::create([
+            'perusahaan_id' => $p->id, 'user_id' => $user->id,
+            'name' => 'Emp', 'email' => 'emp@test.local', 'consent_at' => now(),
+        ]);
+
+        return [$p, $user, $emp];
+    }
+
+    private function pendingSession(Perusahaan $p, PerusahaanEmployee $emp): PerusahaanSession
+    {
+        return PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null, 'konsultan_type' => 'psikolog', 'mode' => 'online',
+            'status' => 'scheduled', 'scheduled_at' => null,
+        ]);
+    }
+
+    public function test_pending_request_blocks_new_booking(): void
+    {
+        [$p, $user, $emp] = $this->fixture(1);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $this->pendingSession($p, $emp);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.store'), [
+            'schedule_id' => $slot->id,
+            'konsultan_type' => 'psikolog',
+        ])->assertStatus(403);
+
+        $this->assertSame(1, $emp->sessions()->count());
+    }
+
+    public function test_cancel_pending_request_restores_quota(): void
+    {
+        [$p, $user, $emp] = $this->fixture(1);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $session = $this->pendingSession($p, $emp);
+        SessionSlotProposal::create([
+            'session_id' => $session->id, 'consultant_id' => $slot->consultant_id,
+            'proposed_at' => now(), 'status' => 'pending',
+            'slots' => [['start' => now()->addDay()->toDateTimeString(), 'end' => now()->addDay()->addHour()->toDateTimeString()]],
+        ]);
+
+        $this->actingAs($user)->post(route('perusahaan.request.cancel', $session))
+            ->assertRedirect(route('perusahaan.employee'));
+
+        $session->refresh();
+        $this->assertSame('cancelled', $session->status);
+        $this->assertFalse((bool) $session->quota_consumed);
+        $this->assertSame('rejected', SessionSlotProposal::firstOrFail()->status);
+
+        // Kuota kembali: booking baru diterima.
+        $this->actingAs($user)->post(route('perusahaan.booking.store'), [
+            'schedule_id' => $slot->id,
+            'konsultan_type' => 'psikolog',
+        ])->assertRedirect(route('perusahaan.employee'));
+    }
+
+    public function test_cancel_pending_via_booking_cancel_restores_quota(): void
+    {
+        [$p, $user, $emp] = $this->fixture(1);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.cancel', $session), ['reason' => 'Batal'])
+            ->assertRedirect();
+
+        $session->refresh();
+        $this->assertSame('cancelled', $session->status);
+        $this->assertFalse((bool) $session->quota_consumed);
+    }
+
+    public function test_reschedule_pending_request_is_rejected(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.reschedule', $session), [
+            'schedule_id' => $slot->id,
+        ])->assertStatus(422);
+
+        $session->refresh();
+        $this->assertSame('scheduled', $session->status);
+        $this->assertNull($session->scheduled_at);
+    }
+    public function test_cancelled_unscheduled_row_with_consumed_quota_still_counts(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $session = $this->pendingSession($p, $emp);
+        // Skenario late-cancel pada baris pending: kuota tetap terpakai.
+        $session->update(['status' => 'cancelled', 'quota_consumed' => true, 'cancelled_at' => now()]);
+
+        $this->assertSame(1, \App\Services\BookingService::monthQuotaUsed($emp));
+    }
+
+    public function test_cancelled_unscheduled_row_without_consumed_quota_does_not_count(): void
+    {
+        [$p, $user, $emp] = $this->fixture(2);
+        $session = $this->pendingSession($p, $emp);
+        $session->update(['status' => 'cancelled', 'quota_consumed' => false, 'cancelled_at' => now()]);
+
+        $this->assertSame(0, \App\Services\BookingService::monthQuotaUsed($emp));
+    }
+    public function test_reschedule_keeps_employee_chosen_mode(): void
+    {
+        [$p, $user, $emp] = $this->fixture(3);
+        $session = \App\Models\Perusahaan\PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $emp->id,
+            'consultant_id' => null, 'konsultan_type' => 'psikolog', 'mode' => 'offline',
+            'status' => 'scheduled', 'scheduled_at' => now()->addDay(),
+        ]);
+        $slot = $this->programSlot('perusahaan', $p->id);
+        $slot->update(['mode' => 'online']);
+
+        $this->actingAs($user)->post(route('perusahaan.booking.reschedule', $session), [
+            'schedule_id' => $slot->id,
+        ])->assertRedirect();
+
+        $replacement = \App\Models\Perusahaan\PerusahaanSession::where('status', 'scheduled')
+            ->where('scheduled_at', '!=', null)->latest('id')->firstOrFail();
+        $this->assertSame('offline', $replacement->mode);
+    }
+}

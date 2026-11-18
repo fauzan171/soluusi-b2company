@@ -16,7 +16,8 @@ class ProgramAggregate
         $sessions = $tenant->sessions()->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $end)->get();
         $done = $sessions->where('status', 'done');
         $assessed = $assessmentModel::where($vertical.'_id', $tenant->id)->where('taken_at', '>=', $start)
-            ->where('taken_at', '<', $end)->get()->groupBy($person)->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
+            ->where('taken_at', '<', $end)->when($school, fn ($q) => $q->studentRoster())->get()
+            ->groupBy($person)->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
         $risk = [
             'Sehat' => $assessed->where('score', '>=', 75)->count(),
             'Perlu Perhatian' => $assessed->filter(fn ($a) => $a->score >= 50 && $a->score < 75)->count(),
