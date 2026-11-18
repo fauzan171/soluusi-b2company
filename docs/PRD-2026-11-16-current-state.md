@@ -3,7 +3,7 @@
 > Versi: 3.2 (Batch 7 diimplementasi di branch `feat/onboarding-bulk-accounts`)
 > Tanggal: 18 Nov 2026
 > Status: **current-state `main`** + satu bagian berlabel cabang. Bagian berlabel diperiksa per kalimat: §5.6 & §6.1 = **sudah ada di branch `feat/onboarding-bulk-accounts`** (belum di-merge/deploy), sisanya = kondisi `main` @ `82888ec`.
-> Sumber kebenaran kode: `main` @ `82888ec` + branch `feat/onboarding-bulk-accounts` (5 commit + 1 fix, 369 test Feature hijau).
+> Sumber kebenaran kode: `main` @ `82888ec` + branch `feat/onboarding-bulk-accounts` (10 commit, 377 test Feature hijau).
 > Menggantikan: `Soluusi B2B Platform - PRD.md` v1.2 (5 Agu 2026) — dokumen itu tetap north-star bisnis, tapi 16 klaim di dalamnya sudah usang vs kode (lihat §14)
 
 ---
@@ -168,7 +168,7 @@ aktif).
 sudah ada di roster.
 
 **Status implementasi (18 Nov 2026)**: lima commit di branch
-`feat/onboarding-bulk-accounts`, 369 test Feature / 1443 assertions / 0
+`feat/onboarding-bulk-accounts`, 377 test Feature / 1463 assertions / 0
 failures. File utama: `app/Services/RosterCsvImport.php`,
 `app/Http/Controllers/Perusahaan/RosterImportController.php`,
 `app/Http/Middleware/ForcePasswordChange.php`,
@@ -317,7 +317,7 @@ Harga referensi bisnis (dari playbook/spec, indikatif, parameterize): net price 
 
 - `main` @ `82888ec` (PR #4 merged: Superadmin Control Center + Employee Booking UI redesign). PR #1–#4 semua merged.
 - Branch `goal/sekolah-flow-parity` (worktree `/home/seva-ojan/wt/soluusib2b-goal-sekolah-flow` @ `436f7bb`) — parity SAP + E.1 staf sekolah, 474 tests / 1777 assertions / 0 failures. **Belum di-push, belum di-merge** (menunggu approval).
-- **Batch 7 (onboarding massal)** — branch `feat/onboarding-bulk-accounts` @ `92bf3fa`, 5 commit: ONB.1 + ONB.3 + ONB.4 + ONB.2 (perusahaan) + ONB.5 selesai; ONB.6 dan varian siswa ONB.2 menunggu `goal/sekolah-flow-parity`. 369 test Feature / 1443 assertions / 0 failures. **Belum di-push, belum di-merge, belum migrate.**
+- **Batch 7 (onboarding massal)** — branch `feat/onboarding-bulk-accounts` @ `01088e9`, 10 commit: ONB.1 + ONB.3 + ONB.4 + ONB.2 (perusahaan) + ONB.5 selesai; ONB.6 dan varian siswa ONB.2 menunggu `goal/sekolah-flow-parity`. 377 test Feature / 1463 assertions / 0 failures. Review + security audit sudah lewat; temuannya ditutup di `21bbb0c`. **Belum di-push, belum di-merge, belum migrate.**
 - Deploy blocker (eksternal): merge PR #3 → `php artisan migrate` (2 migrasi baru) → env AI dengan **key Tokengateway yang SUDAH di-rotate** (key lama bocor di chat) → set `ai_enabled=1` per tenant → pastikan cron `schedule:run` jalan. Batch 7 menambah 4 migrasi lagi ke antrean deploy.
 - Urutan kerja yang disepakati: merge `goal/sekolah-flow-parity` → merge `feat/onboarding-bulk-accounts` → ONB.6 + varian siswa ONB.2 (dikerjakan di atas kedua branch).
 
