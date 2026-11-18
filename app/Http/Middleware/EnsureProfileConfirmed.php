@@ -28,7 +28,7 @@ class EnsureProfileConfirmed
 
         $route = match (optional($user->role)->name) {
             'employee' => 'perusahaan.profile',
-            'student' => 'sekolah.profile',
+            'student', 'sekolah_staff' => 'sekolah.profile',
             default => null,
         };
 
