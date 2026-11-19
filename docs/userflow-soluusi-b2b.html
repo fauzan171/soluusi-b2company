@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soluusi B2B — User Flow Detail</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'JetBrains Mono',monospace; background:#020617; color:#e2e8f0; padding:2rem; }
+    h1 { font-size:1.4rem; margin-bottom:.25rem; }
+    h2 { font-size:1rem; color:#22d3ee; margin:2rem 0 .75rem; text-transform:uppercase; letter-spacing:.1em; }
+    .subtitle { color:#64748b; font-size:.8rem; margin-bottom:1.5rem; }
+    .lane { border:1px solid #1e293b; border-radius:.75rem; margin-bottom:1.5rem; padding:1.25rem; background:rgba(15,23,42,.5); }
+    .lane-title { font-size:.8rem; font-weight:700; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+    .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .flow { display:flex; align-items:stretch; gap:0; flex-wrap:wrap; }
+    .step { background:rgba(8,51,68,.5); border:1px solid #22d3ee; border-radius:8px; padding:.6rem .7rem; min-width:150px; max-width:190px; }
+    .step b { font-size:.72rem; color:white; display:block; margin-bottom:.25rem; }
+    .step span { font-size:.65rem; color:#94a3b8; line-height:1.45; display:block; }
+    .step.warn { border-color:#fbbf24; } .step.sec { border-color:#fb7185; } .step.ok { border-color:#34d399; } .step.ext { border-color:#94a3b8; }
+    .arr { align-self:center; padding:0 .45rem; color:#475569; font-size:.9rem; white-space:nowrap; }
+    .arr.dash { color:#fb7185; }
+    .note { font-size:.65rem; color:#64748b; margin-top:.6rem; }
+    .note b { color:#fbbf24; }
+    .card { background:rgba(15,23,42,.5); border:1px solid #1e293b; border-radius:.75rem; padding:1.25rem; margin-bottom:1.5rem; }
+    .card h3 { font-size:.8rem; margin-bottom:.5rem; }
+    .card p, .card li { font-size:.72rem; color:#94a3b8; line-height:1.6; }
+    .card ul { margin-left:1.1rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1rem; }
+    .footer { text-align:center; color:#475569; font-size:.7rem; margin-top:2rem; }
+    code { background:#0f172a; padding:.1rem .3rem; border-radius:4px; font-size:.68rem; color:#7dd3fc; }
+  </style>
+</head>
+<body>
+<div class="container" style="max-width:1200px;margin:0 auto;">
+  <div class="header">
+    <div class="header-row" style="display:flex;align-items:center;gap:1rem;margin-bottom:.25rem;">
+      <div class="pulse-dot"></div>
+      <h1>Soluusi B2B — User Flow Detail</h1>
+    </div>
+    <p class="subtitle">current-state v3.0 · main @ 82888ec · 8 role · 3 vertikal (HAP/SAP/CAP) · sumber: docs/PRD-2026-11-16-current-state.md</p>
+  </div>
+
+  <!-- ================= LANE 0: AKUISISI & AKTIVASI MITRA ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#fbbf24"></span> LANE 0 — AKUISISI &amp; AKTIVASI MITRA (superadmin)</div>
+    <div class="flow">
+      <div class="step ext"><b>Calon Partner</b><span>publik /daftar-mitra (throttle 5/m)</span></div>
+      <div class="arr">→</div>
+      <div class="step warn"><b>Approval Queue</b><span>masuk admin_actions, status pending</span></div>
+      <div class="arr">→</div>
+      <div class="step sec"><b>Superadmin Review</b><span>role:admin gate, semua aksi ter-audit</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>Aktivasi Tenant</b><span>klinik = approve · perusahaan/sekolah = activate (sekolah dari nol)</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>Provisioning Wizard</b><span>create tenant 3 tipe + akun admin tenant (DB transaction) + assign konsultan pool opsional</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>Tenant Live</b><span>admin tenant login (suspend = blokir login + alasan wajib + audit)</span></div>
+    </div>
+    <p class="note">Jalur alternatif tetap ada: <code>/daftar-mitra</code> → approval queue. Batch A roadmap: tenant switcher navbar menggantikan URL param <code>?{tenant}_id=</code>.</p>
+  </div>
+
+  <!-- ================= LANE 1: KLINIK (HAP) ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#fb7185"></span> LANE 1 — VERTIKAL KLINIK (HAP) · pasien GUEST, Model C checkout</div>
+    <div class="flow">
+      <div class="step"><b>klinik_admin</b><span>dashboard agregat, kelola konsultan + jadwal</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Buat Checkout Link</b><span>token 48-char, snapshot net_price/markup/final_price, expires_at 24 jam, used_at</span></div>
+      <div class="arr">→</div>
+      <div class="step ext"><b>Pasien (guest)</b><span>buka /checkout/{token} → isi data → /pay (voucher opsional, math di CheckoutFlow)</span></div>
+      <div class="arr">→</div>
+      <div class="step warn"><b>reserveSession</b><span>DB transaction + lockForUpdate jadwal + re-check slot → claimLink (atomik, 1 link = 1 sesi)</span></div>
+      <div class="arr">→</div>
+      <div class="step ext"><b>Midtrans Snap</b><span>mail instruksi bayar</span></div>
+      <div class="arr">→</div>
+      <div class="step warn"><b>Webhook Callback</b><span>api/midtrans-callback: signature verify → gross match → guard terminal-session</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>SplitSettlement</b><span>record: net→Soluusi, margin→klinik (idempotent) + gcal best-effort + mail lunas</span></div>
+    </div>
+    <div class="flow" style="margin-top:.75rem;">
+      <div class="step"><b>Sesi Berjalan</b><span>konsultan check-in → sesi (chat gate: scheduled + assigned + scheduled_at terisi)</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>markDone</b><span>konsultan tandai selesai</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Pasien Confirm</b><span>via status page → tryVerify set completion_verified_at</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>HAP Pervorma</b><span>trigger commission associate</span></div>
+      <div class="arr dash">⤷ fallback</div>
+      <div class="step sec"><b>Ops Review</b><span>sweep hourly: needs_ops_review &gt;24 jam tanpa confirm → verify manual</span></div>
+    </div>
+    <p class="note">Refund → <code>SplitSettlementService::reverse</code>. Voucher mengurangi NET Soluusi, margin klinik tetap. Jalur tanpa link: pasien browse <code>/booking/klinik/{uuid}</code> (white-label). <b>Xendit &amp; gateway-level split = stub config-only.</b></p>
+  </div>
+
+  <!-- ================= LANE 2: PERUSAHAAN (CAP) ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#34d399"></span> LANE 2 — VERTIKAL PERUSAHAAN (CAP) · vertikal paling lengkap</div>
+    <div class="flow">
+      <div class="step"><b>hr_admin</b><span>input roster manual ATAU undang via signed-URL /daftar/{type}</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>employee</b><span>self-register / di-roster → login</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>WHO-5 Assessment</b><span>skor → distribusi risiko agregat (≥75 sehat / 50-74 perhatian / &lt;50 berisiko)</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Booking (3 jalur)</b><span>① slot nyata: BookingService (pool, overlap check, kuota/bulan, cutoff 2 jam) ② request tanpa slot + request_notes → HR queue ③ slot proposal konsultan 2-3 slot → karyawan confirm 1 → auto-book</span></div>
+      <div class="arr">→</div>
+      <div class="step sec"><b>HR Review</b><span>approve (+override konsultan + reason, audit) / reject (kuota balik) — agregat only, TIDAK lihat isi sesi</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Sesi + Chat</b><span>polling 5 detik (backoff 10/30s), incremental ?after=, anonim "Konsultan"/"Karyawan"</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>AI Summary</b><span>job GenerateSessionSummary: transkrip ter-redaksi (cap 8000) → {summary, client_advice}; idempotent input_hash</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>Pasca-Sesi</b><span>karyawan lihat "Saran dari sesi kamu"; konsultan lihat summary; rating; HR agregat via AiInsightService (cache input_hash, lease 3 menit)</span></div>
+    </div>
+    <p class="note">Sweep hourly <code>sessions:cancel-expired</code>: scheduled tanpa check-in &gt;24 jam → auto-cancel (kuota balik) · pending HR review &gt;72 jam → auto-cancel · zombie checked-in &gt;4 jam → auto-done. Purge harian <code>chat:purge-ended</code>: chat_messages sesi done ≥24 jam hard-delete (chunk 200); row sesi &amp; session_summaries TETAP. <b>Batas:</b> schedule_version max 3/sesi (ke-4 → 422) · request_notes belum ada UI konsultan pembaca · tidak ada notif konfirmasi slot proposal.</p>
+  </div>
+
+  <!-- ================= LANE 3: SEKOLAH (SAP) ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#a78bfa"></span> LANE 3 — VERTIKAL SEKOLAH (SAP) · subset CAP, TANPA chat/AI per-sesi</div>
+    <div class="flow">
+      <div class="step"><b>bk</b><span>dashboard agregat + AI insight agregat (gate sama), roster siswa, export</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Refer Siswa</b><span>booking langsung, origin bk_referral — WAJIB parent_consent</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>student</b><span>WHO-5, booking (psikolog/karir saja), reschedule/cancel cutoff 24 jam</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Sesi</b><span>tanpa chat, tanpa AI per-sesi, tanpa request-tanpa-slot</span></div>
+    </div>
+    <p class="note"><b>Batas:</b> consent ortu diterima di form, jalur pencatatan belum rapi · instrumen hanya WHO-5 (DASS-21/MMCI/MMPI/DISC = north-star, lisensi MHCU NEEDS FOUNDER).</p>
+  </div>
+
+  <!-- ================= LANE 4: KONSULTAN ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#22d3ee"></span> LANE 4 — KONSULTAN (pool lintas vertikal)</div>
+    <div class="flow">
+      <div class="step"><b>consultant</b><span>jadwal, sesi list</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Check-in / mark-done</b><span>klinik; perusahaan: schedule langsung sesi</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Slot Proposal</b><span>propose 2-3 slot (session_slot_proposals) → karyawan confirm 1 → auto-book</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Chat (CAP only)</b><span>start = set checked_in_at; end → done; cancelled tidak bisa di-end (422)</span></div>
+      <div class="arr">→</div>
+      <div class="step ok"><b>Summary AI</b><span>lihat summary sesi; karyawan lihat client_advice</span></div>
+    </div>
+  </div>
+
+  <!-- ================= LANE 5: SUPERADMIN OPS ================= -->
+  <div class="lane">
+    <div class="lane-title"><span class="dot" style="background:#fb7185"></span> LANE 5 — SUPERADMIN OPS &amp; CONTROL CENTER</div>
+    <div class="flow">
+      <div class="step sec"><b>Control Center (Batch A)</b><span>tenant mgmt 3 vertikal (list/detail/edit/activate/suspend) + search/filter</span></div>
+      <div class="arr">→</div>
+      <div class="step sec"><b>Ops Work Queue</b><span>needs_ops_review + approval mitra + pervorma due + aktivasi pending → 1 halaman, filter per tipe</span></div>
+      <div class="arr">→</div>
+      <div class="step sec"><b>Uang</b><span>settle split manual · verify sesi manual · pervorma payout · CRUD paket/markup</span></div>
+      <div class="arr">→</div>
+      <div class="step sec"><b>Impersonation (Batch B)</b><span>view-as SEMUA role, read-only default, banner, expiry 30 menit, audit start/stop</span></div>
+      <div class="arr">→</div>
+      <div class="step"><b>Associate (Batch C)</b><span>assign ke tenant 3 vertikal, pervorma mirror per vertikal, payout admin</span></div>
+    </div>
+    <p class="note">Juga: audit log viewer (payload di-mask PII) · system health (failed jobs, queue depth, last-run scheduler) · <code>/progress</code> halaman status presentasi (gated).</p>
+  </div>
+
+  <!-- ================= CARDS ================= -->
+  <h2>Ringkasan Sistem</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="card-header"><div class="card-dot cyan"></div><h3>8 Role Efektif</h3></div>
+      <ul>
+        <li><code>superadmin</code> (role name <code>admin</code>) — global, semua + view-as + assign pool</li>
+        <li><code>klinik_admin</code> — 1 klinik, checkout link, markup</li>
+        <li><code>associate</code> — pervorma + payout referral</li>
+        <li><code>hr_admin</code> — agregat, roster, review request</li>
+        <li><code>employee</code> — WHO-5, booking, chat, rating</li>
+        <li><code>consultant</code> — jadwal, sesi, proposal, chat CAP</li>
+        <li><code>bk</code> — 1 sekolah, refer (consent wajib)</li>
+        <li><code>student</code> — WHO-5, booking, TANPA chat</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot emerald"></div><h3>Uang — Nyata vs Stub</h3></div>
+      <ul>
+        <li>✅ Midtrans Snap + webhook verify · voucher · markup cap · ledger split + reverse · HAP pervorma</li>
+        <li>⚠️ Settle margin ke klinik = manual admin</li>
+        <li>❌ Xendit, gateway-level split (<code>SPLIT_ON=false</code>)</li>
+        <li>❌ Billing B2B: PEPM invoice, subscription sekolah, MHCU flat</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot violet"></div><h3>AI &amp; Privasi</h3></div>
+      <ul>
+        <li>Seam <code>AIService</code>: null → NullAIService (rule-based fallback); tokengateway → glm-5.3-flash</li>
+        <li>Gate per-tenant <code>ai_enabled</code> dicek PERTAMA</li>
+        <li>Redaksi PII sebelum LLM (email/telepon/nama honorific); grup &lt;5 kontributor → suppress</li>
+        <li>Chat CAP: retensi 24 jam → hard-delete; summaries persist</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot amber"></div><h3>Ops &amp; Teknis</h3></div>
+      <ul>
+        <li>Laravel 12, Blade+Tailwind, vanilla JS polling (bukan websocket)</li>
+        <li>131 migrasi · SQLite dev / MySQL prod · queue+cache+session = database</li>
+        <li>Scheduler wajib: sweep payment 5 menit, cancel-expired + ops-review hourly, purge harian</li>
+        <li>Rate limit 22 titik (login 10/m, chat 60/m, dst.)</li>
+        <li>TenantScope global scope, 6 model tenant-scoped</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">Soluusi B2B Klinik · dihasilkan dari docs/PRD-2026-11-16-current-state.md (v3.0, current-state) · main @ 82888ec · 2026-11-17</p>
+</div>
+</body>
+</html>
