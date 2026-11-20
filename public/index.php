@@ -20,6 +20,22 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
     require $maintenance;
 }
 
+// ponytail: php -S workers on cpanel VPS keep a pre-`composer dump-autoload`
+// classmap in memory — after any dump, stale workers 500 with empty body until
+// restarted. Self-heal: a worker whose process started before the classmap's
+// mtime exits; systemd user unit (Restart=on-failure) respawns it fresh.
+// Remove when the app moves to php-fpm.
+$classmapMtime = @filemtime(__DIR__.'/../vendor/composer/autoload_classmap.php');
+if ($classmapMtime !== false && PHP_SAPI === 'cli-server') {
+    $stat = explode(' ', trim((string) file_get_contents('/proc/self/stat')));
+    $startedAt = (int) $stat[21] / 100; // starttime field (ticks → seconds since boot)
+    $bootTime = (int) trim((string) file_get_contents('/proc/uptime'));
+    $processBornUnix = time() - ($bootTime - $startedAt);
+    if ($processBornUnix > 0 && $processBornUnix < $classmapMtime) {
+        exit(1); // trigger systemd respawn
+    }
+}
+
 /*
 |--------------------------------------------------------------------------
 | Register The Auto Loader
