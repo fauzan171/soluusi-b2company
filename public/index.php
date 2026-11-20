@@ -32,6 +32,7 @@ if ($classmapMtime !== false && PHP_SAPI === 'cli-server') {
     $bootTime = (int) trim((string) file_get_contents('/proc/uptime'));
     $processBornUnix = time() - ($bootTime - $startedAt);
     if ($processBornUnix > 0 && $processBornUnix < $classmapMtime) {
+        @file_put_contents('/tmp/soluusi-guard-debug.log', sprintf("worker born=%d mtime=%d — exiting\n", $processBornUnix, $classmapMtime), FILE_APPEND);
         exit(1); // trigger systemd respawn
     }
 }
