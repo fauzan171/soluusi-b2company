@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ChatMessage;
 use App\Models\Consultant;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
@@ -105,6 +106,37 @@ class ChatTest extends TestCase
         $this->get(route('perusahaan.chat', $session))->assertRedirect(route('login'));
 
         $this->assertSame(0, $session->chatMessages()->count());
+    }
+
+    /** F7: payload harus urut lama→baru (UI append), window = 200 TERBARU, has_more benar. */
+    public function test_payload_is_ascending_and_pages_backwards()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+
+        for ($i = 1; $i <= 250; $i++) {
+            ChatMessage::create([
+                'perusahaan_session_id' => $session->id,
+                'sender_id' => $owner->id,
+                'body' => 'm'.$i,
+            ]);
+        }
+
+        $first = $this->actingAs($owner)->getJson(route('perusahaan.chat', $session).'?after=0')
+            ->assertOk()->json();
+
+        $this->assertSame('m51', $first['messages'][0]['body'], 'window = 200 pesan TERBARU');
+        $this->assertSame('m250', $first['messages'][199]['body'], 'payload urut lama→baru');
+        $this->assertTrue($first['has_more'], 'masih ada riwayat lebih lama');
+
+        $older = $this->actingAs($owner)->getJson(
+            route('perusahaan.chat', $session).'?before_id='.$first['messages'][0]['id']
+        )->assertOk()->json();
+
+        $this->assertCount(50, $older['messages']);
+        $this->assertSame('m1', $older['messages'][0]['body']);
+        $this->assertSame('m50', $older['messages'][49]['body']);
+        $this->assertFalse($older['has_more'], 'riwayat habis');
     }
 
     public function test_empty_and_oversize_body_rejected()

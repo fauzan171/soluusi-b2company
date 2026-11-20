@@ -201,20 +201,29 @@ class ChatController extends Controller
         $myId = $me->id;
         $myName = trim($me->firstname . ' ' . $me->lastname);
 
-        $messages = $session->chatMessages()
-            ->where('id', '>', $after)
-            ->orderBy('id')
+        // F7 mirror: `before_id` → halaman 200 pesan sebelum id itu (load-more).
+        // reorder() wajib — chatMessages() sudah orderBy('id').
+        $beforeId = (int) request('before_id', 0);
+        $q = $session->chatMessages()
+            ->when($beforeId > 0, fn ($qq) => $qq->where('id', '<', $beforeId),
+                fn ($qq) => $qq->where('id', '>', $after))
+            ->reorder('id', 'desc')
             ->limit(200)
             ->get()
-            ->map(fn (ChatMessage $m) => [
-                'id' => $m->id,
-                'mine' => $m->sender_id === $myId,
-                'name' => $m->sender_id === $myId ? $myName : $peerLabel,
-                'body' => $m->body,
-                'at' => $m->created_at->format('H:i'),
-                // D.5 parity: status baca hanya relevan untuk pesan sendiri.
-                'read' => $m->sender_id === $myId && $m->read_at !== null,
-            ]);
+            ->reverse()->values(); // desc→asc: UI append kronologis
+
+        $hasMore = $q->isNotEmpty()
+            && $session->chatMessages()->where('id', '<', $q->min('id'))->exists();
+
+        $messages = $q->map(fn (ChatMessage $m) => [
+            'id' => $m->id,
+            'mine' => $m->sender_id === $myId,
+            'name' => $m->sender_id === $myId ? $myName : $peerLabel,
+            'body' => $m->body,
+            'at' => $m->created_at->format('H:i'),
+            // D.5 parity: status baca hanya relevan untuk pesan sendiri.
+            'read' => $m->sender_id === $myId && $m->read_at !== null,
+        ]);
 
         // D.5 parity: tandai terbaca HANYA pesan lawan yang benar-benar terkirim
         // di payload ini — sisanya di luar limit 200 belum dilihat user.
@@ -227,7 +236,9 @@ class ChatController extends Controller
         }
 
         return [
-            'messages' => $messages,
+            'messages' => $messages->values(),
+            // F7: ada riwayat lebih lama → UI render tombol "Muat pesan lama".
+            'has_more' => $hasMore,
             'status' => $session->status,
             'can_send' => $this->canSend($session),
             'peer_read_upto' => (int) $session->chatMessages()

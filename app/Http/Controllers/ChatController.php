@@ -182,6 +182,7 @@ class ChatController extends Controller
      * Pesan sejak id tertentu, maksimal 200 (poll incremental) + state sesi
      * supaya UI yang kebuka ikut nutup begitu pihak lain mengakhiri.
      * Nama peserta tidak dikirim: karyawan anonim.
+     * F7: `before_id` → halaman 200 pesan sebelum id itu (load-more riwayat lama).
      */
     private function payload(PerusahaanSession $session, int $after, string $peerLabel)
     {
@@ -189,19 +190,29 @@ class ChatController extends Controller
         $myId = $me->id;
         $myName = trim($me->firstname.' '.$me->lastname);
 
-        $messages = $session->chatMessages()
-            ->where('id', '>', $after)
-            ->orderBy('id')
+        $beforeId = (int) request('before_id', 0);
+        // F7: relation chatMessages() sudah membawa orderBy('id') — reorder WAJIB.
+        // Tanpa itu SQL jadi `id asc, id desc` dan LIMIT mengambil 200 pesan
+        // TERLAMA (pesan baru tak pernah tampil, has_more selalu false).
+        $q = $session->chatMessages()
+            ->when($beforeId > 0, fn ($qq) => $qq->where('id', '<', $beforeId),
+                fn ($qq) => $qq->where('id', '>', $after))
+            ->reorder('id', 'desc')
             ->limit(200)
             ->get()
-            ->map(fn (ChatMessage $m) => [
-                'id' => $m->id,
-                'mine' => $m->sender_id === $myId,
-                'name' => $m->sender_id === $myId ? $myName : $peerLabel,
-                'body' => $m->body,
-                'at' => $m->created_at->format('H:i'),
-                'read' => $m->sender_id === $myId && $m->read_at !== null,
-            ]);
+            ->reverse()->values(); // desc→asc: UI append kronologis
+
+        $hasMore = $q->isNotEmpty()
+            && $session->chatMessages()->where('id', '<', $q->min('id'))->exists();
+
+        $messages = $q->map(fn (ChatMessage $m) => [
+            'id' => $m->id,
+            'mine' => $m->sender_id === $myId,
+            'name' => $m->sender_id === $myId ? $myName : $peerLabel,
+            'body' => $m->body,
+            'at' => $m->created_at->format('H:i'),
+            'read' => $m->sender_id === $myId && $m->read_at !== null,
+        ]);
 
         // D.5: tandai terbaca HANYA pesan lawan yang benar-benar terkirim di payload
 // ini — pesan di luar limit 200 belum dilihat user, jangan ditandai.
@@ -214,7 +225,9 @@ class ChatController extends Controller
         }
 
         return [
-            'messages' => $messages,
+            'messages' => $messages->values(),
+            // F7: ada riwayat lebih lama → UI render tombol "Muat pesan lama".
+            'has_more' => $hasMore,
             'status' => $session->status,
             'can_send' => $this->canSend($session),
             // D.5: id pesan sendiri terakhir yang sudah dibaca lawan → tick live.

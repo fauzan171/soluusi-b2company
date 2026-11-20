@@ -102,6 +102,10 @@
         </p>
         @endif
 
+        {{-- F7: load-more riwayat >200 pesan; server set visibilitas via has_more. --}}
+        <div class="shrink-0 border-b border-[#e7e2d9] bg-white text-center py-1">
+            <button id="chat-older" type="button" class="hidden text-xs font-medium text-pine-700 hover:underline">Muat pesan lama</button>
+        </div>
         <div id="chat-log" class="flex-1 min-h-0 px-4 py-4 sm:px-5 overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
 
         <div id="chat-composer" class="shrink-0">
@@ -133,6 +137,7 @@
     const postUrl = root.dataset.post;
     const token = root.dataset.token;
     let lastId = 0, first = true, sending = false, timer = null;
+    let hasMore = false, loadingOlder = false;
     let peerReadUpto = 0;
     let delay = 5000; // backoff: 5s → 10s → 30s cap, reset on success
     let terminal = ['done', 'cancelled', 'no_show'].includes(root.dataset.status);
@@ -153,6 +158,20 @@
         log.appendChild(wrap);
         log.scrollTop = log.scrollHeight;
         if (m.id > lastId) lastId = m.id;
+    }
+
+    // F7: prepend untuk load-more — sisip sebelum anak pertama, tanpa auto-scroll.
+    function prepend(m) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex ' + (m.mine ? 'justify-end' : 'justify-start');
+        wrap.innerHTML = `<div class="max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2.5 shadow-sm ${m.mine
+            ? 'bg-pine-700 text-white rounded-br-md'
+            : 'bg-white border border-[#e7e2d9] text-gray-800 rounded-bl-md'}">
+            ${m.mine ? '' : `<div class="text-[11px] font-semibold text-pine-700 mb-0.5">${esc(m.name)}</div>`}
+            <div class="whitespace-pre-wrap break-words leading-relaxed">${esc(m.body)}</div>
+            <div class="text-[10px] ${m.mine ? 'opacity-70' : 'text-gray-400'} mt-1 text-right">${esc(m.at)}<span data-tick="${m.id}" class="ml-1">${m.mine && m.read ? '✓✓' : ''}</span></div>
+        </div>`;
+        log.insertBefore(wrap, log.firstChild);
     }
 
     // D.5: tick "dibaca" untuk pesan sendiri. Server kirim id tertinggi yang
@@ -203,6 +222,12 @@
             if (first) log.scrollTop = log.scrollHeight;
             first = false;
             delay = 5000;
+            // F7: tampilkan tombol load-more. Poll tanpa pesan baru mengirim
+            // has_more=false → jangan sampai menutup tombol yang sudah tampil;
+            // penyembunyian final hanya oleh loadOlder (habis riwayat).
+            hasMore = !!data.has_more;
+            const olderBtn = document.getElementById('chat-older');
+            if (olderBtn && hasMore && !loadingOlder) olderBtn.classList.remove('hidden');
             if (data.status && ['done', 'cancelled', 'no_show'].includes(data.status)) {
                 closeSession();
                 return;
@@ -213,6 +238,37 @@
             setStatus('terputus, coba lagi…', 'err');
         }
         if (!terminal) timer = setTimeout(poll, delay);
+    }
+
+    // F7: load-more riwayat lama — ambil 200 pesan sebelum id terkecil di log,
+    // prepend, jaga scroll tidak lompat.
+    async function loadOlder() {
+        const ids = [...log.querySelectorAll('[data-tick]')].map(el => Number(el.dataset.tick));
+        const oldest = ids.length ? Math.min(...ids) : null;
+        if (!oldest || loadingOlder) return;
+        loadingOlder = true;
+        const btn = document.getElementById('chat-older');
+        if (btn) btn.disabled = true;
+        const keep = log.scrollHeight - log.scrollTop;
+        try {
+            const r = await fetch(pollUrl + '?before_id=' + oldest, {
+                headers: { 'Accept': 'application/json' }, credentials: 'same-origin'
+            });
+            if (!r.ok) throw new Error(r.status);
+            const data = await r.json();
+            const rows = (data.messages || []).slice().reverse();
+            for (const m of rows) prepend(m);
+            log.scrollTop = log.scrollHeight - keep;
+            hasMore = !!data.has_more;
+        } catch (e) {
+            setStatus('gagal muat riwayat', 'err');
+        } finally {
+            loadingOlder = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.toggle('hidden', !hasMore);
+            }
+        }
     }
 
     async function send() {
@@ -246,6 +302,10 @@
             input.style.height = Math.min(input.scrollHeight, 120) + 'px';
         });
     }
+
+    // F7: tombol muat riwayat lama.
+    const olderBtn = document.getElementById('chat-older');
+    if (olderBtn) olderBtn.addEventListener('click', loadOlder);
 
     if (terminal) {
         setStatus('sesi selesai', '');
