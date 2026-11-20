@@ -25,7 +25,11 @@ trait CreatesApplication
     {
         $app = require __DIR__.'/../bootstrap/app.php';
         // /dev/null exists on macOS; Laravel treats any existing path as cached config.
-        $app->useEnvironmentPath(sys_get_temp_dir().'/soluusi-tests-no-env');
+        $app->useEnvironmentPath($noEnvDir = sys_get_temp_dir().'/soluusi-tests-no-env-'.getmypid());
+        // phpdotenv emits a (suppressed) warning on missing .env, which PHPUnit
+        // surfaces as a test warning — pre-create an empty .env to keep output clean.
+        is_dir($noEnvDir) || @mkdir($noEnvDir, 0700, true);
+        @touch($noEnvDir.'/.env');
         $_ENV['APP_CONFIG_CACHE'] = $_SERVER['APP_CONFIG_CACHE'] = sys_get_temp_dir().'/soluusi-no-config-'.bin2hex(random_bytes(8));
         putenv('APP_CONFIG_CACHE='.$_ENV['APP_CONFIG_CACHE']);
 
