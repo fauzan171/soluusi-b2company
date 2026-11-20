@@ -7,6 +7,7 @@ use App\Models\ConsultationSession;
 use App\Models\Schedule;
 use App\Services\Klinik\HapPervormaService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Session & dual-confirm (Build-NEW #4 + #11, M4, Spec §9).
@@ -86,10 +87,18 @@ class SessionController extends Controller
     /** Customer confirm (guest via token status page) — dual-confirm step 2. */
     public static function customerConfirm(ConsultationSession $session): void
     {
-        $session->customer_confirmed_at = now();
-        $session->save();
+        // F5: lock + fresh read — dua submit bersamaan tidak dobel-tulis timestamp
+        // (outcome memang idempotent, tapi tulisan dobel + event ganda dihindari).
+        DB::transaction(function () use ($session) {
+            $fresh = ConsultationSession::whereKey($session->id)->lockForUpdate()->firstOrFail();
+            if ($fresh->customer_confirmed_at) {
+                return;
+            }
+            $fresh->customer_confirmed_at = now();
+            $fresh->save();
 
-        (new static)->tryVerify($session);
+            (new static)->tryVerify($fresh);
+        });
     }
 
     /** Verify completion bila kedua pihak sudah confirm → release. */

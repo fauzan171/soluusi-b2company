@@ -177,7 +177,16 @@ class DashboardController extends Controller
 
     public function requestPayout(string $vertical, int $pervormaId)
     {
+        // F2: resolve view-as sama seperti index() — superadmin yang view-as
+        // associate harus bisa trigger payout milik associate target (fitur
+        // audit view-as patah di sini karena user masih admin → 403).
+        $viewAs = \App\Support\ViewAs::current();
         $user = auth()->user();
+        if (($viewAs['target_role'] ?? null) === 'associate') {
+            $user = \App\Models\User::findOrFail($viewAs['target_user_id']);
+        } elseif ($user?->role?->name === 'admin') {
+            abort(403, 'Aktifkan view-as associate untuk aksi ini.');
+        }
 
         abort_unless(isset(self::VERTICALS[$vertical]), 404);
         $model = self::VERTICALS[$vertical]['pervorma'];

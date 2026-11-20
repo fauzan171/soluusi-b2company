@@ -156,9 +156,7 @@ class CheckoutFlow
             return ['reserved' => false];
         }
 
-        if ($voucher) {
-            $voucher->increment('usage');
-        }
+        // F6: increment usage sudah di dalam reserveSession (transaksi sama).
 
         // White-label payment instruction mail (§17.5). Non-fatal — mailer sync
         // gagal tidak boleh membatalkan sesi yang sudah dibuat + slot terkunci.
@@ -192,9 +190,7 @@ class CheckoutFlow
             return ['reserved' => false];
         }
 
-        if ($voucher) {
-            $voucher->increment('usage');
-        }
+        // F6: increment usage sudah di dalam reserveSession (transaksi sama).
 
         return ['redirect' => $dummyUrl];
     }
@@ -257,7 +253,16 @@ class CheckoutFlow
                 return null;
             }
 
-            return self::createWaitingSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $paymentUrl, $snapToken);
+            $session = self::createWaitingSession($data, $link, $package, $orderNumber, $gross, $voucher, $voucherAmount, $paymentUrl, $snapToken);
+
+            // F6: increment usage dalam transaksi yang sama — kalau crash di
+            // tengah, semua rollback (sesi hilang + link bebas lagi), jadi tidak
+            // ada sesi jalan tanpa usage tercatat (voucher over-limit).
+            if ($voucher) {
+                $voucher->increment('usage');
+            }
+
+            return $session;
         });
     }
 

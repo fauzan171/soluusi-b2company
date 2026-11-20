@@ -40,6 +40,17 @@
     </a>
 </div>
 
+{{-- F8: modul tenant & ops admin terjangkau dari UI, bukan cuma ketik URL manual. --}}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-8">
+    <a href="{{ route('admin.tenants.kliniks.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Klinik (tenant)</a>
+    <a href="{{ route('admin.tenants.sekolahs.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Sekolah (tenant)</a>
+    <a href="{{ route('admin.tenants.perusahaans.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Perusahaan (tenant)</a>
+    <a href="{{ route('admin.consultant-assignment.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Assignment Konsultan</a>
+    <a href="{{ route('admin.audit-logs.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Audit Log</a>
+    <a href="{{ route('admin.system-health.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">System Health</a>
+    <a href="{{ route('admin.ops-queue.index') }}" class="bg-white border rounded-lg p-3 hover:border-emerald-600 text-sm font-medium">Ops Queue</a>
+</div>
+
 <div class="grid md:grid-cols-3 gap-4 mb-8">
     <div class="md:col-span-2 bg-white border rounded-lg p-4">
         <h2 class="font-semibold text-sm mb-3">Sesi masuk per hari (30 hari)</h2>

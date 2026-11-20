@@ -8,6 +8,7 @@ use App\Models\ConsultantPool;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Support\PerusahaanContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Antrean review HR (F1.1): request konsultasi employee masuk status
@@ -33,10 +34,13 @@ class HrReviewController extends Controller
 
     private function resolvePending(PerusahaanSession $session): PerusahaanSession
     {
-        $found = $this->pendingQuery()->where('id', $session->id)->first();
-        abort_unless($found, 422, 'Request tidak menunggu review HR.');
-
-        return $found;
+        // F1: lock row dalam transaction — dua HR approve bersamaan, yang kedua
+        // baca state terbaru (udah ke-assign) → ditolak 422, bukan numpuk assignment.
+        return DB::transaction(fn () => $this->pendingQuery()
+            ->lockForUpdate()
+            ->where('id', $session->id)
+            ->first())
+            ?? abort(422, 'Request tidak menunggu review HR.');
     }
 
     public function index(Request $r)

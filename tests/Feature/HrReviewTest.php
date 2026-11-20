@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdminAction;
 use App\Models\Consultant;
 use App\Models\ConsultantPool;
 use App\Models\Perusahaan\Perusahaan;
@@ -104,6 +105,26 @@ class HrReviewTest extends TestCase
         $this->assertSame($consultant->id, $session->consultant_id);
         $this->assertSame('scheduled', $session->status);
         $this->assertNull($session->scheduled_at); // konsultan tetap set jadwal (ACC)
+    }
+
+    /** F1: approve kedua (model dua HR klik bersamaan) harus 422, bukan menimpa. */
+    public function test_double_approve_second_is_rejected()
+    {
+        [$p, $empUser, $emp, $hrUser, $consultant] = $this->fixture();
+        $session = $this->pendingSession($p, $emp);
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session))
+            ->assertRedirect();
+
+        $first = $session->fresh()->consultant_id;
+
+        $this->actingAs($hrUser)->post(route('perusahaan.review.approve', $session))
+            ->assertStatus(422);
+
+        // Konsultan pertama tidak tertimpa, audit tidak dobel.
+        $this->assertSame($first, $session->fresh()->consultant_id);
+        $this->assertSame(1, AdminAction::where('action', 'hr_review.approve')
+            ->where('target_id', $session->id)->count());
     }
 
     public function test_hr_approve_with_picked_consultant()

@@ -56,9 +56,17 @@
         request()->routeIs('admin.*') => [
             ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
             ['route' => 'admin.perusahaans.index', 'pattern' => 'admin.perusahaans*', 'label' => 'Perusahaan B2B', 'icon' => 'users'],
+            ['route' => 'admin.tenants.kliniks.index', 'pattern' => 'admin.tenants.kliniks*', 'label' => 'Klinik (tenant)', 'icon' => 'building'],
+            ['route' => 'admin.tenants.sekolahs.index', 'pattern' => 'admin.tenants.sekolahs*', 'label' => 'Sekolah (tenant)', 'icon' => 'shield'],
+            ['route' => 'admin.consultant-assignment.index', 'pattern' => 'admin.consultant-assignment*', 'label' => 'Assignment Konsultan', 'icon' => 'users'],
+            ['route' => 'admin.ops-queue.index', 'pattern' => 'admin.ops-queue*', 'label' => 'Ops Queue', 'icon' => 'clock'],
+            ['route' => 'admin.audit-logs.index', 'pattern' => 'admin.audit-logs*', 'label' => 'Audit Log', 'icon' => 'shield'],
+            ['route' => 'admin.system-health.index', 'pattern' => 'admin.system-health*', 'label' => 'System Health', 'icon' => 'bolt'],
         ],
         request()->routeIs('associate.*') => [
             ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard', 'label' => 'Dashboard HPA', 'icon' => 'chart'],
+            // F4: deep-link payout (anchor #komisi) — nav associate bukan dead-end.
+            ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard.komisi', 'label' => 'Komisi & Payout', 'icon' => 'receipt', 'hash' => '#komisi'],
         ],
         default => [],
     };
@@ -78,7 +86,7 @@
             </div>
             <nav class="mt-4 space-y-1 flex-1">
                 @foreach($navItems as $item)
-                    <a href="{{ route($item['route']) }}"
+                    <a href="{{ route($item['route']) }}{{ $item['hash'] ?? '' }}"
                        class="portal-nav-link {{ request()->routeIs($item['pattern']) ? 'is-active' : '' }}">
                         @include('perusahaan.partials.icon', ['name' => $item['icon']])
                         {{ $item['label'] }}

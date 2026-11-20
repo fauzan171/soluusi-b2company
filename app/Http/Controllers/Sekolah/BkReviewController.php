@@ -8,6 +8,7 @@ use App\Models\ConsultantPool;
 use App\Models\Sekolah\SekolahSession;
 use App\Support\SekolahContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Antrean review BK (D.2): mirror HrReviewController (F1.1).
@@ -35,10 +36,12 @@ class BkReviewController extends Controller
 
     private function resolvePending(SekolahSession $session): SekolahSession
     {
-        $found = $this->pendingQuery()->where('id', $session->id)->first();
-        abort_unless($found, 422, 'Request tidak menunggu review BK.');
-
-        return $found;
+        // F1 mirror: lock row dalam transaction — guard double-approve BK.
+        return DB::transaction(fn () => $this->pendingQuery()
+            ->lockForUpdate()
+            ->where('id', $session->id)
+            ->first())
+            ?? abort(422, 'Request tidak menunggu review BK.');
     }
 
     public function index(Request $r)

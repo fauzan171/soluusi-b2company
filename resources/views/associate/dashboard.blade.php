@@ -72,7 +72,7 @@
         </div>
     </section>
 
-    <section class="rounded-lg border bg-white p-5">
+    <section id="komisi" class="rounded-lg border bg-white p-5">
         <div class="mb-4">
             <h2 class="font-semibold text-gray-950">Status pencairan dana</h2>
             <p class="text-xs text-gray-500">HPA bisa minta pencairan untuk komisi yang sudah due.</p>
