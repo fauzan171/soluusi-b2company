@@ -169,6 +169,12 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         // ONB.5: HR menyalakan/mematikan konsultan yang sudah di-assign Soluusi.
         Route::get('/konsultan', [\App\Http\Controllers\Perusahaan\ConsultantPoolController::class, 'index'])->name('consultants.pool');
         Route::post('/konsultan/toggle', [\App\Http\Controllers\Perusahaan\ConsultantPoolController::class, 'toggle'])->middleware('throttle:20,1')->name('consultants.pool.toggle');
+        // Katalog + detail + request konsultan untuk HR.
+        Route::get('/konsultan/katalog', [\App\Http\Controllers\Perusahaan\ConsultantCatalogController::class, 'index'])->name('consultants.catalog');
+        Route::get('/konsultan/katalog/{consultant}', [\App\Http\Controllers\Perusahaan\ConsultantCatalogController::class, 'show'])->name('consultants.detail');
+        Route::post('/konsultan/katalog/{consultant}/request', [\App\Http\Controllers\Perusahaan\ConsultantCatalogController::class, 'requestStore'])->middleware('throttle:10,1')->name('consultants.request');
+        // Kesejahteraan agregat — halaman chart lengkap dari card dashboard.
+        Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');

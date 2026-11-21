@@ -39,6 +39,8 @@
         ],
         $isPerusahaanRoute && in_array($role, ['hr_admin', 'admin']) => [
             ['route' => 'perusahaan.dashboard', 'pattern' => 'perusahaan.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
+            ['route' => 'perusahaan.wellbeing', 'pattern' => 'perusahaan.wellbeing', 'label' => 'Kesejahteraan', 'icon' => 'heart'],
+            ['route' => 'perusahaan.consultants.catalog', 'pattern' => 'perusahaan.consultants.catalog*', 'label' => 'Konsultan', 'icon' => 'users'],
             ['route' => 'perusahaan.report', 'pattern' => 'perusahaan.report', 'label' => 'Laporan', 'icon' => 'document-arrow-down'],
             ['route' => 'perusahaan.employees', 'pattern' => 'perusahaan.employees*', 'label' => 'Karyawan', 'icon' => 'users'],
         ],

@@ -36,6 +36,11 @@ class Perusahaan extends Model
         return $this->belongsTo(User::class, 'associate_id');
     }
 
+    public function consultantRequests()
+    {
+        return $this->hasMany(ConsultantRequest::class);
+    }
+
     public function admins()
     {
         return $this->hasMany(PerusahaanAdmin::class);
