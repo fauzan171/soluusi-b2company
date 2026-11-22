@@ -21,9 +21,17 @@
 - Rebuilt DB at new base, ran `npm install && npm run build` (Vite manifest was missing → 15 test 500s), fixed phpdotenv warning (per-pid env dir in tests/CreatesApplication.php, same fix as prod tree).
 - **Baseline now: 66/66 passed, 321 assertions** — matches brief. 52 earlier = old base without the 16 commits.
 
+## 2026-11-22 — Phase 4 execution log
+
+- W1 (foundation schema M1-M7) merged @ e607f23; W2 (QuotaService + entry points + sweep) merged @ a0cb177; W4 (assessment engine + instruments) merged @ be9eb2b → 109/109.
+- W3 (consultant assignment, workhours, AvailabilityService, directory, K8 request lock) reviewed + merged @ 5050839. Integration fix: W2 QuotaEntryPointsTest fixtures lacked `consultant_request_enabled` → 403 before quota check (K8 conflict) → fixed @ 12b3365 → **135/135, 566 assertions**.
+- Env note: `/usr/bin/php` = CGI (hangs, dumps usage). Use **`/usr/local/bin/php`** (CLI 8.2.36) for ALL artisan/phpunit.
+- W5 (types+chat) running (worktree soluusi-b2b-w5). W6 (Sesi Saya dashboard) spawned @ 12b3365 base, worktree soluusi-b2b-w6.
+- Pending: W5 review+merge → spawn W7; W6 review+merge → W8 (QA + deploy hardening).
+
 ## Phase status
-- Phase 0 (RECON): 4/6 done (R1 schema, R2 routes, R3 flow, R4 assessment, R6 docs); R5 pending
-- Phase 1 (external research): pending
-- Phase 2 (MASTER-PLAN): pending
-- Phase 3 (GATE): pending — awaiting user GO
-- Phase 4 (execution): blocked on GO
+- Phase 0 (RECON): DONE (recon-SUMMARY.md)
+- Phase 1 (external research): DONE (research-a..f)
+- Phase 2 (MASTER-PLAN): DONE (frozen)
+- Phase 3 (GATE): user said "Go"
+- Phase 4 (execution): W1,W2,W4,W3 merged (135/135); W5+W6 running; W7,W8 pending
