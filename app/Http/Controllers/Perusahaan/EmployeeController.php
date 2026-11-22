@@ -82,6 +82,9 @@ class EmployeeController extends Controller
         // D.3: sisa kuota = kuota - monthQuotaUsed (termasuk request pending review).
         $scheduledMonth = max(0, \App\Services\BookingService::monthQuotaUsed($employee) - $usedMonth);
         $quota = $perusahaan->sessions_per_employee_month;
+        // W2: quota via package/ledger (fallback legacy flat tenant quota).
+        $packageLabel = \App\Services\QuotaService::packageLabel($employee);
+        $quotaLeft = \App\Services\QuotaService::balanceFor($employee);
         $history = $employee->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
         $latest = $employee->assessments()->latest('taken_at')->first();
@@ -114,6 +117,8 @@ class EmployeeController extends Controller
             'perusahaan' => $perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'quota' => $quota,
+            'quotaLeft' => $quotaLeft,
+            'packageLabel' => $packageLabel,
             'usedMonth' => $usedMonth,
             'scheduledMonth' => $scheduledMonth,
             'history' => $history,
@@ -238,8 +243,7 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         $perusahaan = $employee->perusahaan;
 
-        $usedMonth = \App\Services\BookingService::monthQuotaUsed($employee);
-        $quota = $perusahaan->sessions_per_employee_month;
+        $quota = \App\Services\QuotaService::packageLabel($employee)['monthly_quota'];
 
         $pool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id);
 
@@ -389,6 +393,13 @@ class EmployeeController extends Controller
             return redirect()->route('perusahaan.chat', $existing);
         }
 
+        // W2: tutup quota hole (recon-R3 startChat:232) — guard saldo server-side.
+        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+            $label = \App\Services\QuotaService::packageLabel($employee);
+            return redirect()->route('perusahaan.employee')
+                ->with('error', "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
+        }
+
         return redirect()->route('perusahaan.booking')
             ->with('error', 'Pilih jadwal konsultasi dulu sebelum chat.');
     }
@@ -408,24 +419,32 @@ class EmployeeController extends Controller
         abort_if($employee->sessions()->where('status', 'scheduled')->whereNull('scheduled_at')->exists(),
             422, 'Masih ada permintaan menunggu review.');
 
-        abort_if(\App\Services\BookingService::monthQuotaUsed($employee) >= $perusahaan->sessions_per_employee_month,
-            422, 'Kuota bulan ini habis.');
+        // W2: guard kuota server-side via QuotaService (entrypoint tunggal).
+        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+            $label = \App\Services\QuotaService::packageLabel($employee);
+            abort(422, "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
+        }
 
         // Gate review HR: 'scheduled' + scheduled_at NULL + consultant_id NULL
         // (nilai 'pending' tidak lolos CHECK constraint status — lihat migrasi 2026_10_21).
         // HR approve → consultant di-assign; HR reject → 'cancelled' + alasan.
-        PerusahaanSession::create([
-            'perusahaan_id' => $perusahaan->id,
-            'employee_id' => $employee->id,
-            'departement_id' => $employee->departement_id,
-            'consultant_id' => null,
-            'konsultan_type' => $r->konsultan_type,
-            'topic_category' => $r->topic_category,
-            'status' => 'scheduled',
-            'scheduled_at' => null,
-            'request_notes' => $validated['body'],
-            'mode' => $validated['mode'],
-        ]);
+        // W2: reserve kuota dalam satu transaction dengan insert sesi.
+        $session = \Illuminate\Support\Facades\DB::transaction(function () use ($perusahaan, $employee, $r, $validated) {
+            $session = PerusahaanSession::create([
+                'perusahaan_id' => $perusahaan->id,
+                'employee_id' => $employee->id,
+                'departement_id' => $employee->departement_id,
+                'consultant_id' => null,
+                'konsultan_type' => $r->konsultan_type,
+                'topic_category' => $r->topic_category,
+                'status' => 'scheduled',
+                'scheduled_at' => null,
+                'request_notes' => $validated['body'],
+                'mode' => $validated['mode'],
+            ]);
+            \App\Services\QuotaService::reserve($employee, $session);
+            return $session;
+        });
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Permintaan terkirim. Menunggu review HR — kamu dapat kabar setelah disetujui.');

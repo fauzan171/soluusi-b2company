@@ -145,6 +145,10 @@ class BookingService
                 ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $data['mode'] ?? $slot->mode]
                     : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $data['mode'] ?? $slot->mode ?? 'online']),
             ]);
+            // W2: entrypoint tunggal kuota — reserve di transaction yang sama.
+            if ($vertical === 'perusahaan') {
+                \App\Services\QuotaService::reserve($row, $session, $slot->started_at);
+            }
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;
         });

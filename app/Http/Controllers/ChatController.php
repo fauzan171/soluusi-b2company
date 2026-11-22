@@ -64,6 +64,8 @@ class ChatController extends Controller
         abort_unless($session->scheduled_at !== null, 422, 'Sesi belum dijadwalkan.');
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
+        // W2: sesi selesai → ledger event used (reserved jadi terminal).
+        \App\Services\QuotaService::consume($session);
 
         \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);
@@ -83,6 +85,8 @@ class ChatController extends Controller
             'status' => 'done',
             'completed_at' => now(),
         ]);
+        // W2: sesi selesai → ledger event used (reserved jadi terminal).
+        \App\Services\QuotaService::consume($session);
 
         \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);
