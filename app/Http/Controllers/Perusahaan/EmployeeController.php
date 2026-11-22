@@ -122,6 +122,7 @@ class EmployeeController extends Controller
             'employee' => $employee,
             'perusahaan' => $perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
+            'requestEnabled' => (bool) $perusahaan->consultant_request_enabled,
             'quota' => $quota,
             'quotaLeft' => $quotaLeft,
             'packageLabel' => $packageLabel,
@@ -376,6 +377,47 @@ class EmployeeController extends Controller
         ]);
     }
 
+    /**
+     * W3: detail konsultan (direktori employee-facing) — profil, kategorisasi,
+     * bahasa/skills, tipe konsultasi yang didukung, slot 7 hari, rating agregat.
+     * Tenant-scoped: konsultan harus di pool perusahaan sendiri.
+     */
+    public function consultantShow(Consultant $consultant)
+    {
+        $employee = $this->resolveEmployee();
+        abort_unless($employee && $employee->consent_at, 403);
+        $perusahaan = $employee->perusahaan;
+        abort_unless($perusahaan, 404);
+
+        // Tenant isolation (K15): konsultan harus ter-assign di pool perusahaan ini.
+        abort_unless(ConsultantPool::where('perusahaan_id', $perusahaan->id)
+            ->where('consultant_id', $consultant->id)
+            ->where('status', 'active')->exists(), 403);
+
+        $slots = \App\Services\AvailabilityService::slotsFor(
+            $consultant, $perusahaan, now(), now()->addDays(7)
+        );
+
+        // Rating agregat dari sesi done perusahaan ini (rating tidak dibagikan ke HR — hanya sini).
+        $ratingAvg = \App\Models\Perusahaan\PerusahaanSession::where('consultant_id', $consultant->id)
+            ->where('perusahaan_id', $perusahaan->id)
+            ->where('status', 'done')->whereNotNull('rating')->avg('rating');
+
+        $pool = ConsultantPool::where('perusahaan_id', $perusahaan->id)
+            ->where('consultant_id', $consultant->id)->with('workHours')->first();
+
+        return view('perusahaan.consultant-show', [
+            'perusahaan' => $perusahaan,
+            'employee' => $employee,
+            'consultant' => $consultant->load(['user', 'categories', 'educations', 'certificates']),
+            'skills' => $consultant->skills()->pluck('name'),
+            'slots' => $slots,
+            'ratingAvg' => $ratingAvg ? round($ratingAvg, 1) : null,
+            'workHours' => $pool?->workHours ?? collect(),
+            'requestEnabled' => (bool) $perusahaan->consultant_request_enabled,
+        ]);
+    }
+
     /** Gate jadwal: tanpa slot + ACC konsultan, chat tidak bisa dibuka. Arahkan ke form booking. */
     public function startChat(Request $request, Consultant $consultant)
     {
@@ -414,6 +456,8 @@ class EmployeeController extends Controller
     public function requestConsultation(Request $r)
     {
         $employee = $this->resolveEmployee();
+        // K8: guard server-side — flag per perusahaan, default OFF.
+        \App\Support\Guards::ensureRequestEnabled($employee->perusahaan);
         $validated = $r->validate([
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             'topic_category' => ['nullable', 'string', 'max:100'],

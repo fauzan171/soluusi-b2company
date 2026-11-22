@@ -188,6 +188,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'store'])->name('assessment.instrument.store');
         Route::get('/employee/assessments/result/{assessment}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'result'])->name('assessment.result');
         Route::get('/employee/consultants', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'consultants'])->name('consultants');
+    Route::get('/employee/consultants/{consultant}', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'consultantShow'])->name('consultants.show');
         Route::post('/employee/consultants/{consultant}/start-chat', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'startChat'])->name('consultants.start-chat');
         Route::get('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingForm'])->name('booking');
         Route::post('/employee/booking', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
@@ -204,8 +205,11 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
 });
 
 // --- Konsultan (session + dual-confirm) — Build-NEW #4/#11 ---
+// W3/recon-R2: role admin ditambahkan — konsultan portal satu-satunya yang
+// superadmin tidak bisa masuk; superadmin butuh preview kalender konsultan.
 Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant,admin', 'force.password'])->group(function () {
     Route::get('/sessions', [\App\Http\Controllers\Klinik\SessionController::class, 'index'])->name('sessions');
+    Route::get('/calendar', [\App\Http\Controllers\ConsultantCalendarController::class, 'index'])->name('calendar');
     Route::post('/sessions/{session}/check-in', [\App\Http\Controllers\Klinik\SessionController::class, 'checkIn'])->name('sessions.checkIn');
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
     Route::post('/sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'schedulePerusahaan'])->name('sessions.schedule');
@@ -303,6 +307,17 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
 
     // Aktivasi program perusahaan (CAP)
     Route::post('/perusahaans/{perusahaan}/activate', [\App\Http\Controllers\Admin\PerusahaanActivationController::class, 'store'])->name('perusahaans.activate');
+
+    // W3 (K6/K7/K8): assignment konsultan + workhour + exception + flag lock request
+    Route::get('/assignments', [\App\Http\Controllers\AdminAssignmentController::class, 'index'])->name('assignments.index');
+    Route::post('/assignments', [\App\Http\Controllers\AdminAssignmentController::class, 'store'])->name('assignments.store');
+    Route::post('/assignments/{assignment}/end', [\App\Http\Controllers\AdminAssignmentController::class, 'end'])->name('assignments.end');
+    Route::post('/assignments/{assignment}/activate', [\App\Http\Controllers\AdminAssignmentController::class, 'activate'])->name('assignments.activate');
+    Route::post('/workhours', [\App\Http\Controllers\AdminAssignmentController::class, 'storeWorkHour'])->name('workhours.store');
+    Route::delete('/workhours/{workHour}', [\App\Http\Controllers\AdminAssignmentController::class, 'destroyWorkHour'])->name('workhours.destroy');
+    Route::post('/exceptions', [\App\Http\Controllers\AdminAssignmentController::class, 'storeException'])->name('exceptions.store');
+    Route::delete('/exceptions/{exception}', [\App\Http\Controllers\AdminAssignmentController::class, 'destroyException'])->name('exceptions.destroy');
+    Route::post('/perusahaans/{perusahaan}/request-toggle', [\App\Http\Controllers\AdminAssignmentController::class, 'toggleRequest'])->name('perusahaans.request-toggle');
 
     // Aktivasi program sekolah
     Route::post('/sekolahs/{sekolah}/activate', [\App\Http\Controllers\Admin\SekolahActivationController::class, 'store'])->name('sekolahs.activate');

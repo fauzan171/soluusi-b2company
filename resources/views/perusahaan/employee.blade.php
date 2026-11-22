@@ -76,7 +76,14 @@
             </div>
             @if($quotaLeft > 0)
             <div class="mt-3 flex flex-col gap-2">
+                @if($requestEnabled ?? false)
                 <button type="button" @click="requestConsult = true" class="bg-white text-pine-800 text-sm font-semibold rounded-lg px-4 py-2 text-center hover:bg-pine-50 transition">Minta Konsultasi →</button>
+                @else
+                <button type="button" disabled title="Dikunci admin" class="bg-white/60 text-pine-800/60 text-sm font-semibold rounded-lg px-4 py-2 text-center cursor-not-allowed flex items-center justify-center gap-1.5">
+                    <span aria-hidden="true">🔒</span> Minta Konsultasi
+                </button>
+                <p class="text-[10px] text-pine-100/70 text-center" title="Dikunci admin">Dikunci admin</p>
+                @endif
                 <a href="{{ route('perusahaan.booking') }}" class="text-xs text-pine-100 text-center hover:underline">atau pilih jadwal sendiri</a>
             </div>
             @else
