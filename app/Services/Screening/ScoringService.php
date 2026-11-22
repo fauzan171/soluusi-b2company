@@ -76,7 +76,12 @@ class ScoringService
     /** Batas atas nilai untuk satu pertanyaan; 0 = tidak diskor. */
     private static function typeMax(object $q): int
     {
-        // Nutrition Q15–Q20 bertipe `single`/`yesno` tapi ikut skor lewat bobot tetap.
+        // Kolom weight (M6) = sumber bobot definition-driven; fallback map lama untuk
+        // baris yang belum punya weight (nutrition Q15-Q20, bobot tetap kiosk TVS).
+        if (isset($q->weight) && $q->weight !== null && (int) $q->weight > 0) {
+            return (int) $q->weight;
+        }
+
         static $nutrition = ['Q15' => 2, 'Q16' => 2, 'Q17' => 2, 'Q18' => 2, 'Q19' => 1, 'Q20' => 1];
         if (isset($nutrition[$q->code])) {
             return $nutrition[$q->code];

@@ -34,6 +34,7 @@ class PerusahaanAssessment extends Model
     protected $casts = [
         'answers' => 'array',
         'taken_at' => 'datetime',
+        'escalated' => 'bool',
     ];
 
     /** Band WHO-5: ≥75 sehat, 50-74 perlu perhatian, <50 berisiko (low-threshold 28 masuk berisiko). */
@@ -41,6 +42,11 @@ class PerusahaanAssessment extends Model
     {
         return $this->score >= 75 ? 'Sehat'
             : ($this->score >= 50 ? 'Perlu Perhatian' : 'Berisiko Tinggi');
+    }
+
+    public function instrument()
+    {
+        return $this->belongsTo(\App\Models\AssessmentInstrument::class, 'instrument_code', 'code');
     }
 
     public function perusahaan()
