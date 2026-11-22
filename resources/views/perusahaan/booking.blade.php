@@ -60,8 +60,7 @@
                     <div class="flex gap-2">
                         <button type="submit" class="rounded-xl bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-800">Filter</button>
                         <a href="{{ route('perusahaan.booking') }}" class="rounded-xl border border-[#ddd8cf] px-4 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">Reset</a>
-                    </div>
-                </div>
+                    </div>                </div>
             </form>
 
             <div class="grid gap-3 md:grid-cols-2">
@@ -131,6 +130,33 @@
                         @enderror
                     </div>
                 @endif
+
+                {{-- W5 (K9): tipe konsultasi — radio 3 tipe. --}}
+                <fieldset>
+                    <legend class="block text-sm font-semibold text-pine-900 mb-1.5">
+                        Tipe konsultasi <span class="text-terra-600" aria-hidden="true">*</span>
+                    </legend>
+                    <p class="text-xs text-gray-500 mb-2">Pilih cara kamu ingin berkonsultasi.</p>
+                    <div class="grid gap-2">
+                        @foreach([
+                            'online_meeting' => ['Video Call', 'Sesi online via Google Meet/Zoom'],
+                            'chat' => ['Chat', 'Konsultasi teks asinkron'],
+                            'one_on_one' => ['Tatap Muka', 'Sesi offline di ruang perusahaan'],
+                        ] as $key => [$label, $hint])
+                        <label class="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer transition {{ old('consultation_type', 'chat') === $key ? 'border-pine-500 bg-pine-50' : 'border-gray-300 bg-white hover:bg-pine-50/60' }}">
+                            <input type="radio" name="consultation_type" value="{{ $key }}" required @checked(old('consultation_type', 'chat') === $key)
+                                class="mt-0.5 h-4 w-4 text-pine-700 border-gray-300 focus:ring-pine-500">
+                            <span>
+                                <span class="block text-sm font-semibold text-ink">{{ $label }}</span>
+                                <span class="block text-xs text-gray-500">{{ $hint }}</span>
+                            </span>
+                        </label>
+                        @endforeach
+                    </div>
+                    @error('consultation_type')
+                    <p class="text-xs text-terra-600 mt-1.5 font-medium" role="alert">{{ $message }}</p>
+                    @enderror
+                </fieldset>
 
                 @php
                     $byDate = $slots->groupBy(fn ($s) => $s->started_at->format('Y-m-d'))->sortKeys();

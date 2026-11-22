@@ -113,7 +113,9 @@ class BookingService
     public static function book(string $vertical, $row, array $data)
     {
         $slot = Schedule::findOrFail($data['schedule_id']);
-        return DB::transaction(function () use ($vertical, $row, $data, $slot) {
+        // W5 (K9): tipe konsultasi default 'chat' — validasi enum di controller.
+        $consultationType = $data['consultation_type'] ?? 'chat';
+        return DB::transaction(function () use ($vertical, $row, $data, $slot, $consultationType) {
             Consultant::whereKey($slot->consultant_id)->lockForUpdate()->firstOrFail();
             // SQLite starts deferred transactions; this write serializes competing writers before reads.
             $row->newQuery()->whereKey($row->id)->update(['updated_at' => now()]);
@@ -136,14 +138,31 @@ class BookingService
             if (self::blocked($slot)) {
                 throw ValidationException::withMessages(['schedule_id' => 'Slot sudah dipesan. Pilih slot lain.']);
             }
+
+            // W5: tipe one_on_one → assign room fisik bebas (anti-konflik).
+            // ponytail: kalau W3 (consultation_types per work_hours) sudah merge,
+            // filter kandidat slot/room by tipe yang didukung konsultan di sini —
+            // seam: RoomService::pickFreeRoom + RoomService::roomConflicts.
+            $roomId = null;
+            if ($vertical === 'perusahaan' && $consultationType === 'one_on_one') {
+                $roomId = \App\Services\RoomService::pickFreeRoom($row->perusahaan_id ?? $tenant->id, $slot->started_at, $slot->ended_at)
+                    ?->id;
+                abort_if($roomId === null, 422, 'Tidak ada ruang 1-on-1 bebas di jam itu. Hubungi HR untuk penempatan manual.');
+            }
+
             $session = $row->sessions()->create([
                 $tenantKey => $tenant->id,
                 $school ? 'kelas' : 'departement_id' => $school ? $row->kelas : $row->departement_id,
                 'consultant_id' => $slot->consultant_id, 'schedule_id' => $slot->id,
                 'konsultan_type' => $data['konsultan_type'], 'status' => 'scheduled',
                 'scheduled_at' => $slot->started_at, 'ended_at' => $slot->ended_at,
-                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $data['mode'] ?? $slot->mode]
-                    : ['schedule_version' => (int) ($data['schedule_version'] ?? 1), 'mode' => $data['mode'] ?? $slot->mode ?? 'online']),
+                ...($school ? ['origin' => $data['origin'] ?? 'self_booking', 'mode' => $slot->mode] : []),
+                ...(!$school ? [
+                    'schedule_version' => (int) ($data['schedule_version'] ?? 1),
+                    'consultation_type' => $consultationType,
+                    'room_id' => $roomId,
+                    'mode' => $data['mode'] ?? $slot->mode ?? 'online',
+                ] : []),
             ]);
             // W2: entrypoint tunggal kuota — reserve di transaction yang sama.
             if ($vertical === 'perusahaan') {

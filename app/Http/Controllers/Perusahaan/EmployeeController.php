@@ -279,6 +279,7 @@ class EmployeeController extends Controller
             'perusahaan' => $perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'types' => ['psikolog' => 'Psikolog', 'nutrisionis' => 'Nutrisionis', 'fisioterapis' => 'Fisioterapis', 'karir' => 'Konselor Karir'],
+            'consultationTypes' => \App\Services\RoomService::TYPES,
             'consultants' => $filteredPool,
             'categories' => $pool->pluck('category')->filter()->unique()->sort()->values(),
             'q' => $q,
@@ -332,12 +333,14 @@ class EmployeeController extends Controller
         $employee = $this->resolveEmployee();
         $r->validate([
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
+            // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
+            'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
             'consultant_id' => ['nullable', 'integer'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
         ]);
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
-        \App\Services\BookingService::book('perusahaan', $employee, $r->only('schedule_id', 'konsultan_type'));
+        \App\Services\BookingService::book('perusahaan', $employee, $r->only('schedule_id', 'konsultan_type', 'consultation_type'));
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
