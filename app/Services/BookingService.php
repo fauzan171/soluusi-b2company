@@ -139,10 +139,21 @@ class BookingService
                 throw ValidationException::withMessages(['schedule_id' => 'Slot sudah dipesan. Pilih slot lain.']);
             }
 
+            // W5×W3: consultation_type wajib didukung consultant_work_hours konsultan
+            // di pool tenant ini (null = semua tipe didukung).
+            if ($vertical === 'perusahaan') {
+                $supported = \App\Models\ConsultantWorkHour::query()
+                    ->whereHas('consultantPool', fn ($q) => $q->where('perusahaan_id', $tenant->id)
+                        ->where('consultant_id', $slot->consultant_id))
+                    ->whereNotNull('consultation_types')
+                    ->get()->pluck('consultation_types')->flatten()->unique()->values();
+                if ($supported->isNotEmpty() && ! $supported->contains($consultationType)) {
+                    throw ValidationException::withMessages(['consultation_type' =>
+                        'Konsultan tidak menerima tipe konsultasi ini. Pilih tipe lain atau konsultan lain.']);
+                }
+            }
+
             // W5: tipe one_on_one → assign room fisik bebas (anti-konflik).
-            // ponytail: kalau W3 (consultation_types per work_hours) sudah merge,
-            // filter kandidat slot/room by tipe yang didukung konsultan di sini —
-            // seam: RoomService::pickFreeRoom + RoomService::roomConflicts.
             $roomId = null;
             if ($vertical === 'perusahaan' && $consultationType === 'one_on_one') {
                 $roomId = \App\Services\RoomService::pickFreeRoom($row->perusahaan_id ?? $tenant->id, $slot->started_at, $slot->ended_at)
