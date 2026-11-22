@@ -51,6 +51,12 @@ class Perusahaan extends Model
         return $this->hasMany(PerusahaanEmployee::class);
     }
 
+    /** Pool assignment konsultan (mission M3 / K6). */
+    public function pools()
+    {
+        return $this->hasMany(\App\Models\ConsultantPool::class);
+    }
+
     public function sessions()
     {
         return $this->hasMany(PerusahaanSession::class);
