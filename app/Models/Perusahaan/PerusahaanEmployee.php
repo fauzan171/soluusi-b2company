@@ -54,4 +54,10 @@ class PerusahaanEmployee extends Model
     {
         return $this->hasMany(PerusahaanAssessment::class, 'employee_id');
     }
+
+    /** Assignment package kuota (mission M1). */
+    public function employeePackages()
+    {
+        return $this->hasMany(EmployeePackage::class);
+    }
 }

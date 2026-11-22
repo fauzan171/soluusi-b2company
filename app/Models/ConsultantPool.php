@@ -25,6 +25,11 @@ class ConsultantPool extends Model
         'is_active' => 'boolean',
     ];
 
+    protected $casts = [
+        'contract_start' => 'date',
+        'contract_end' => 'date',
+    ];
+
     public function consultant()
     {
         return $this->belongsTo(Consultant::class);
@@ -38,6 +43,12 @@ class ConsultantPool extends Model
     public function perusahaan()
     {
         return $this->belongsTo(Perusahaan::class);
+    }
+
+    /** Template jam kerja mingguan untuk assignment ini (mission M3). */
+    public function workHours()
+    {
+        return $this->hasMany(\App\Models\ConsultantWorkHour::class);
     }
 
     /** konsultan_type dari kategori konsultan (map nama kategori → tipe sesi). */
