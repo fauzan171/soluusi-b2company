@@ -175,6 +175,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/konsultan/katalog/{consultant}/request', [\App\Http\Controllers\Perusahaan\ConsultantCatalogController::class, 'requestStore'])->middleware('throttle:10,1')->name('consultants.request');
         // Kesejahteraan agregat — halaman chart lengkap dari card dashboard.
         Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
+        // W2: refund kuota (HR/superadmin, reason wajib, audit_logs entry)
+        Route::post('/consultation-quota/{ledger}/refund', [\App\Http\Controllers\Perusahaan\QuotaAdminController::class, 'refund'])->name('quota.refund');
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
