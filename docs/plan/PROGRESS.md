@@ -28,8 +28,11 @@
 - Env note: `/usr/bin/php` = CGI (hangs, dumps usage). Use **`/usr/local/bin/php`** (CLI 8.2.36) for ALL artisan/phpunit.
 - W5 (types+chat+rooms+meeting-link) reviewed (RoomService half-open overlap OK, ChatMessage Prunable OK, meetingLink regex guard OK, 97/97 verified independently) + merged @ b9d9999. Conflicts: W1RollbackCheckTest step 8→9, routes/web.php W2+W5 routes kept. → **156/156, 634 assertions**.
 - W6 (Sesi Saya dashboard) running @ base 12b3365 (worktree soluusi-b2b-w6) — will need rebase/merge onto b9d9999 result at integration (W5 touched booking.blade.php + EmployeeController too; watch conflicts).
+- W6 (Sesi Saya dashboard) reviewed + merged clean @ b05e438 → 162/162.
+- Post-merge integration: closed W5×W3 ponytail seam — BookingService now validates consultation_type vs consultant_work_hours (null=all) with 422 + 3 new tests → **165/165, 677 assertions**.
+- Open integration item for W7/W8: rating duplicate sources — consultant-show displays perusahaan_sessions.rating avg (W3) while W7 builds consultation_reviews aggregate. Unify after W7 merges (likely: reviews table as source of truth, legacy sessions.rating read-only).
 - W7 (notes/results/reviews + audit) spawned @ base b9d9999 (worktree soluusi-b2b-w7).
-- Pending: W6, W7 review+merge → W8 (QA + deploy hardening).
+- Pending: W7 review+merge → W8 (QA + deploy hardening).
 
 ## Phase status
 - Phase 0 (RECON): DONE (recon-SUMMARY.md)
