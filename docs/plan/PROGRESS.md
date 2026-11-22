@@ -31,8 +31,9 @@
 - W6 (Sesi Saya dashboard) reviewed + merged clean @ b05e438 → 162/162.
 - Post-merge integration: closed W5×W3 ponytail seam — BookingService now validates consultation_type vs consultant_work_hours (null=all) with 422 + 3 new tests → **165/165, 677 assertions**.
 - Open integration item for W7/W8: rating duplicate sources — consultant-show displays perusahaan_sessions.rating avg (W3) while W7 builds consultation_reviews aggregate. Unify after W7 merges (likely: reviews table as source of truth, legacy sessions.rating read-only).
-- W7 (notes/results/reviews + audit) spawned @ base b9d9999 (worktree soluusi-b2b-w7).
-- Pending: W7 review+merge → W8 (QA + deploy hardening).
+- W7 (notes/results/reviews + audit + rating aggregate via consultation_reviews) reviewed (scoping, AuditLog::record, unique review, privacy-safe aggregate) + merged @ b65ebc4. Conflict PerusahaanSession room()+W7 relations resolved. → **181/181, 749 assertions**.
+- W8 (QA + tenant isolation matrix + deploy hardening + ERD + FINAL-REPORT) spawned @ base b65ebc4 (worktree soluusi-b2b-w8). Worker terakhir.
+- Rating integration tuntas: consultant-show kini pakai consultation_reviews aggregate (W7), legacy sessions.rating column read-only (ChatTest masih pakai rate route lama — konsolidasi noted untuk owner).
 
 ## Phase status
 - Phase 0 (RECON): DONE (recon-SUMMARY.md)
