@@ -38,9 +38,11 @@ class QuotaEntryPointsTest extends TestCase
 
     private function fixture(int $quota = 1): array
     {
+        // K8: consultant_request_enabled defaults false (W3 lock); tests exercise
+        // the unlocked request flow, so fixtures must explicitly enable it.
         $p = Perusahaan::create([
             'name' => 'PT Entry', 'brand' => 'EntryCo', 'sessions_per_employee_month' => 2,
-            'employee_count' => 3, 'is_active' => true,
+            'employee_count' => 3, 'is_active' => true, 'consultant_request_enabled' => true,
         ]);
         $pkg = Package::create(['name' => 'Entry Basic', 'monthly_quota' => $quota, 'is_active' => true]);
         $user = $this->user('emp@entry.local', 'employee');
