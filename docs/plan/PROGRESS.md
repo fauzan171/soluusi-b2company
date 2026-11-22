@@ -26,8 +26,10 @@
 - W1 (foundation schema M1-M7) merged @ e607f23; W2 (QuotaService + entry points + sweep) merged @ a0cb177; W4 (assessment engine + instruments) merged @ be9eb2b → 109/109.
 - W3 (consultant assignment, workhours, AvailabilityService, directory, K8 request lock) reviewed + merged @ 5050839. Integration fix: W2 QuotaEntryPointsTest fixtures lacked `consultant_request_enabled` → 403 before quota check (K8 conflict) → fixed @ 12b3365 → **135/135, 566 assertions**.
 - Env note: `/usr/bin/php` = CGI (hangs, dumps usage). Use **`/usr/local/bin/php`** (CLI 8.2.36) for ALL artisan/phpunit.
-- W5 (types+chat) running (worktree soluusi-b2b-w5). W6 (Sesi Saya dashboard) spawned @ 12b3365 base, worktree soluusi-b2b-w6.
-- Pending: W5 review+merge → spawn W7; W6 review+merge → W8 (QA + deploy hardening).
+- W5 (types+chat+rooms+meeting-link) reviewed (RoomService half-open overlap OK, ChatMessage Prunable OK, meetingLink regex guard OK, 97/97 verified independently) + merged @ b9d9999. Conflicts: W1RollbackCheckTest step 8→9, routes/web.php W2+W5 routes kept. → **156/156, 634 assertions**.
+- W6 (Sesi Saya dashboard) running @ base 12b3365 (worktree soluusi-b2b-w6) — will need rebase/merge onto b9d9999 result at integration (W5 touched booking.blade.php + EmployeeController too; watch conflicts).
+- W7 (notes/results/reviews + audit) spawned @ base b9d9999 (worktree soluusi-b2b-w7).
+- Pending: W6, W7 review+merge → W8 (QA + deploy hardening).
 
 ## Phase status
 - Phase 0 (RECON): DONE (recon-SUMMARY.md)
