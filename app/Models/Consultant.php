@@ -94,7 +94,19 @@ class Consultant extends Model
         return $this->belongsTo(Category::class);
     }
 
-    /** 
+    /** Exception ketersediaan (mission M3 / K7) — global semua perusahaan. */
+    public function availabilityExceptions()
+    {
+        return $this->hasMany(\App\Models\ConsultantAvailabilityException::class);
+    }
+
+    /** Assignment pool tenant konsultan (mission M3). */
+    public function pools()
+    {
+        return $this->hasMany(\App\Models\ConsultantPool::class);
+    }
+
+    /**
      * get All category of the consultant
      */
     public function categories()
