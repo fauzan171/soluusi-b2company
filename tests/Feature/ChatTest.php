@@ -76,7 +76,11 @@ class ChatTest extends TestCase
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'Halo dok'])
             ->assertOk();
 
-        $this->assertDatabaseHas('chat_messages', ['perusahaan_session_id' => $session->id, 'body' => 'Halo dok']);
+        // W5: body terenkripsi at-rest — cek via model (round-trip) + pastikan
+        // nilai DB mentah bukan plaintext.
+        $this->assertSame('Halo dok', $session->chatMessages()->first()->body);
+        $this->assertStringNotContainsString('Halo dok',
+            \Illuminate\Support\Facades\DB::table('chat_messages')->where('perusahaan_session_id', $session->id)->value('body'));
 
         $this->actingAs($docUser)->getJson(route('consultant.chat', $session))
             ->assertOk()

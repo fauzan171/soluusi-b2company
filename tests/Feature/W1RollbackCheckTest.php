@@ -14,8 +14,9 @@ class W1RollbackCheckTest extends TestCase
     public function test_mission_migrations_rollback_clean()
     {
         $this->assertTrue(Schema::hasTable('audit_logs'));
-        // W4 menambah 1 migrasi mission (assessment_instruments) → step 7+1.
-        Artisan::call('migrate:rollback', ['--step' => 8, '--force' => true]);
+        // W4 menambah assessment_instruments, W5 menambah migrasi sender_role
+        // (2026_11_22_000001) → step 7+1+1.
+        Artisan::call('migrate:rollback', ['--step' => 9, '--force' => true]);
         $this->assertFalse(Schema::hasTable('assessment_instruments'));
         foreach (['packages', 'employee_packages', 'consultation_quota_ledger', 'consultant_work_hours',
             'consultant_availability_exceptions', 'consultation_notes', 'consultation_results',
