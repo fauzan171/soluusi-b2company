@@ -32,6 +32,11 @@ class ChatController extends Controller
     {
         $this->authorize('view', $session);
 
+        // W7 (K16): akses halaman chat (non-poll) = potensi akses catatan klinis → audit.
+        if (! request()->wantsJson() && ! request()->has('after') && $session->note) {
+            \App\Models\AuditLog::record(auth()->user(), 'note.view', $session);
+        }
+
         return $this->room($session, "Karyawan", route('consultant.chat.store', $session), route('consultant.sessions'));
     }
 

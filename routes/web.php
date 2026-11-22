@@ -208,6 +208,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employeeStore'])->middleware('throttle:60,1')->name('chat.store');
         Route::post('/employee/sessions/{session}/end', [\App\Http\Controllers\ChatController::class, 'employeeEnd'])->name('chat.end');
         Route::post('/employee/sessions/{session}/rate', [\App\Http\Controllers\ChatController::class, 'employeeRate'])->name('chat.rate');
+        // W7 (K14): ulasan sesi (rating 1-5 + komentar, 1x, post-done, konsultan hanya lihat agregat).
+        Route::post('/employee/sessions/{session}/review', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeReview'])->name('reviews.store');
     });
 });
 
@@ -234,6 +236,9 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sekolah-sessions/{session}/start', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantStart'])->name('sekolah.chat.start');
     Route::post('/sekolah-sessions/{session}/end', [\App\Http\Controllers\Sekolah\ChatController::class, 'consultantEnd'])->name('sekolah.chat.end');
     Route::post('/sekolah-sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'scheduleSekolah'])->middleware('throttle:10,1')->name('sekolah.schedule');
+    // W7 (K14): catatan klinis (encrypted + audit) & hasil sesi — konsultan pemilik sesi saja.
+    Route::post('/sessions/{session}/note', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeNote'])->name('notes.store');
+    Route::post('/sessions/{session}/result', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeResult'])->name('results.store');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---

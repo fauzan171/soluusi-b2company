@@ -44,7 +44,8 @@
                 <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Rating</h3>
                 <p class="text-gray-700">
                     @if($ratingAvg)
-                        {{ $ratingAvg }} / 5
+                        {{ number_format($ratingAvg, 1) }} / 5
+                        <span class="text-xs text-gray-400">· {{ $ratingCount }} ulasan dari sesi selesai</span>
                     @else
                         Belum ada rating
                     @endif

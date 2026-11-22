@@ -413,10 +413,9 @@ class EmployeeController extends Controller
             $consultant, $perusahaan, now(), now()->addDays(7)
         );
 
-        // Rating agregat dari sesi done perusahaan ini (rating tidak dibagikan ke HR — hanya sini).
-        $ratingAvg = \App\Models\Perusahaan\PerusahaanSession::where('consultant_id', $consultant->id)
-            ->where('perusahaan_id', $perusahaan->id)
-            ->where('status', 'done')->whereNotNull('rating')->avg('rating');
+        // W7: rating agregat dari consultation_reviews perusahaan ini (komentar
+        // individu tidak pernah keluar — hanya avg + count; rating tidak dibagikan ke HR).
+        $aggregate = PerusahaanSession::ratingAggregate($consultant->id, $perusahaan->id);
 
         $pool = ConsultantPool::where('perusahaan_id', $perusahaan->id)
             ->where('consultant_id', $consultant->id)->with('workHours')->first();
@@ -427,7 +426,8 @@ class EmployeeController extends Controller
             'consultant' => $consultant->load(['user', 'categories', 'educations', 'certificates']),
             'skills' => $consultant->skills()->pluck('name'),
             'slots' => $slots,
-            'ratingAvg' => $ratingAvg ? round($ratingAvg, 1) : null,
+            'ratingAvg' => $aggregate['avg'],
+            'ratingCount' => $aggregate['count'],
             'workHours' => $pool?->workHours ?? collect(),
             'requestEnabled' => (bool) $perusahaan->consultant_request_enabled,
         ]);

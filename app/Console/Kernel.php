@@ -43,6 +43,9 @@ class Kernel extends ConsoleKernel
         // ledger forfeited. PROD: `schedule:run` must be enabled (systemd timer
         // / cron — aktivasi didokumentasikan untuk W8 deploy doc).
         $schedule->command('sessions:sweep-no-show')->hourly();
+
+        // W7 (K11/W5): purge chat 90 hari post-sesi (Prunable di ChatMessage).
+        $schedule->command('model:prune')->dailyAt('03:00');
     }
 
     /**

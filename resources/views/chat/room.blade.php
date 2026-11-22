@@ -115,6 +115,132 @@
         <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">
             Transkrip chat sesi ini sudah dihapus otomatis 24 jam setelah sesi selesai (kebijakan retensi privasi). Ringkasan sesi tetap tersimpan.
         </p>
+        {{-- W7 (K14): catatan klinis konsultan — konsultan-only, encrypted, tiap
+             akses halaman (bukan poll) ter-audit (note.view). --}}
+        @if(!$isEmployee)
+        @php($note = $session->note)
+        <div class="px-5 py-4 border-b border-[#e7e2d9] bg-pine-50/50" x-data="{ open: {{ $note ? 'false' : 'true' }} }">
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-sm font-semibold text-pine-900 flex items-center gap-2">
+                    Catatan sesi <span class="text-[10px] font-semibold uppercase tracking-wide rounded-full bg-pine-100 text-pine-800 px-2 py-0.5">Rahasia</span>
+                </h2>
+                <button type="button" @click="open = !open" class="text-xs font-medium text-pine-700 hover:underline">
+                    <span x-text="open ? 'Tutup' : 'Buka'"></span>
+                </button>
+            </div>
+            <div x-show="open" x-cloak class="mt-3 space-y-2">
+                <form method="POST" action="{{ route('consultant.notes.store', $session) }}" class="space-y-2">
+                    @csrf
+                    <textarea name="body" rows="3" required maxlength="10000"
+                              placeholder="Catatan klinis sesi ini (tersimpan terenkripsi, hanya kamu yang bisa baca)…"
+                              class="w-full rounded-xl border border-[#e7e2d9] px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:border-pine-400 focus:ring-2 focus:ring-pine-100">{{ old('body', $note?->body) }}</textarea>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-[11px] text-gray-400">Enkripsi at-rest · akses tercatat di audit log</span>
+                        <button type="submit" class="rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition-colors">
+                            {{ $note ? 'Perbarui catatan' : 'Simpan catatan' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- W7 (K14): hasil sesi — ringkasan + rekomendasi (karyawan lihat setelah sesi selesai). --}}
+        @php($result = $session->result)
+        <div class="px-5 py-4 border-b border-[#e7e2d9]" x-data="{ open: {{ $result ? 'false' : 'true' }} }">
+            <div class="flex items-center justify-between gap-3">
+                <h2 class="text-sm font-semibold text-pine-900">Hasil sesi</h2>
+                <button type="button" @click="open = !open" class="text-xs font-medium text-pine-700 hover:underline">
+                    <span x-text="open ? 'Tutup' : 'Buka'"></span>
+                </button>
+            </div>
+            <div x-show="open" x-cloak class="mt-3 space-y-2">
+                <form method="POST" action="{{ route('consultant.results.store', $session) }}" class="space-y-2">
+                    @csrf
+                    <textarea name="summary" rows="2" required maxlength="10000"
+                              placeholder="Ringkasan sesi untuk karyawan…"
+                              class="w-full rounded-xl border border-[#e7e2d9] px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:border-pine-400 focus:ring-2 focus:ring-pine-100">{{ old('summary', $result?->summary) }}</textarea>
+                    <textarea name="recommendation" rows="2" maxlength="10000"
+                              placeholder="Rekomendasi / langkah lanjutan…"
+                              class="w-full rounded-xl border border-[#e7e2d9] px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:border-pine-400 focus:ring-2 focus:ring-pine-100">{{ old('recommendation', $result?->recommendation) }}</textarea>
+                    <div class="flex items-center justify-end gap-3">
+                        <button type="submit" class="rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition-colors">
+                            {{ $result ? 'Perbarui hasil' : 'Simpan hasil' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- W7: rating agregat karyawan untuk sesi-sesi kamu di perusahaan ini — komentar individu tidak pernah dilihat konsultan. --}}
+        @if($session->status === 'done')
+        <div class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-gray-500">Ulasan karyawan:</span>
+            @php($agg = \App\Models\Perusahaan\PerusahaanSession::ratingAggregate($session->consultant_id, $session->perusahaan_id))
+            @if($agg['count'])
+            <span class="font-semibold text-amber-500">{{ str_repeat('★', (int) round($agg['avg'])) . str_repeat('☆', 5 - (int) round($agg['avg'])) }}</span>
+            <span class="text-gray-600">{{ $agg['avg'] }} / 5 · {{ $agg['count'] }} ulasan di {{ $session->perusahaan?->brand }}</span>
+            @else
+            <span class="text-gray-400">Belum ada ulasan.</span>
+            @endif
+        </div>
+        @endif
+        @endif
+
+        {{-- W7 (K14): hasil sesi — sisi karyawan, hanya setelah sesi selesai. --}}
+        @if($isEmployee && $session->status === 'done')
+        @php($result = $session->result)
+        @php($review = $session->review)
+        @php($agg = \App\Models\Perusahaan\PerusahaanSession::ratingAggregate($session->consultant_id, $session->perusahaan_id))
+        <div class="px-5 py-4 border-b border-[#e7e2d9] bg-pine-50/50 space-y-3">
+            <h2 class="text-sm font-semibold text-pine-900">Hasil sesi kamu</h2>
+            @if($result)
+            <div class="text-sm text-gray-700 space-y-2">
+                <p><span class="font-medium text-ink">Ringkasan:</span> {{ $result->summary }}</p>
+                @if($result->recommendation)
+                <p><span class="font-medium text-ink">Rekomendasi:</span> {{ $result->recommendation }}</p>
+                @endif
+            </div>
+            @else
+            <p class="text-sm text-gray-400">Konsultan belum menuliskan ringkasan sesi.</p>
+            @endif
+
+            {{-- Ulasan: 1x per sesi, hanya setelah done. --}}
+            @if(!$review)
+            <form method="POST" action="{{ route('perusahaan.reviews.store', $session) }}" class="pt-2 space-y-2">
+                @csrf
+                <label class="block text-xs text-gray-600">Beri ulasan untuk konsultan:</label>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <select name="rating" required class="rounded-lg border border-[#e7e2d9] px-2 py-1.5 text-sm bg-white">
+                        <option value="5">★★★★★ Sangat membantu</option>
+                        <option value="4">★★★★☆ Membantu</option>
+                        <option value="3">★★★☆☆ Cukup</option>
+                        <option value="2">★★☆☆☆ Kurang</option>
+                        <option value="1">★☆☆☆☆ Tidak membantu</option>
+                    </select>
+                    <input type="text" name="comment" maxlength="2000" placeholder="Komentar (opsional, privat)"
+                           class="flex-1 min-w-[200px] rounded-lg border border-[#e7e2d9] px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-pine-400">
+                    <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Kirim ulasan</button>
+                </div>
+                <p class="text-[11px] text-gray-400">Ulasan anonim bagi konsultan — mereka hanya melihat rata-rata, bukan komentar kamu.</p>
+            </form>
+            @else
+            <p class="text-xs text-gray-500 pt-1">Ulasan kamu: {{ str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) }} · terima kasih sudah memberi feedback.</p>
+            @endif
+        </div>
+        @endif
+
+        <div id="chat-log" class="px-4 py-4 sm:px-5 h-[55vh] sm:h-[60vh] overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
+
+        @if($canSend)
+        <form id="chat-form" class="border-t border-[#e7e2d9] bg-white px-4 py-3 sm:px-5 flex items-end gap-2">
+            <textarea id="chat-input" name="body" maxlength="2000" autocomplete="off" required rows="1"
+                   class="flex-1 resize-none rounded-xl border border-[#e7e2d9] px-3.5 py-2.5 text-sm focus:outline-none focus:border-pine-400 focus:ring-2 focus:ring-pine-100"
+                   placeholder="Tulis pesan…"></textarea>
+            <button class="rounded-xl bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-800 transition-colors shrink-0">Kirim</button>
+        </form>
+        <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru</p>
+        @else
+        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Chat aktif setelah konsultan menyetujui jadwal sesi kamu.</p>
         @endif
 
         {{-- F7: load-more riwayat >200 pesan; server set visibilitas via has_more. --}}

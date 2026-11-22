@@ -85,4 +85,48 @@ class PerusahaanSession extends Model
     {
         return $this->belongsTo(\App\Models\Perusahaan\Room::class);
     }
+
+    // W7 (K14): note/result/review — 1:1 per sesi (UNIQUE perusahaan_session_id).
+    public function note()
+    {
+        return $this->hasOne(ConsultationNote::class, 'perusahaan_session_id');
+    }
+
+    public function result()
+    {
+        return $this->hasOne(ConsultationResult::class, 'perusahaan_session_id');
+    }
+
+    public function review()
+    {
+        return $this->hasOne(ConsultationReview::class, 'perusahaan_session_id');
+    }
+
+    /** Catatan konsultan (nama relations plural: dipakai test W7). */
+    public function notes()
+    {
+        return $this->hasOne(ConsultationNote::class, 'perusahaan_session_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasOne(ConsultationReview::class, 'perusahaan_session_id');
+    }
+
+    /**
+     * W7: rating agregat konsultan untuk perusahaan ini (privacy-safe —
+     * komentar individu tidak pernah ikut, hanya avg + count).
+     */
+    public static function ratingAggregate(int $consultantId, int $perusahaanId): array
+    {
+        $row = static::query()
+            ->join('consultation_reviews', 'consultation_reviews.perusahaan_session_id', '=', 'perusahaan_sessions.id')
+            ->where('perusahaan_sessions.consultant_id', $consultantId)
+            ->where('perusahaan_sessions.perusahaan_id', $perusahaanId)
+            ->selectRaw('avg(consultation_reviews.rating) as avg_rating, count(*) as total')
+            ->first();
+
+        return ['avg' => $row && $row->total ? round((float) $row->avg_rating, 1) : null, 'count' => (int) ($row->total ?? 0)];
+
+    }
 }
