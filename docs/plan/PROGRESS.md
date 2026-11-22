@@ -32,7 +32,8 @@
 - Post-merge integration: closed W5×W3 ponytail seam — BookingService now validates consultation_type vs consultant_work_hours (null=all) with 422 + 3 new tests → **165/165, 677 assertions**.
 - Open integration item for W7/W8: rating duplicate sources — consultant-show displays perusahaan_sessions.rating avg (W3) while W7 builds consultation_reviews aggregate. Unify after W7 merges (likely: reviews table as source of truth, legacy sessions.rating read-only).
 - W7 (notes/results/reviews + audit + rating aggregate via consultation_reviews) reviewed (scoping, AuditLog::record, unique review, privacy-safe aggregate) + merged @ b65ebc4. Conflict PerusahaanSession room()+W7 relations resolved. → **181/181, 749 assertions**.
-- W8 (QA + tenant isolation matrix + deploy hardening + ERD + FINAL-REPORT) spawned @ base b65ebc4 (worktree soluusi-b2b-w8). Worker terakhir.
+- **W8 done + merged @ 9026fc1 — MISSION COMPLETE.** Tenant isolation matrix 15 test, quota edge 3 test, deploy/soluusi-scheduler.{service,timer}, docs/dev/deploy.md, docs/plan/ERD.md, docs/plan/FINAL-REPORT.md, CHANGELOG.md, docs cleanup (9 file → archive/, 1 PDF duplikat rm). Final: **199 passed, 798 assertions** (masuk 66/321).
+- Notable W8 findings: brief-presentasi.md tidak ada di branch ini (milik prod tree) — link via CHANGELOG; cherry-pick prod fixes sengaja TIDAK di-apply (didokumentasikan deploy.md); scheduler prod mati sampai owner aktifkan timer.
 - Rating integration tuntas: consultant-show kini pakai consultation_reviews aggregate (W7), legacy sessions.rating column read-only (ChatTest masih pakai rate route lama — konsolidasi noted untuk owner).
 
 ## Phase status
