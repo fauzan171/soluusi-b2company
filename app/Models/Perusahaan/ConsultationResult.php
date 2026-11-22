@@ -15,6 +15,13 @@ class ConsultationResult extends Model
 
     protected $guarded = ['id'];
 
+    // FIX (audit M1): ringkasan klinis = data kesehatan (PDP) — encrypted at
+    // rest, konsisten dengan ConsultationNote.body / ChatMessage.body.
+    protected $casts = [
+        'summary' => 'encrypted',
+        'recommendation' => 'encrypted',
+    ];
+
     public function session()
     {
         return $this->belongsTo(PerusahaanSession::class, 'perusahaan_session_id');

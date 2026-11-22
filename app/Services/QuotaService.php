@@ -58,8 +58,8 @@ class QuotaService
         $period = static::periodOf($sessionAt);
 
         if (! $ep) {
-            // legacy: hitung sesi bulan ini langsung (pre-mission, tanpa ledger)
-            $monthStart = now()->startOfMonth();
+            // legacy: hitung sesi bulan period-nya langsung (pre-mission, tanpa ledger)
+            $monthStart = ($sessionAt ?: now())->startOfMonth();
             $used = $employee->sessions()
                 ->whereIn('status', ['scheduled', 'done'])
                 ->where(fn ($q) => $q->where('scheduled_at', '>=', $monthStart)->orWhereNull('scheduled_at'))
@@ -67,7 +67,23 @@ class QuotaService
             return max(0, (int) $employee->perusahaan?->sessions_per_employee_month ?? 0) - $used;
         }
 
-        return max(0, static::quota($ep) - static::outflow($ep, $period) + static::inflow($ep, $period));
+        // FIX: konsisten dengan reserve() — sesi tanpa ledger row (pre-mission)
+        // tetap dihitung terpakai, else UI bilang saldo penuh padahal ada sesi.
+        return max(0, static::quota($ep) - static::outflow($ep, $period) - static::unledgered($employee, $ep, $period) + static::inflow($ep, $period));
+    }
+
+    /** Sesi aktif employee tanpa ledger row milik assignment ini (pre-mission). */
+    private static function unledgered(PerusahaanEmployee $employee, EmployeePackage $ep, string $period): int
+    {
+        return $employee->sessions()
+            ->whereIn('status', ['scheduled', 'done'])
+            ->whereNotIn('id', ConsultationQuotaLedger::select('perusahaan_session_id')
+                ->where('employee_package_id', $ep->id))
+            ->where(fn ($q) => $q->whereBetween('scheduled_at', [
+                Carbon::parse($period.'-01')->startOfMonth(),
+                Carbon::parse($period.'-01')->endOfMonth(),
+            ])->orWhereNull('scheduled_at'))
+            ->count();
     }
 
     /** Nama package + kuota untuk pesan error/UI. */
@@ -100,7 +116,14 @@ class QuotaService
             return $existing; // idempotent (retry / double-submit)
         }
 
-        $balance = max(0, static::quota($ep) - static::outflow($ep, $period) + static::inflow($ep, $period));
+        // FIX (audit backfill gap): sesi existing TANPA ledger row dihitung
+        // terpakai (konsisten balanceFor); sesi yang sedang di-reserve exclude.
+        $unledgered = static::unledgered($employee, $ep, $period)
+            - $employee->sessions()->whereKey($session->id)
+                ->whereIn('status', ['scheduled', 'done'])
+                ->whereNotIn('id', ConsultationQuotaLedger::select('perusahaan_session_id'))->count();
+
+        $balance = max(0, static::quota($ep) - static::outflow($ep, $period) - $unledgered + static::inflow($ep, $period));
         abort_if($balance < 1, 403, "Kuota bulan ini habis ({$label['name']} ".static::quota($ep)."x).");
 
         return ConsultationQuotaLedger::create([
@@ -231,13 +254,19 @@ class QuotaService
 
     private static function outflow(EmployeePackage $ep, string $period): int
     {
+        // FIX (review B1): ledger append-only menulis reserved + terminal event
+        // (used/forfeited) untuk SATU sesi — hitung per-SESI, bukan per-row,
+        // else 1 sesi selesai = 2 kuota terbakar. released/refunded (inflow)
+        // mengkompensasi sesi yang sudah tidak mengunci kuota.
         return ConsultationQuotaLedger::where('employee_package_id', $ep->id)
             ->where('period_ym', $period)
             ->whereIn('event', [
                 ConsultationQuotaLedger::EVENT_RESERVED,
                 ConsultationQuotaLedger::EVENT_USED,
                 ConsultationQuotaLedger::EVENT_FORFEITED,
-            ])->count();
+            ])
+            ->distinct('perusahaan_session_id')
+            ->count('perusahaan_session_id');
     }
 
     private static function inflow(EmployeePackage $ep, string $period): int

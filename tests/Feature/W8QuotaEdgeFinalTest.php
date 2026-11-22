@@ -107,7 +107,10 @@ class W8QuotaEdgeFinalTest extends TestCase
 
     public function test_reserve_period_is_session_month_not_booking_month()
     {
-        [, , $ep, $emp, , ] = $this->fixture(1);
+        [, , $ep, $emp, , $session] = $this->fixture(1);
+        // FIX semantik unledgered: sesi fixture (bulan ini, tanpa reserve) ikut
+        // terhitung — batalkan agar saldo bulan ini benar-benar penuh.
+        $session->update(['status' => 'cancelled']);
 
         // slot bulan depan, dipesan bulan ini → ledger tercatat di period bulan SLOT.
         $nextMonth = now()->addMonth();

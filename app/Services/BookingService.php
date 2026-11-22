@@ -84,6 +84,11 @@ class BookingService
             $late = !$session->scheduled_at || now()->gte($session->scheduled_at->copy()->subHours($vertical === 'sekolah' ? 24 : 2));
             $session->update(['status' => 'cancelled', 'quota_consumed' => $late, 'cancel_reason' => $reason, 'cancelled_at' => now()]);
             DB::table('booking_claims')->where('owner_type', $vertical)->where('owner_id', $session->id)->delete();
+            // FIX (review B2): early-cancel W2 ledger → event released, saldo kembali
+            // (UI sudah bilang "Kuota kamu kembali" — sekarang ledger-nya juga).
+            if (! $late && $vertical === 'perusahaan') {
+                \App\Services\QuotaService::release($session, 'cancel: '.$reason);
+            }
             return !$late;
         });
     }
@@ -134,7 +139,22 @@ class BookingService
                 && $slot->ended_at && $slot->ended_at->gt($slot->started_at)
                 && ConsultantPool::validChoice($vertical, $tenant->id, $slot->consultant_id, $data['konsultan_type'])
                 && $slot->consultant?->is_active && $slot->consultant?->status === Consultant::ACCEPT, 422, 'Slot/konsultan tidak tersedia.');
-            abort_if(($school ? self::quotaUsed($row, $slot->started_at) : self::monthQuotaUsed($row)) >= ($school ? $tenant->sessions_per_student_month : $tenant->sessions_per_employee_month), 403, 'Kuota bulan tanggal sesi sudah habis.');
+            // FIX (audit M2): validChoice di base tak memastikan konsultan benar-benar
+            // ada di pool tenant (schedule_id lintas tenant bisa lolos). Konsultan
+            // yang di-booking wajib di-assign aktif di tenant ini.
+            if ($vertical === 'perusahaan') {
+                abort_unless(
+                    \App\Models\ConsultantPool::where('perusahaan_id', $tenant->id)
+                        ->where('consultant_id', $slot->consultant_id)
+                        ->where('status', 'active')->exists(),
+                    422, 'Konsultan tidak tersedia untuk perusahaan ini.'
+                );
+            }
+            // FIX (review M3): perusahaan — kuota di-gate QuotaService::reserve
+            // (ledger per package, bisa > flat tenant lama); flat check hanya sekolah.
+            if ($school) {
+                abort_if(self::quotaUsed($row, $slot->started_at) >= $tenant->sessions_per_student_month, 403, 'Kuota bulan tanggal sesi sudah habis.');
+            }
             if (self::blocked($slot)) {
                 throw ValidationException::withMessages(['schedule_id' => 'Slot sudah dipesan. Pilih slot lain.']);
             }

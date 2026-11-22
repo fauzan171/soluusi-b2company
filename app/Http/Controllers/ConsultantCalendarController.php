@@ -19,6 +19,14 @@ class ConsultantCalendarController extends Controller
         if (!$consultant && optional(auth()->user()->role)->name !== 'admin') {
             abort(403, 'Bukan konsultan.');
         }
+        // FIX (review M4): superadmin tanpa row konsultan → preview kosong, bukan
+        // null deref di pools()/whereHas di bawah.
+        if (!$consultant) {
+            return view('consultant.calendar', [
+                'consultant' => null, 'perusahaans' => collect(), 'selected' => null,
+                'slots' => collect(), 'booked' => collect(),
+            ]);
+        }
 
         // Pool perusahaan aktif konsultan ini (lintas perusahaan).
         $perusahaans = Perusahaan::where('is_active', true)

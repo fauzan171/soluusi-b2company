@@ -138,6 +138,9 @@ class QuotaServiceTest extends TestCase
     public function test_month_rollover_resets_balance()
     {
         [, , $ep, $emp, , $session] = $this->fixture(1);
+        // FIX semantik unledgered: sesi fixture tanpa reserve ikut terhitung —
+        // batalkan agar tidak polusi saldo bulan berjalan.
+        $session->update(['status' => 'cancelled']);
 
         $this->travelTo(now()->startOfMonth()->subMonth());
         $oldSession = PerusahaanSession::create([
@@ -170,8 +173,12 @@ class QuotaServiceTest extends TestCase
     {
         // karyawan PT A tidak bisa konsumsi kuota PT B: ledger scoped via
         // employee_package_id → assignment milik employee sendiri.
-        [$pA, , , $empA, , ] = $this->fixture(2);
-        [$pB, , , $empB, , ] = $this->fixture(5);
+        [$pA, , , $empA, , $sessionAfx] = $this->fixture(2);
+        [$pB, , , $empB, , $sessionB] = $this->fixture(5);
+        // FIX semantik unledgered: sesi fixture tanpa reserve ikut terhitung —
+        // batalkan agar saldo keduanya bersih.
+        $sessionAfx->update(['status' => 'cancelled']);
+        $sessionB->update(['status' => 'cancelled']);
 
         $sessionA = PerusahaanSession::create([
             'perusahaan_id' => $pA->id, 'employee_id' => $empA->id,

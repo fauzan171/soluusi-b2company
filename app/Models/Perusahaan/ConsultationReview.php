@@ -18,6 +18,9 @@ class ConsultationReview extends Model
 
     protected $casts = [
         'rating' => 'integer',
+        // FIX (audit M1): komentar ulasan sesi kesehatan mental = data sensitif
+        // (PDP) — encrypted at rest (konsultan cuma lihat agregat).
+        'comment' => 'encrypted',
     ];
 
     public function session()
