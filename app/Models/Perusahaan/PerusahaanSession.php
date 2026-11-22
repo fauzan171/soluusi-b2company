@@ -80,4 +80,9 @@ class PerusahaanSession extends Model
     {
         return $this->hasMany(\App\Models\ChatMessage::class, 'perusahaan_session_id')->orderBy('id');
     }
+
+    public function room()
+    {
+        return $this->belongsTo(\App\Models\Perusahaan\Room::class);
+    }
 }

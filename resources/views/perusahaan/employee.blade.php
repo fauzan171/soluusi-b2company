@@ -74,7 +74,11 @@
                 <h2 class="font-semibold text-sm">Butuh cerita? Konsultan siap dengerin.</h2>
                 <p class="text-xs text-pine-100 mt-1">Online, rahasia, sesuai sisa kuota kamu.</p>
             </div>
-            @if($quotaLeft > 0)
+            @if(!$employee->consent_at)
+            {{-- W6: consent gate — booking slot maupun request sama-sama terkunci. --}}
+            <button type="button" disabled title="Selesaikan persetujuan program kamu dulu lewat HR." class="mt-3 w-full bg-white/60 text-pine-100 text-sm font-semibold rounded-lg px-4 py-2 text-center cursor-not-allowed">🔒 Minta Konsultasi</button>
+            <p class="text-[10px] text-pine-100/70 text-center" title="Selesaikan persetujuan program kamu dulu lewat HR.">Selesaikan persetujuan program kamu dulu lewat HR.</p>
+            @elseif($quotaLeft > 0)
             <div class="mt-3 flex flex-col gap-2">
                 @if($requestEnabled ?? false)
                 <button type="button" @click="requestConsult = true" class="bg-white text-pine-800 text-sm font-semibold rounded-lg px-4 py-2 text-center hover:bg-pine-50 transition">Minta Konsultasi →</button>
@@ -84,13 +88,66 @@
                 </button>
                 <p class="text-[10px] text-pine-100/70 text-center" title="Dikunci admin">Dikunci admin</p>
                 @endif
+                {{-- W6: BOOKING slot (pilih konsultan + jadwal sendiri) — beda dari request konsultan di atas. --}}
                 <a href="{{ route('perusahaan.booking') }}" class="text-xs text-pine-100 text-center hover:underline">atau pilih jadwal sendiri</a>
             </div>
             @else
-            <p class="mt-3 text-xs bg-white/10 rounded-lg px-3 py-2">Kuota bulan ini habis. Booking lagi bulan depan ya.</p>
+            <button type="button" disabled title="Sisa kuota bulan ini habis — hubungi HR untuk penambahan." class="mt-3 w-full bg-white/60 text-pine-100 text-sm font-semibold rounded-lg px-4 py-2 text-center cursor-not-allowed">🔒 Minta Konsultasi</button>
+            <p class="text-[10px] text-pine-100/70 text-center" title="Sisa kuota bulan ini habis — hubungi HR untuk penambahan.">Sisa kuota bulan ini habis — hubungi HR untuk penambahan.</p>
             @endif
         </div>
     </div>
+
+    {{-- W6: Sesi Saya — kartu per sesi scheduled mendatang --}}
+    <section class="mb-6">
+        <h2 class="font-semibold text-sm text-pine-900 mb-3">Sesi Saya</h2>
+        @if($mySessions->isEmpty())
+        <p class="portal-card p-5 text-sm text-gray-400">Belum ada sesi terjadwal. @if($quotaLeft > 0)<a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Pilih jadwal pertamamu.</a>@endif</p>
+        @endif
+        @if($mySessions->isNotEmpty())
+        <div class="grid gap-3 sm:grid-cols-2">
+            @foreach($mySessions as $s)
+            @php
+                // ponytail: W5 merge: replace fallback with typed slot filtering
+                $type = $s->consultation_type ?: 'chat';
+                $end = $s->ended_at ?: $s->scheduled_at->copy()->addHour();
+                $duration = $s->ended_at ? $s->scheduled_at->diffInMinutes($s->ended_at) : 60;
+            @endphp
+            <div class="portal-card p-5 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5
+                        {{ $type === 'one_on_one' ? 'bg-pine-100 text-pine-800' : ($type === 'online_meeting' ? 'bg-blue-100 text-blue-800' : 'bg-terra-100 text-terra-800') }}">
+                        {{ ['one_on_one' => ' Tatap Muka', 'online_meeting' => 'Online Meeting', 'chat' => 'Chat'][$type] ?? 'Chat' }}
+                    </span>
+                    <span class="text-xs text-gray-400">{{ $duration }} menit</span>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-pine-900">{{ $s->topic_category ?: ($typeLabels[$s->konsultan_type] ?? 'Sesi konsultasi') }}</p>
+                    @if($s->consultant?->user)
+                    <p class="text-xs text-gray-500">{{ $s->consultant->user->fullname }}</p>
+                    @endif
+                    <p class="text-xs text-gray-500 mt-0.5">{{ $s->scheduled_at->translatedFormat('l, d M Y, H.i') }} WIB</p>
+                    <p class="text-xs font-semibold text-pine-700">Dalam {{ $s->scheduled_at->diffForHumans(['parts' => 2, 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}</p>
+                </div>
+                @if($type === 'one_on_one' && $s->room)
+                <p class="text-xs bg-pine-50 text-pine-800 rounded-lg px-3 py-2 mt-auto">📍 {{ $s->room->name }}</p>
+                @elseif($type === 'online_meeting' && $s->meeting_url)
+                @if(now()->gte($s->scheduled_at->subMinutes(10)) && now()->lte($end))
+                <a href="{{ $s->meeting_url }}" target="_blank" rel="noopener"
+                    class="mt-auto text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-2 text-center hover:bg-blue-700">Gabung</a>
+                <p class="text-[10px] text-gray-400 text-center break-all">{{ $s->meeting_url }}</p>
+                @else
+                <p class="text-[10px] text-gray-400 mt-auto">Link gabung tersedia 10 menit sebelum sesi.</p>
+                @endif
+                @elseif($type === 'chat')
+                <a href="{{ route('perusahaan.chat', $s) }}"
+                    class="mt-auto text-xs font-semibold bg-pine-700 text-white rounded-lg px-3 py-2 text-center hover:bg-pine-800">Masuk Chat</a>
+                @endif
+            </div>
+            @endforeach
+        </div>
+    </section>
+    @endif
 
     {{-- Modal: minta konsultasi --}}
     <div x-show="requestConsult" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
@@ -361,7 +418,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="p-4 text-gray-400">Belum ada sesi. <a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Yuk mulai dengan pilih jadwal.</a></td></tr>
+                <tr><td colspan="5" class="p-4 text-gray-400">Belum ada sesi. @if($quotaLeft > 0)<a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Yuk mulai dengan pilih jadwal.</a>@endif</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -473,7 +530,7 @@
                 </div>
                 @endforeach
             </div>
-            <p class="mt-5 text-xs leading-5 text-gray-500">Skor di bawah 50 menandakan kamu mungkin butuh dukungan. <a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Booking sesi konsultasi</a> — gratis lewat program kantor.</p>
+            <p class="mt-5 text-xs leading-5 text-gray-500">Skor di bawah 50 menandakan kamu mungkin butuh dukungan. @if($quotaLeft > 0)<a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Booking sesi konsultasi</a> — gratis lewat program kantor.@endif</p>
         </div>
     </div>
     @endif

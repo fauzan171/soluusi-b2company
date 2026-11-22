@@ -93,6 +93,17 @@ class EmployeeController extends Controller
         $quotaLeft = \App\Services\QuotaService::balanceFor($employee);
         $history = $employee->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
+        // W6: "Sesi Saya" — upcoming scheduled milik employee ini saja (row scoping by
+        // employee_id; query sudah lewat relasi sessions() milik PerusahaanEmployee).
+        $mySessions = $employee->sessions()
+            ->where('status', 'scheduled')
+            ->whereNotNull('scheduled_at')
+            ->with('room', 'consultant.user')
+            ->orderBy('scheduled_at')
+            ->get()
+            ->filter(fn ($s) => $s->scheduled_at->isFuture() || ($s->ended_at && $s->ended_at->isFuture()))
+            ->values();
+
         $latest = $employee->assessments()->latest('taken_at')->first();
         $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
@@ -129,6 +140,7 @@ class EmployeeController extends Controller
             'usedMonth' => $usedMonth,
             'scheduledMonth' => $scheduledMonth,
             'history' => $history,
+            'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
             'needsAssessment' => $needsAssessment,
