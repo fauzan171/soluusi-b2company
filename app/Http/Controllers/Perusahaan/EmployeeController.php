@@ -71,6 +71,12 @@ class EmployeeController extends Controller
         return $employee;
     }
 
+    /** Resolver di atas, dipakai controller assessment baru (W4) — tidak duplikasi logika. */
+    public function resolveEmployeePublic(): PerusahaanEmployee
+    {
+        return $this->resolveEmployee();
+    }
+
     public function index()
     {
         $employee = $this->resolveEmployee();

@@ -243,7 +243,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h3 class="text-[0.95rem] font-semibold text-gray-900">Distribusi WHO-5</h3>
-                    <p class="mt-0.5 text-xs text-gray-500">Skor kesejahteraan agregat perusahaan.</p>
+                    <p class="mt-0.5 text-xs text-gray-500">Skor kesejahteraan agregat perusahaan. <a href="{{ route('perusahaan.report.assessment') }}" class="text-pine-700 hover:underline font-medium">Semua instrumen →</a></p>
                 </div>
                 <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
             </div>

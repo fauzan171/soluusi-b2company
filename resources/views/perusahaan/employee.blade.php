@@ -64,7 +64,7 @@
             @else
             <div class="text-2xl font-bold text-gray-300">—</div>
             <div class="text-xs text-gray-500 mb-2">Belum ada hasil wellbeing</div>
-            <a href="{{ route('perusahaan.assessment.form') }}" class="mt-auto inline-block text-xs bg-pine-700 text-white font-semibold rounded-lg px-3 py-1.5 hover:bg-pine-800 text-center">Isi asesmen (1 menit) →</a>
+            <a href="{{ route('perusahaan.assessment.instruments') }}" class="mt-auto inline-block text-xs bg-pine-700 text-white font-semibold rounded-lg px-3 py-1.5 hover:bg-pine-800 text-center">Isi asesmen (1 menit) →</a>
             @endif
             <p class="text-[11px] text-gray-400 mt-2">Hasil ini milikmu sendiri, tidak dibagikan ke perusahaan.</p>
         </button>

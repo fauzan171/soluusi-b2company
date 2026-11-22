@@ -46,7 +46,7 @@
         ],
         $isPerusahaanRoute => [
             ['route' => 'perusahaan.employee', 'pattern' => 'perusahaan.employee', 'label' => 'Dashboard', 'icon' => 'heart'],
-            ['route' => 'perusahaan.assessment.form', 'pattern' => 'perusahaan.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
+            ['route' => 'perusahaan.assessment.instruments', 'pattern' => 'perusahaan.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
             ['route' => 'perusahaan.booking', 'pattern' => 'perusahaan.booking*', 'label' => 'Booking', 'icon' => 'calendar'],
         ],
         request()->routeIs('klinik.*') => [
