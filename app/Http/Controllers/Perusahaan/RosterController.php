@@ -24,11 +24,22 @@ class RosterController extends Controller
 
         $employees = $perusahaan->employees()->with('departement')->orderBy('name')->get();
 
+        // W2: label package + sisa kuota bulan ini (count only — privacy:
+        // konten sesi individual tidak pernah tampil di halaman HR).
+        $quotaInfo = [];
+        foreach ($employees as $emp) {
+            $quotaInfo[$emp->id] = [
+                'package' => \App\Services\QuotaService::packageLabel($emp)['name'],
+                'remaining' => \App\Services\QuotaService::balanceFor($emp),
+            ];
+        }
+
         return view('perusahaan.roster', [
             'perusahaan' => $perusahaan,
             'employees' => $employees,
             'departements' => \App\Models\Departement::forPerusahaan($perusahaan->id),
             'quota' => $perusahaan->sessions_per_employee_month,
+            'quotaInfo' => $quotaInfo,
         ]);
     }
 

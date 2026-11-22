@@ -31,12 +31,15 @@
                     @include('perusahaan.partials.icon', ['name' => 'calendar'])
                 </span>
                 <div>
-                    <div class="text-2xl font-bold text-pine-700">{{ max(0, $quota - $usedMonth - $scheduledMonth) }}<span class="text-sm font-normal text-gray-400"> / {{ $quota }}</span></div>
+                    <div class="text-2xl font-bold text-pine-700">{{ $quotaLeft }}<span class="text-sm font-normal text-gray-400"> / {{ $packageLabel['monthly_quota'] }}</span></div>
                     <div class="text-xs text-gray-500">Sisa sesi bulan ini</div>
                 </div>
             </div>
+            <div class="mt-2">
+                <span class="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-800">Paket {{ $packageLabel['name'] }}</span>
+            </div>
             <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-3">
-                <div class="h-full bg-pine-600 rounded-full transition-all duration-700" style="width: {{ min(100, round(($usedMonth + $scheduledMonth) / max(1, $quota) * 100)) }}%"></div>
+                <div class="h-full bg-pine-600 rounded-full transition-all duration-700" style="width: {{ min(100, round(($packageLabel['monthly_quota'] - $quotaLeft) / max(1, $packageLabel['monthly_quota']) * 100)) }}%"></div>
             </div>
             @if($scheduledMonth > 0)
             <p class="text-[11px] text-gray-400 mt-2">{{ $scheduledMonth }} sesi terjadwal</p>
@@ -71,7 +74,7 @@
                 <h2 class="font-semibold text-sm">Butuh cerita? Konsultan siap dengerin.</h2>
                 <p class="text-xs text-pine-100 mt-1">Online, rahasia, sesuai sisa kuota kamu.</p>
             </div>
-            @if(max(0, $quota - $usedMonth - $scheduledMonth) > 0)
+            @if($quotaLeft > 0)
             <div class="mt-3 flex flex-col gap-2">
                 <button type="button" @click="requestConsult = true" class="bg-white text-pine-800 text-sm font-semibold rounded-lg px-4 py-2 text-center hover:bg-pine-50 transition">Minta Konsultasi →</button>
                 <a href="{{ route('perusahaan.booking') }}" class="text-xs text-pine-100 text-center hover:underline">atau pilih jadwal sendiri</a>
@@ -307,7 +310,7 @@
         <p class="text-[11px] text-gray-400">Klik baris untuk detail & aksi</p>
     </div>
     @if($usedMonth > 0)
-    <p class="text-xs text-gray-500 mb-2">{{ $usedMonth }} dari {{ $quota }} sesi selesai bulan ini — bagus, terus jaga ritmenya.</p>
+    <p class="text-xs text-gray-500 mb-2">{{ $usedMonth }} dari {{ $packageLabel['monthly_quota'] }} sesi selesai bulan ini — bagus, terus jaga ritmenya.</p>
     @endif
     <div class="portal-card text-sm mb-6 overflow-x-auto">
         <table class="w-full min-w-[640px]">

@@ -83,6 +83,8 @@
                 <th class="p-3">Nama</th>
                 <th class="p-3">Email</th>
                 <th class="p-3">Departemen</th>
+                <th class="p-3">Paket</th>
+                <th class="p-3">Sisa Kuota Bulan Ini</th>
                 <th class="p-3">Consent</th>
                 <th class="p-3">Akun</th>
             </tr>
@@ -93,6 +95,8 @@
                 <td class="p-3 font-medium">{{ $emp->name }}</td>
                 <td class="p-3 text-gray-500">{{ $emp->email }}</td>
                 <td class="p-3"><span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ $emp->departement?->name ?? '—' }}</span></td>
+                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded bg-sky-100 text-sky-800">{{ $quotaInfo[$emp->id]['package'] ?? '—' }}</span></td>
+                <td class="p-3"><span class="text-xs px-2 py-0.5 rounded {{ ($quotaInfo[$emp->id]['remaining'] ?? 0) > 0 ? 'bg-pine-100 text-pine-800' : 'bg-terra-100 text-terra-800' }}">{{ ($quotaInfo[$emp->id]['remaining'] ?? 0) }} / {{ \App\Services\QuotaService::packageLabel($emp)['monthly_quota'] }}</span></td>
                 <td class="p-3">
                     @if($emp->consent_at)
                     <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-800">Setuju {{ $emp->consent_at->translatedFormat('d M y') }}</span>
@@ -136,7 +140,7 @@
             </tr>
             @endforeach
             <tr id="rosterEmptySearch" class="hidden">
-                <td colspan="5" class="p-6 text-center text-gray-400 text-sm">Tidak ada karyawan cocok dengan pencarian.</td>
+                <td colspan="7" class="p-6 text-center text-gray-400 text-sm">Tidak ada karyawan cocok dengan pencarian.</td>
             </tr>
         </tbody>
     </table>
