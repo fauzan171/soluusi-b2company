@@ -38,6 +38,11 @@ class Kernel extends ConsoleKernel
                 ->where('konsultan_done_at', '<', now()->subHours(config('klinik.confirm_window_hours', 24)))
                 ->update(['needs_ops_review' => true]);
         })->hourly();
+
+        // W2 (MASTER-PLAN K2): sesi scheduled lewat jadwal >24 jam → no_show +
+        // ledger forfeited. PROD: `schedule:run` must be enabled (systemd timer
+        // / cron — aktivasi didokumentasikan untuk W8 deploy doc).
+        $schedule->command('sessions:sweep-no-show')->hourly();
     }
 
     /**
