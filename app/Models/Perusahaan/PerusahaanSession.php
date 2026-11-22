@@ -42,6 +42,8 @@ class PerusahaanSession extends Model
         'schedule_version',
         'transcript_purged_at',
         'mode',
+        'consultation_type',
+        'room_id',
     ];
 
     protected $casts = [

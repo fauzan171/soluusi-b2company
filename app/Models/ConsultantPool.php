@@ -19,13 +19,13 @@ class ConsultantPool extends Model
         'sekolah_id',
         'perusahaan_id',
         'is_active',
+        'status',
+        'contract_start',
+        'contract_end',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-    ];
-
-    protected $casts = [
         'contract_start' => 'date',
         'contract_end' => 'date',
     ];

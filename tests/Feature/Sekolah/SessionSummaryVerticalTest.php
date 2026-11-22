@@ -74,9 +74,10 @@ class SessionSummaryVerticalTest extends TestCase
 
         [, $studentUser, , $session] = $this->sekolahFixture();
 
-        DB::table('chat_messages')->insert([
-            ['sekolah_session_id' => $session->id, 'sender_id' => $studentUser->id,
-                'body' => 'Saya cemas menghadapi ujian.', 'created_at' => now(), 'updated_at' => now()],
+        // Insert via model — body terenkripsi at-rest (K16).
+        \App\Models\ChatMessage::create([
+            'sekolah_session_id' => $session->id, 'sender_id' => $studentUser->id,
+            'body' => 'Saya cemas menghadapi ujian.',
         ]);
 
         Http::fake([

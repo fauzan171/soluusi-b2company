@@ -130,13 +130,14 @@ class SessionSummaryTest extends TestCase
         [$p, $owner, , , , $session] = $this->fixture();
 
         // PII di transcript: honorific + email + phone harus di-redact.
-        DB::table('chat_messages')->insert([
-            ['perusahaan_session_id' => $session->id, 'sender_id' => $owner->id,
-                'body' => 'Pak Budi bilang email saya budi@x.com dan telp 0812-3456-7890',
-                'created_at' => now(), 'updated_at' => now()],
-            ['perusahaan_session_id' => $session->id, 'sender_id' => $owner->id,
-                'body' => 'Saya merasa cemas akhir-akhir ini.',
-                'created_at' => now(), 'updated_at' => now()],
+        // Insert via model — body terenkripsi at-rest (K16), generator decrypt saat baca.
+        \App\Models\ChatMessage::create([
+            'perusahaan_session_id' => $session->id, 'sender_id' => $owner->id,
+            'body' => 'Pak Budi bilang email saya budi@x.com dan telp 0812-3456-7890',
+        ]);
+        \App\Models\ChatMessage::create([
+            'perusahaan_session_id' => $session->id, 'sender_id' => $owner->id,
+            'body' => 'Saya merasa cemas akhir-akhir ini.',
         ]);
 
         Http::fake([

@@ -36,6 +36,7 @@ class ModePersistenceTest extends TestCase
         $p = Perusahaan::create([
             'name' => 'PT Test', 'brand' => 'TestCo', 'sessions_per_employee_month' => $quota,
             'employee_count' => 3, 'is_active' => true,
+            'consultant_request_enabled' => true,
         ]);
         $user = $this->user('emp@test.local', 'employee');
         $emp = PerusahaanEmployee::create([

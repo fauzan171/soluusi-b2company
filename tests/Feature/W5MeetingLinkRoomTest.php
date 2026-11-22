@@ -127,9 +127,14 @@ class W5MeetingLinkRoomTest extends TestCase
         ]);
         $session = $this->makeSession($other, $emp, $consultant, ['consultation_type' => 'online_meeting']);
 
+        // TenantScope global (prod T2.4): sesi tenant lain tidak visible saat
+        // binding → 404. Verifikasi lanjutan: link tidak pernah tersimpan.
         $this->actingAs($hr)->postJson(route('perusahaan.sessions.meeting-link', $session), [
             'meeting_url' => 'https://meet.google.com/abc-defg-hij',
-        ])->assertStatus(403);
+        ])->assertStatus(404);
+        $this->assertDatabaseMissing('perusahaan_sessions', [
+            'id' => $session->id, 'meeting_url' => 'https://meet.google.com/abc-defg-hij',
+        ]);
     }
 
     // --- Room CRUD (HR admin perusahaan) ---

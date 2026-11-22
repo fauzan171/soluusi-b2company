@@ -263,6 +263,7 @@ class EmployeeController extends Controller
         $perusahaan = $employee->perusahaan;
 
         $quota = \App\Services\QuotaService::packageLabel($employee)['monthly_quota'];
+        $usedMonth = \App\Services\BookingService::monthQuotaUsed($employee);
 
         $pool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id);
 

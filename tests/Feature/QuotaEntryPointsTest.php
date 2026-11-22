@@ -103,7 +103,7 @@ class QuotaEntryPointsTest extends TestCase
 
         $this->actingAs($user)->postJson(route('perusahaan.request-consultation'), [
             'konsultan_type' => 'psikolog',
-            'body' => 'Saya butuh konsultasi.',
+            'body' => 'Saya butuh konsultasi.', 'mode' => 'online',
         ])->assertRedirect();
 
         $session = PerusahaanSession::first();

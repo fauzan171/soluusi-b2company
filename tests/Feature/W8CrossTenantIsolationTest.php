@@ -197,10 +197,12 @@ class W8CrossTenantIsolationTest extends TestCase
         $sessionA = $this->sessionFor($a);
         [, , , $hrB] = $b;
 
+        // TenantScope global (prod T2.4): sesi tenant lain tidak visible saat
+        // binding → 404, leak keberadaan sesi nol. Lebih privat dari 403.
         $this->actingAs($hrB)
             ->postJson(route('perusahaan.sessions.meeting-link', $sessionA), [
                 'meeting_url' => 'https://meet.google.com/intrusi-b',
-            ])->assertForbidden();
+            ])->assertNotFound();
 
         $this->assertDatabaseMissing('perusahaan_sessions', [
             'id' => $sessionA->id, 'meeting_url' => 'https://meet.google.com/intrusi-b',

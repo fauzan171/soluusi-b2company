@@ -60,11 +60,11 @@ class W5ChatHardeningTest extends TestCase
         $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'satu'])->assertOk();
         $this->actingAs($docUser)->postJson(route('consultant.chat.store', $session), ['body' => 'dua'])->assertOk();
 
-        $all = $this->actingAs($owner)->getJson(route('perusahaan.chat', $session) . '?after=0')->assertOk()->json();
+        $all = $this->actingAs($owner)->getJson(route('perusahaan.chat', $session) . '?after=0')->assertOk()->json('messages');
         $this->assertCount(2, $all);
         $afterFirst = $this->actingAs($owner)
             ->getJson(route('perusahaan.chat', $session) . '?after=' . $all[0]['id'])
-            ->assertOk()->json();
+            ->assertOk()->json('messages');
         $this->assertCount(1, $afterFirst);
         $this->assertSame('dua', $afterFirst[0]['body']);
     }

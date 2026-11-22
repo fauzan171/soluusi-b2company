@@ -83,11 +83,10 @@ class SekolahChatTest extends TestCase
         $this->actingAs($siswa)->postJson(route('sekolah.chat.store', $session), ['body' => 'Halo konselor'])
             ->assertOk();
 
-        $this->assertDatabaseHas('chat_messages', [
-            'sekolah_session_id' => $session->id,
-            'sender_id' => $siswa->id,
-            'body' => 'Halo konselor',
-        ]);
+        // body terenkripsi at-rest (K16) — assert via model, bukan raw DB row.
+        $this->assertSame('Halo konselor',
+            \App\Models\ChatMessage::where('sekolah_session_id', $session->id)
+                ->where('sender_id', $siswa->id)->first()?->body);
     }
 
     public function test_consultant_can_start_session(): void

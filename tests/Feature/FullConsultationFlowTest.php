@@ -43,6 +43,7 @@ class FullConsultationFlowTest extends TestCase
         $p = Perusahaan::create([
             'name' => 'PT Flow', 'brand' => 'FlowCo', 'sessions_per_employee_month' => 3,
             'employee_count' => 3, 'is_active' => true,
+            'consultant_request_enabled' => true,
         ]);
         $empUser = $this->user('emp@flow.local', 'employee');
         $emp = PerusahaanEmployee::create([

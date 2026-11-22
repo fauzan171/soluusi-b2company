@@ -39,6 +39,7 @@ class RequestNotesPrivacyTest extends TestCase
         $perusahaan = Perusahaan::create([
             'name' => 'PT Privasi', 'brand' => 'PrivasiCo',
             'sessions_per_employee_month' => 5, 'employee_count' => 5, 'is_active' => true,
+            'consultant_request_enabled' => true,
         ]);
         $empUser = $this->user('emp@privasi.test', 'employee');
         $employee = PerusahaanEmployee::create([

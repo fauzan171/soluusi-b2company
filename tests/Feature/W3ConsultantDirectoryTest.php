@@ -162,10 +162,19 @@ class W3ConsultantDirectoryTest extends TestCase
             'password' => bcrypt('password'), 'is_active' => true, 'role_id' => $adminRoleId,
         ]);
 
-        // recon-R2: consultant group is the only portal superadmin can't enter — fixed in W3.
+        // recon-R2 fixed via ViewAs (prod B3): superadmin masuk portal konsultan
+        // lewat view-as ke user konsultan (audited), bukan akses langsung.
+        $this->actingAs($admin)
+            ->post(route('admin.view-as.start'), ['user_id' => $this->consultantUser->id])
+            ->assertRedirect();
+
         $this->actingAs($admin)
             ->get(route('consultant.sessions'))
             ->assertOk();
+
+        $this->assertDatabaseHas('admin_actions', [
+            'admin_id' => $admin->id, 'action' => 'view_as.start',
+        ]);
     }
 
     public function test_employee_cannot_access_consultant_calendar()

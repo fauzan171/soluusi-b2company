@@ -115,6 +115,8 @@
         <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">
             Transkrip chat sesi ini sudah dihapus otomatis 24 jam setelah sesi selesai (kebijakan retensi privasi). Ringkasan sesi tetap tersimpan.
         </p>
+        @endif
+
         {{-- W7 (K14): catatan klinis konsultan — konsultan-only, encrypted, tiap
              akses halaman (bukan poll) ter-audit (note.view). --}}
         @if(!$isEmployee)
@@ -227,20 +229,6 @@
             <p class="text-xs text-gray-500 pt-1">Ulasan kamu: {{ str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) }} · terima kasih sudah memberi feedback.</p>
             @endif
         </div>
-        @endif
-
-        <div id="chat-log" class="px-4 py-4 sm:px-5 h-[55vh] sm:h-[60vh] overflow-y-auto space-y-2.5 text-sm bg-[#faf8f4]"></div>
-
-        @if($canSend)
-        <form id="chat-form" class="border-t border-[#e7e2d9] bg-white px-4 py-3 sm:px-5 flex items-end gap-2">
-            <textarea id="chat-input" name="body" maxlength="2000" autocomplete="off" required rows="1"
-                   class="flex-1 resize-none rounded-xl border border-[#e7e2d9] px-3.5 py-2.5 text-sm focus:outline-none focus:border-pine-400 focus:ring-2 focus:ring-pine-100"
-                   placeholder="Tulis pesan…"></textarea>
-            <button class="rounded-xl bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-800 transition-colors shrink-0">Kirim</button>
-        </form>
-        <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru</p>
-        @else
-        <p class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Chat aktif setelah konsultan menyetujui jadwal sesi kamu.</p>
         @endif
 
         {{-- F7: load-more riwayat >200 pesan; server set visibilitas via has_more. --}}

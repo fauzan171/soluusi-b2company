@@ -23,6 +23,7 @@ class Perusahaan extends Model
         'is_active',
         'status',
         'ai_enabled',
+        'consultant_request_enabled',
     ];
 
     protected $casts = [
