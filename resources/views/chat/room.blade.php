@@ -9,8 +9,8 @@
 @endphp
 
 @section('content')
-{{-- ponytail: polling 5s vanilla JS dengan backoff saat error. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
-<div id="chat" class="mx-auto max-w-2xl"
+{{-- ponytail: polling adaptif (3s fokus/10s blur) vanilla JS. Ganti ke SSE/broadcast kalau >50 sesi aktif bersamaan. --}}
+<div id="chat" class="mx-auto max-w-2xl px-1"
      data-poll="{{ $pollUrl }}" data-post="{{ $postUrl }}" data-token="{{ csrf_token() }}"
      data-can-send="{{ $canSend ? 1 : 0 }}" data-status="{{ $session->status }}"
      data-purged="{{ !empty($transcriptPurged) ? 1 : 0 }}">
@@ -93,6 +93,21 @@
             @else
                 <span class="text-sm text-gray-500">Sesi selesai.</span>
             @endif
+        </div>
+        @endif
+
+        {{-- W5 (K10): tombol join meeting — hanya saat sesi scheduled dan dalam
+             jendela waktu (15 menit sebelum jadwal sampai selesai sesi). --}}
+        @php($inWindow = $session->status === 'scheduled' && $session->scheduled_at
+            && now()->gte($session->scheduled_at->copy()->subMinutes(15))
+            && now()->lte($session->ended_at ?? $session->scheduled_at->copy()->addHour()))
+        @if($inWindow && $session->meeting_url)
+        <div class="px-5 py-3 border-b border-[#e7e2d9] bg-pine-50 flex flex-wrap items-center gap-3">
+            <a href="{{ $session->meeting_url }}" target="_blank" rel="noopener noreferrer"
+               class="rounded-lg bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition-colors">
+                Join meeting
+            </a>
+            <span class="text-xs text-pine-800">Link video call sesi ini sudah aktif.</span>
         </div>
         @endif
 
@@ -311,6 +326,14 @@
         setStatus('sesi selesai', '');
     }
     poll();
+    // W5 (K11): polling adaptif — 3s saat tab terlihat, 10s saat blur.
+    let timer = null;
+    const arm = () => {
+        if (timer) clearInterval(timer);
+        timer = setInterval(poll, document.visibilityState === 'visible' ? 3000 : 10000);
+    };
+    arm();
+    document.addEventListener('visibilitychange', arm);
 })();
 </script>
 @endsection

@@ -178,6 +178,13 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
         // W2: refund kuota (HR/superadmin, reason wajib, audit_logs entry)
         Route::post('/consultation-quota/{ledger}/refund', [\App\Http\Controllers\Perusahaan\QuotaAdminController::class, 'refund'])->name('quota.refund');
+
+        // W5: Room 1-on-1 (M5) — CRUD terbatas HR admin, tenant-scoped via PerusahaanContext.
+        Route::get('/rooms', [\App\Http\Controllers\Perusahaan\RoomController::class, 'index'])->name('rooms.index');
+        Route::post('/rooms', [\App\Http\Controllers\Perusahaan\RoomController::class, 'store'])->name('rooms.store');
+        Route::post('/rooms/{room}/toggle', [\App\Http\Controllers\Perusahaan\RoomController::class, 'toggle'])->name('rooms.toggle');
+        // W5 (K10): HR override link meeting per sesi.
+        Route::post('/sessions/{session}/meeting-link', [\App\Http\Controllers\ChatController::class, 'meetingLink'])->name('sessions.meeting-link');
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
@@ -215,6 +222,8 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     Route::post('/sessions/{session}/schedule', [\App\Http\Controllers\Klinik\SessionController::class, 'schedulePerusahaan'])->name('sessions.schedule');
     Route::get('/sessions/{session}/propose-slots', [\App\Http\Controllers\Consultant\SlotProposalController::class, 'create'])->name('sessions.propose-slots.form');
     Route::post('/sessions/{session}/propose-slots', [\App\Http\Controllers\Consultant\SlotProposalController::class, 'store'])->middleware('throttle:10,1')->name('sessions.propose-slots');
+    // W5 (K10): konsultan set link meeting per sesi (gmeet/zoom, https).
+    Route::post('/sessions/{session}/meeting-link', [\App\Http\Controllers\ChatController::class, 'meetingLink'])->name('sessions.meeting-link');
     Route::get('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultant'])->name('chat');
     Route::post('/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'consultantStore'])->middleware('throttle:60,1')->name('chat.store');
     Route::post('/sessions/{session}/start', [\App\Http\Controllers\ChatController::class, 'consultantStart'])->name('chat.start');

@@ -110,6 +110,37 @@ class ChatController extends Controller
             ->with('success', 'Terima kasih atas ratingnya.');
     }
 
+    /**
+     * W5 (K10): konsultan/HR set link meeting per sesi (override manual).
+     * Validasi: https + host meet.google.com / *.zoom.us (gmeet/zoom only).
+     */
+    public function meetingLink(Request $r, PerusahaanSession $session)
+    {
+        $user = auth()->user();
+        $role = optional($user->role)->name;
+
+        if ($role === 'consultant') {
+            $consultant = $user->consultants()->first();
+            abort_unless($consultant && $session->consultant_id === $consultant->id, 403);
+        } elseif ($role === 'hr_admin' || $role === 'admin') {
+            $tenant = \App\Support\PerusahaanContext::current();
+            abort_unless($tenant && $session->perusahaan_id === $tenant->id, 403);
+        } else {
+            abort(403);
+        }
+
+        $r->validate([
+            'meeting_url' => [
+                'required', 'url', 'starts_with:https://',
+                'regex:#^https://([\w-]+\.)*((meet\.google\.com)|(zoom\.us))(/|$)#i',
+            ],
+        ]);
+
+        $session->update(['meeting_url' => $r->meeting_url]);
+
+        return back()->with('success', 'Link meeting tersimpan.');
+    }
+
     private function room(PerusahaanSession $session, string $peerLabel, string $postUrl, string $backUrl, bool $isEmployee = false)
     {
         if (request()->wantsJson() || request()->has('after')) {
@@ -149,15 +180,17 @@ class ChatController extends Controller
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
+        // W5: sender_role — bedakan sumber pesan tanpa join ke tabel identitas.
+        $senderIsEmployee = $session->employee?->user_id === auth()->id();
         $msg = ChatMessage::create([
             'perusahaan_session_id' => $session->id,
             'sender_id' => auth()->id(),
+            'sender_role' => $senderIsEmployee ? 'employee' : 'consultant',
             'body' => trim($data['body']),
         ]);
 
         // ponytail: notif email ke pihak lawan saat pesan pertama sesi. Upgrade: queue + digest.
         if ($session->chatMessages()->count() === 1) {
-            $senderIsEmployee = $session->employee?->user_id === auth()->id();
             $recipient = $senderIsEmployee
                 ? $session->consultant?->user
                 : $session->employee?->user;
