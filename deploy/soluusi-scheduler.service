@@ -1,0 +1,18 @@
+# W8 deploy hardening — systemd user unit untuk Laravel scheduler.
+# AKTIVASI MANUAL OLEH OWNER (jangan pernah di-start otomatis dari CI/agent):
+#   1. salin ke ~/.config/systemd/user/soluusi-scheduler.service
+#   2. sesuaikan WorkingDirectory dengan path tree produksi
+#   3. pastikan path php absolut benar (prod memakai /opt/cpanel/ea-php83/root/usr/bin/php)
+#   4. systemctl --user daemon-reload
+# Lalu aktifkan timernya (lihat soluusi-scheduler.timer).
+
+[Unit]
+Description=Soluusi B2B — Laravel schedule:run (dipanggil timer)
+# WorkingDirectory placeholder — GANTI dengan path tree produksi, contoh:
+# WorkingDirectory=/home/hermes/workspace/projects/soluusi-b2b-klinik
+
+[Service]
+Type=oneshot
+# ExecStart placeholder — pastikan path php absolut; /usr/bin/php adalah CGI (hang).
+ExecStart=/usr/local/bin/php artisan schedule:run
+# WorkingDirectory dan php path diset saat aktivasi oleh owner.

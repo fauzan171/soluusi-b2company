@@ -1,0 +1,20 @@
+# W8 deploy hardening — systemd user timer: jalankan schedule:run tiap menit.
+# AKTIVASI MANUAL OLEH OWNER:
+#   1. salin unit + timer ke ~/.config/systemd/user/
+#   2. systemctl --user daemon-reload
+#   3. systemctl --user enable --now soluusi-scheduler.timer
+#   4. cek: systemctl --user list-timers soluusi-scheduler.timer
+# CATATAN: sampai timer ini aktif, seluruh entry Kernel::$schedule TIDAK
+# berjalan di prod (php -S tidak punya cron). Lihat docs/dev/deploy.md.
+
+[Unit]
+Description=Run Soluusi B2B Laravel scheduler every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1min
+Unit=soluusi-scheduler.service
+
+[Install]
+WantedBy=timers.target
