@@ -21,7 +21,7 @@ class InstrumentScoring
 {
     /**
      * @param  array<string, int>  $answers  kode item => nilai mentah
-     * @return array{score:int, band:array{label:string, note:string}, escalated:bool}
+     * @return array{score:int, band:array{label:string, note:string}, escalated:bool, dimensions:?array<int, array{key:string, label:string, score:int, band:array{label:string, note:string}}>}
      */
     public static function score(AssessmentInstrument $instrument, array $answers): array
     {
@@ -55,13 +55,54 @@ class InstrumentScoring
                 'note' => $instrument->bandNoteFor($score),
             ],
             'escalated' => $escalated,
+            'dimensions' => self::dimensionScores($instrument, $items, $answers),
         ];
+    }
+
+    /**
+     * wv1: subskor per dimensi (DASS-21/Big Five/DISC). Item dimensi dijumlah
+     * (reverse ikut), dikali multiplier (DASS-21 ×2), band per dimensi.
+     * Instrumen tanpa dimensions → null (single-score, perilaku lama).
+     *
+     * @param  array<int, array{key:string, label:string, score:int, band:array{label:string, note:string}}>|null
+     */
+    private static function dimensionScores(AssessmentInstrument $instrument, $items, array $answers): ?array
+    {
+        $defs = $instrument->dimensions;
+        if (!$defs) {
+            return null;
+        }
+
+        $byCode = collect($items)->keyBy('code');
+
+        $out = [];
+        foreach ($defs as $key => $def) {
+            $sum = 0;
+            foreach ($def['items'] ?? [] as $itemCode) {
+                $item = $byCode[$itemCode] ?? null;
+                if (!$item) {
+                    continue;
+                }
+                $bound = (int) ($item->weight ?? self::defaultMax($item));
+                $value = (int) ($answers[$itemCode] ?? 0);
+                $sum += $item->reverse ? $bound - $value : $value;
+            }
+            $dimScore = (int) ($sum * ($def['multiplier'] ?? 1));
+            $out[] = [
+                'key' => $key,
+                'label' => $def['label'] ?? $key,
+                'score' => $dimScore,
+                'band' => $instrument->dimensionBandFor($key, $dimScore),
+            ];
+        }
+        return $out;
     }
 
     /**
      * HR agregat per instrumen (n≥5 suppression via AggregatePrivacy::safe()).
      * Band distribusi diambil dari latest assessment per karyawan —
      * tidak pernah identitas individu; eskalasi hanya COUNT.
+     * wv1 (R10/K14): threshold perusahaan 10 — sekuat data laporan program.
      *
      * @return array{assessed:int, bands:?array<string,int>, escalatedCount:?int}
      */
@@ -81,7 +122,7 @@ class InstrumentScoring
         }
 
         $assessed = $latest->count();
-        if (! AggregatePrivacy::safe(array_values($bandCounts))) {
+        if (! AggregatePrivacy::safe(array_values($bandCounts), 10)) {
             return ['assessed' => $assessed, 'bands' => null, 'escalatedCount' => null];
         }
 

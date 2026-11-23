@@ -64,6 +64,44 @@
         </div>
     </section>
 
+    {{-- wv4 feature A: Risk & Priority Map per area (agregat, min 10) --}}
+    <section class="dash-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-[0.95rem] font-semibold text-gray-900">Area Prioritas</h2>
+                <p class="mt-0.5 text-xs text-gray-500">Rata-rata skor asesmen per area ({{ $areaRisk['month'] ?? '-' }}) — area dengan skor terendah di atas. Area &lt; 10 responden disembunyikan.</p>
+            </div>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">Agregat saja</span>
+        </div>
+        <div class="mt-4 space-y-3">
+            @forelse($areaRisk['rows'] as $row)
+                @if($row['avg'] === null)
+                    <div class="panel-surface bg-white flex items-center justify-between text-sm">
+                        <span class="text-gray-400">{{ $row['name'] }}</span>
+                        <span class="text-xs text-gray-400">Belum cukup data (n={{ $row['n'] }}, min 10)</span>
+                    </div>
+                @else
+                    @php
+                        $barColor = $row['avg'] >= 75 ? '#0d9464' : ($row['avg'] >= 50 ? '#e2703a' : '#dc2626');
+                        $pct = min(100, (int) round($row['avg']));
+                    @endphp
+                    <div>
+                        <div class="mb-1.5 flex items-center justify-between text-xs">
+                            <span class="font-medium text-gray-600">{{ $row['name'] }}</span>
+                            <span class="text-xs text-gray-400">n={{ $row['n'] }}</span>
+                        </div>
+                        <div class="h-2.5 overflow-hidden rounded-full bg-gray-100">
+                            <div class="h-full rounded-full" style="width: {{ $pct }}%; background-color: {{ $barColor }}"></div>
+                        </div>
+                    </div>
+                @endif
+            @empty
+                <p class="text-xs text-gray-400">Belum ada asesmen bulan ini.</p>
+            @endforelse
+        </div>
+        <p class="mt-3 text-[11px] text-gray-400">Prioritas intervensi per area — bukan penandaan karyawan individual.</p>
+    </section>
+
     {{-- Tren aktivitas --}}
     <section class="dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">

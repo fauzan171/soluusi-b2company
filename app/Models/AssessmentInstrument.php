@@ -15,8 +15,39 @@ class AssessmentInstrument extends Model
     protected $casts = [
         'bands' => 'array',
         'escalate_items' => 'array',
+        'dimensions' => 'array',
         'is_active' => 'bool',
     ];
+
+    /**
+     * wv1: gate akses berdasar domain program aktif. Null domain = instrumen
+     * umum (Big Five/DISC) — selalu diizinkan. Program tanpa snapshot domains
+     * (null) juga tidak menggate (parity kontrak lama).
+     */
+    public function allowedForProgram(?array $programDomains): bool
+    {
+        return $this->domain === null
+            || $programDomains === null
+            || in_array($this->domain, $programDomains, true);
+    }
+
+    /** Subskor per dimensi (wv1): def {label, items[], multiplier?, bands[]}. */
+    public function dimensionDefinition(string $key): ?array
+    {
+        return $this->dimensions[$key] ?? null;
+    }
+
+    /** Band label dimensi untuk skor (bands ascending by max). */
+    public function dimensionBandFor(string $key, int $score): array
+    {
+        $bands = $this->dimensions[$key]['bands'] ?? [];
+        foreach ($bands as $band) {
+            if ($score <= $band['max']) {
+                return ['label' => $band['label'], 'note' => $band['note'] ?? ''];
+            }
+        }
+        return $bands ? ['label' => end($bands)['label'], 'note' => end($bands)['note'] ?? ''] : ['label' => '', 'note' => ''];
+    }
 
     public function questions()
     {

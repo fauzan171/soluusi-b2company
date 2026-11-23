@@ -9,7 +9,7 @@
     <div class="flex items-center justify-between mb-4">
         <div>
             <h1 class="text-xl font-bold">Agregat Asesmen Kesejahteraan</h1>
-            <p class="text-sm text-gray-500">Distribusi band per instrumen — data individu tidak pernah ditampilkan (n&lt;5 disembunyikan).</p>
+            <p class="text-sm text-gray-500">Distribusi band per instrumen — data individu tidak pernah ditampilkan (n&lt;10 disembunyikan).</p>
         </div>
         <a href="{{ route('perusahaan.report') }}" class="text-sm text-pine-700 hover:underline">← Laporan utama</a>
     </div>
@@ -30,7 +30,7 @@
             </div>
             <div class="mt-4 space-y-3">
                 @if($agg['bands'] === null)
-                    <p class="rounded-3xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">Belum cukup data (minimum 5 responden) — agregat disembunyikan untuk menjaga privasi.</p>
+                    <p class="rounded-3xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">Belum cukup data (minimum 10 responden) — agregat disembunyikan untuk menjaga privasi.</p>
                 @else
                     @foreach($agg['bands'] as $band => $count)
                     <div class="panel-surface bg-white">

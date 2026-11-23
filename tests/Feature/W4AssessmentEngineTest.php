@@ -151,8 +151,8 @@ class W4AssessmentEngineTest extends TestCase
         $this->seedInstruments();
         $instruments = AssessmentInstrument::count();
         $questions = \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count();
-        $this->assertSame(4, $instruments);
-        $this->assertSame(40, $questions); // 5+9+7+19
+        $this->assertSame(11, $instruments);
+        $this->assertSame(114, $questions); // 5+9+7+19 + wv1 (21+10+15+12+8+8)
 
         $this->seedInstruments();
         $this->assertSame($instruments, AssessmentInstrument::count());
@@ -222,7 +222,7 @@ class W4AssessmentEngineTest extends TestCase
         ])->assertSessionHasErrors('answers.G1');
     }
 
-    // --- Privacy: HR hanya agregat per instrumen; n≥5 suppression; eskalasi count-only.
+    // --- Privacy: HR hanya agregat per instrumen; n≥10 suppression (wv1 R10); eskalasi count-only.
 
     public function test_hr_aggregate_suppression_and_escalation_count_only()
     {
@@ -230,9 +230,9 @@ class W4AssessmentEngineTest extends TestCase
         [$p, , ] = $this->makeEmployee();
         $hr = $this->makeHr($p);
 
-        // 6 karyawan PHQ-9 satu band (Ringan, skor 9) + 2 eskalasi → safe() lolos;
-        // 3 GAD-7 → suppressed. Band minoritas <5 juga tersupresi (whole-family, konvensi lama).
-        for ($i = 1; $i <= 6; $i++) {
+        // 10 karyawan PHQ-9 satu band (Ringan, skor 9) + 2 eskalasi → safe() lolos;
+        // 3 GAD-7 → suppressed. Band minoritas <10 juga tersupresi (whole-family).
+        for ($i = 1; $i <= 10; $i++) {
             $emp = PerusahaanEmployee::create([
                 'perusahaan_id' => $p->id, 'name' => "Agg {$i}",
                 'email' => "agg{$i}@w4.local", 'consent_at' => now(),
@@ -264,7 +264,7 @@ class W4AssessmentEngineTest extends TestCase
         $res->assertOk();
         $body = $res->getContent();
 
-        $this->assertStringContainsString('Eskalasi: 2', $body);          // count eskalasi (PHQ n=6 ≥ 5)
+        $this->assertStringContainsString('Eskalasi: 2', $body);          // count eskalasi (PHQ n=10 ≥ 10)
         $this->assertStringNotContainsString('Agg 1', $body);             // tidak ada identitas individu
         $this->assertStringNotContainsString('Agg 3', $body);
 
@@ -281,7 +281,7 @@ class W4AssessmentEngineTest extends TestCase
         [$p, , ] = $this->makeEmployee();
         $hr = $this->makeHr($p);
 
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             $emp = PerusahaanEmployee::create([
                 'perusahaan_id' => $p->id, 'name' => "Gad {$i}",
                 'email' => "gad{$i}@w4.local", 'consent_at' => now(),
@@ -297,8 +297,8 @@ class W4AssessmentEngineTest extends TestCase
         $gad = AssessmentInstrument::where('code', 'gad7')->firstOrFail();
         $agg = InstrumentScoring::aggregate($p, $gad);
         $this->assertNotNull($agg['bands']);
-        $this->assertSame(5, $agg['assessed']);
-        $this->assertSame(5, $agg['bands']['Sedang']);
+        $this->assertSame(10, $agg['assessed']);
+        $this->assertSame(10, $agg['bands']['Sedang']);
         $this->assertSame(0, $agg['escalatedCount']);
     }
 }

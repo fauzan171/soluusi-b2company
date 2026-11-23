@@ -128,6 +128,19 @@ class WellbeingProgramController extends Controller
             $data['deep_support_mode'] = $package->deep_support_mode ?: 'one_on_one';
         }
 
+        // wv2 §6: expert-count gate — pool konsultan perusahaan harus >=
+        // expert_chat_experts katalog (Foundation 1, Growth/Impact 2, Discovery 0).
+        // Dijalankan SETELAH validasi band supaya error band tetap diprioritaskan.
+        $requiredExperts = (int) $package->expert_chat_experts;
+        if ($requiredExperts > 0) {
+            $poolCount = \App\Models\ConsultantPool::where('perusahaan_id', $perusahaan->id)->count();
+            if ($poolCount < $requiredExperts) {
+                throw ValidationException::withMessages([
+                    'perusahaan_id' => "Assign minimal {$requiredExperts} expert melalui Consultant Assignment sebelum aktifasi program {$package->name} (pool saat ini: {$poolCount}).",
+                ]);
+            }
+        }
+
         // R4: discovery — max 8 karyawan terpilih, employee milik perusahaan.
         if ($package->code === 'discovery') {
             if (!empty($data['selected_employee_ids'])) {
@@ -179,12 +192,33 @@ class WellbeingProgramController extends Controller
                 'ends_at' => $program->ends_at->toDateString(),
             ]);
 
+            // wv2 §3: Impact (quarterly_review) → 4 rows review kuartalan,
+            // due_at = starts_at + 3/6/9/12 bulan (same transaction).
+            if ($package->quarterly_review) {
+                foreach (range(1, 4) as $periodNo) {
+                    \App\Models\WellbeingProgramReview::create([
+                        'program_id' => $program->id,
+                        'period_no' => $periodNo,
+                        'due_at' => $startsAt->copy()->addMonths(3 * $periodNo)->toDateString(),
+                        'status' => \App\Models\WellbeingProgramReview::STATUS_UPCOMING,
+                    ]);
+                }
+            }
+
             return $program;
         });
 
         return redirect()
             ->route('admin.wellbeing-programs.create')
             ->with('success', "Program {$package->name} untuk {$perusahaan->brand} diaktifkan ({$program->starts_at->format('d M Y')} – {$program->ends_at->format('d M Y')}).");
+    }
+
+    /** wv3: Program Order printable — snapshot kontrak (dokumen = baris program). */
+    public function order(CompanyWellbeingProgram $program)
+    {
+        $program->load(['perusahaan', 'wellbeingPackage', 'pricingBand']);
+
+        return view('admin.wellbeing-programs.order', ['program' => $program]);
     }
 
     /** R6: 30-day notice — program tetap aktif sampai tanggal efektif. */

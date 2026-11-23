@@ -205,16 +205,21 @@
                     @endif
                 </td>
                 <td class="p-3">
+                    <a href="{{ route('admin.wellbeing-programs.order', $pr) }}" class="text-xs text-emerald-700 font-semibold hover:underline">Program Order</a>
                     @if($pr->status === 'active')
-                        <form method="POST" action="{{ route('admin.wellbeing-programs.request-termination', $pr) }}" class="flex items-center gap-2">
-                            @csrf
-                            <input type="date" name="effective_date" required min="{{ now()->addDays(30)->toDateString() }}"
-                                   value="{{ now()->addDays(30)->toDateString() }}" class="border rounded p-1 text-xs">
-                            <button type="submit" class="text-xs text-terra-700 font-semibold hover:underline"
-                                    onclick="return confirm('Ajukan terminasi 30-day notice?')">
-                                Ajukan Terminasi
-                            </button>
-                        </form>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('admin.wellbeing-webinars.index', $pr) }}"
+                               class="text-xs text-emerald-700 font-semibold hover:underline">Webinar</a>
+                            <form method="POST" action="{{ route('admin.wellbeing-programs.request-termination', $pr) }}" class="flex items-center gap-2">
+                                @csrf
+                                <input type="date" name="effective_date" required min="{{ now()->addDays(30)->toDateString() }}"
+                                       value="{{ now()->addDays(30)->toDateString() }}" class="border rounded p-1 text-xs">
+                                <button type="submit" class="text-xs text-terra-700 font-semibold hover:underline"
+                                        onclick="return confirm('Ajukan terminasi 30-day notice?')">
+                                    Terminasi
+                                </button>
+                            </form>
+                        </div>
                     @endif
                 </td>
             </tr>
