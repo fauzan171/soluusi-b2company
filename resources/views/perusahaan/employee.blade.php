@@ -60,7 +60,7 @@
             @if(count($assessmentTrend) > 1)
             <div class="h-12 w-full"><canvas id="chartTrend"></canvas></div>
             @endif
-            <span class="mt-auto pt-2 text-xs text-pine-700 font-semibold">{{ $needsAssessment ? 'Isi asesmen ulang →' : 'Isi asesmen lagi →' }}</span>
+            <span class="mt-auto pt-2 text-xs text-pine-700 font-semibold">Lihat asesmen →</span>
             @else
             <div class="text-2xl font-bold text-gray-300">—</div>
             <div class="text-xs text-gray-500 mb-2">Belum ada hasil wellbeing</div>

@@ -194,8 +194,9 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
-        Route::get('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentForm'])->name('assessment.form');
-        Route::post('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentStore'])->name('assessment.store');
+        // B1 (D8): legacy WHO-5 path dihapus — 301 permanen ke daftar instrumen.
+        Route::get('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.form');
+        Route::post('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.store');
         Route::get('/employee/assessments', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'index'])->name('assessment.instruments');
         Route::get('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'form'])->name('assessment.instrument.form');
         Route::post('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'store'])->name('assessment.instrument.store');

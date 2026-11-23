@@ -96,10 +96,25 @@ class WellbeingAssessmentCapTest extends TestCase
         ]);
     }
 
+    /** B1: employee hanya bisa kerjakan instrumen yang di-assign (D2). */
+    private function assignWho5(Perusahaan $p, string $assignableType, ?int $assignableId = null): \App\Models\AssessmentAssignment
+    {
+        // program aktif menang atas level perusahaan (D8 precedence).
+        $assignableId ??= $p->id;
+
+        return \App\Models\AssessmentAssignment::create([
+            'assignable_type' => $assignableType, 'assignable_id' => $assignableId,
+            'instrument_code' => 'who5', 'audience' => 'employee', 'source' => 'core',
+            'opens_at' => today()->subDay(),
+        ]);
+    }
+
     public function test_41st_distinct_participant_aborts_but_retake_passes()
     {
         $instrument = $this->seedInstruments();
         [$p] = $this->company();
+        $program = CompanyWellbeingProgram::where('perusahaan_id', $p->id)->firstOrFail();
+        $this->assignWho5($p, 'program', $program->id); // D8: program aktif menang
         $this->assertCount(5, InstrumentScoring::items($instrument));
 
         // 40 employee beda → semua lolos
@@ -116,13 +131,16 @@ class WellbeingAssessmentCapTest extends TestCase
             ->assertJson(['message' => 'Kuota peserta assessment penuh. Hubungi HR untuk info program.']);
         $this->assertSame(40, PerusahaanAssessment::where('perusahaan_id', $p->id)->count());
 
-        // employee #1 retake → lolos (distinct, tidak menambah count)
+        // B1/D6: retake employee #1 di assignment sama → redirect flash, TANPA
+        // row baru (satu submission per assignment; retake = putaran baru).
         $emp1 = PerusahaanEmployee::where('email', "emp1@cap{$p->id}.local")->first();
+        $row1 = PerusahaanAssessment::where('employee_id', $emp1->id)->firstOrFail();
         $res = $this->actingAs($emp1->user)->postJson(route('perusahaan.assessment.instrument.store', 'who5'), [
             'answers' => ['W1' => 2, 'W2' => 2, 'W3' => 2, 'W4' => 2, 'W5' => 2],
         ]);
-        $res->assertRedirect();
-        $this->assertSame(41, PerusahaanAssessment::where('perusahaan_id', $p->id)->count());
+        $res->assertRedirect(route('perusahaan.assessment.result', $row1))
+            ->assertSessionHas('info', 'Asesmen putaran ini sudah Anda kerjakan.');
+        $this->assertSame(40, PerusahaanAssessment::where('perusahaan_id', $p->id)->count());
         $this->assertSame(40, PerusahaanAssessment::where('perusahaan_id', $p->id)
             ->distinct('employee_id')->count('employee_id'));
     }
@@ -131,6 +149,8 @@ class WellbeingAssessmentCapTest extends TestCase
     {
         $this->seedInstruments();
         [$p] = $this->company(['assessment_max_participants' => null]);
+        $program = CompanyWellbeingProgram::where('perusahaan_id', $p->id)->firstOrFail();
+        $this->assignWho5($p, 'program', $program->id); // D8: program aktif menang
 
         for ($i = 1; $i <= 45; $i++) {
             [$user] = $this->employee($p, $i);
@@ -143,6 +163,8 @@ class WellbeingAssessmentCapTest extends TestCase
     {
         $this->seedInstruments();
         [$p] = $this->company(null);
+        // Tanpa program aktif → assignment legacy level perusahaan (D8).
+        $this->assignWho5($p, 'perusahaan');
 
         for ($i = 1; $i <= 45; $i++) {
             [$user] = $this->employee($p, $i);

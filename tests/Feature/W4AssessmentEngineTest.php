@@ -66,6 +66,16 @@ class W4AssessmentEngineTest extends TestCase
         return $out;
     }
 
+    /** B1: employee butuh assignment terbuka utk kerjakan instrumen (D2). */
+    private function assign(PerusahaanEmployee $emp, string $code): \App\Models\AssessmentAssignment
+    {
+        return \App\Models\AssessmentAssignment::create([
+            'assignable_type' => 'perusahaan', 'assignable_id' => $emp->perusahaan_id,
+            'instrument_code' => $code, 'audience' => 'employee', 'source' => 'core',
+            'opens_at' => today()->subDay(),
+        ]);
+    }
+
     // --- Parity: WHO-5 path lama (formula controller) vs engine baru — same answers → same band.
 
     public function test_who5_parity_old_formula_vs_new_engine()
@@ -165,6 +175,7 @@ class W4AssessmentEngineTest extends TestCase
     {
         $this->seedInstruments();
         [, $emp, $user] = $this->makeEmployee();
+        $this->assign($emp, 'phq9');
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instruments'))->assertOk()->assertSee('PHQ-9');
 
@@ -211,7 +222,8 @@ class W4AssessmentEngineTest extends TestCase
     public function test_store_rejects_invalid_answers()
     {
         $this->seedInstruments();
-        [, , $user] = $this->makeEmployee();
+        [, $emp, $user] = $this->makeEmployee();
+        $this->assign($emp, 'gad7');
 
         $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'gad7'), [
             'answers' => ['G1' => 1, 'G2' => 1], // size salah
