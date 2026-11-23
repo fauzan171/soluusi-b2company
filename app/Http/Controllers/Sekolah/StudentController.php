@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Sekolah;
 
 use App\Http\Controllers\Controller;
+use App\Models\AssessmentAssignment;
+use App\Models\AssessmentInstrument;
 use App\Models\Sekolah\SekolahAssessment;
 use App\Models\Sekolah\SekolahSession;
 use App\Models\Sekolah\SekolahStudent;
+use App\Services\AssessmentAccess;
+use App\Services\SekolahAssessmentService;
+use App\Services\Screening\InstrumentScoring;
 use App\Support\SekolahContext;
 use Illuminate\Http\Request;
 
@@ -80,42 +85,76 @@ class StudentController extends Controller
         ]);
     }
 
-    public function assessmentForm()
+    public function assessmentForm(Request $r, ?string $code = null)
     {
         $student = $this->resolveStudent();
-        $latest = $student->assessments()->latest('taken_at')->first();
+        $code ??= 'who5';
 
-        return view('sekolah.assessment', [
+        $assignment = AssessmentAccess::resolveForSekolahMember($student, $code);
+        abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
+        abort_if(AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah'), 422, 'Kamu sudah mengisi asesmen ini.');
+
+        $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
+        $latest = $student->assessments()->where('instrument_code', $code)->latest('taken_at')->first();
+
+        return view('sekolah.assessment-instrument', [
             'student' => $student,
             'sekolah' => $student->sekolah,
             'isPreview' => optional(auth()->user()->role)->name !== 'student',
-            'items' => self::WHO5_ITEMS,
-            'options' => self::ANSWER_OPTIONS,
+            'instrument' => $instrument,
+            'items' => InstrumentScoring::items($instrument),
             'latest' => $latest,
+            'action' => route('sekolah.assessment.store', $code),
         ]);
     }
 
-    public function assessmentStore(Request $r)
+    /** B3: simpan jawaban via engine; legacy indexed shape (0-4) tetap jalan (D8). */
+    public function assessmentStore(Request $r, ?string $code = null)
     {
         $student = $this->resolveStudent();
+        $code ??= 'who5';
 
-        $r->validate([
-            'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['integer', 'min:0', 'max:5'],
-        ]);
+        $assignment = AssessmentAccess::resolveForSekolahMember($student, $code);
+        abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
+        abort_if(AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah'), 422, 'Kamu sudah mengisi asesmen ini.');
 
-        $answers = array_values($r->input('answers'));
-        SekolahAssessment::create([
-            'sekolah_id' => $student->sekolah_id,
-            'student_id' => $student->id,
-            'kelas' => $student->kelas,
-            'answers' => $answers,
-            'score' => array_sum($answers) * 4, // WHO-5: 0-25 → 0-100
-            'taken_at' => now(),
-        ]);
+        $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
+        SekolahAssessmentService::submit($student, $assignment, $instrument, $r);
 
         return redirect()->route('sekolah.student')
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
+    }
+
+    /** B3: daftar instrumen yang di-assign untuk siswa ini (D2). */
+    public function assessmentList()
+    {
+        $student = $this->resolveStudent();
+
+        $instruments = AssessmentAccess::forSekolahMember($student)
+            ->map(function (AssessmentAssignment $assignment) use ($student) {
+                $instrument = AssessmentInstrument::where('code', $assignment->instrument_code)->first();
+                if (!$instrument) {
+                    return null;
+                }
+                $latest = $student->assessments()
+                    ->where('instrument_code', $instrument->code)
+                    ->latest('taken_at')->first();
+                $instrument->latest_score = $latest?->score;
+                $instrument->latest_band = $latest ? $instrument->bandLabelFor((int) $latest->score) : null;
+                $instrument->latest_taken = $latest?->taken_at;
+                $instrument->done = $latest !== null;
+                return $instrument;
+            })
+            ->filter()
+            ->values();
+
+        return view('sekolah.assessment-instruments', [
+            'student' => $student,
+            'sekolah' => $student->sekolah,
+            'isPreview' => optional(auth()->user()->role)->name !== 'student',
+            'instruments' => $instruments,
+            'formRoute' => fn ($code) => route('sekolah.assessment.form', $code),
+        ]);
     }
 
     public function bookingForm()

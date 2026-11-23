@@ -43,4 +43,7 @@
 @include('admin.tenants._lifecycle-actions', ['tenant' => $sekolah, 'vertical' => 'sekolahs'])
 @include('admin.tenants._associate-form', ['tenant' => $sekolah])
 @include('admin.tenants._view-as-form')
+
+{{-- B3: assignment instrumen per sekolah (D9 minor-safety gate di controller). --}}
+@include('admin.tenants.sekolah._assignment-panel', ['sekolah' => $sekolah])
 @endsection

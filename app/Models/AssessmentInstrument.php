@@ -52,6 +52,7 @@ class AssessmentInstrument extends Model
 
     public function questions()
     {
+        // Item vertical 'perusahaan' = definisi kanonik tenant-independent (B3: sekolah reuse baris yang sama, jangan duplikasi).
         return ScreeningQuestion::where('instrument_code', $this->code)
             ->where('vertical', 'perusahaan')
             ->orderBy('ord');
