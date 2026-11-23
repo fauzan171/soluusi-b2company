@@ -350,4 +350,11 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/consultant-assignment', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'index'])->name('consultant-assignment.index');
     Route::post('/consultant-assignment/assign', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'assign'])->middleware('throttle:20,1')->name('consultant-assignment.assign');
     Route::post('/consultant-assignment/remove', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'remove'])->middleware('throttle:20,1')->name('consultant-assignment.remove');
+
+    // wb-T3: katalog paket Wellbeing superadmin (edit saja, no create/delete —
+    // katalog = 4 paket seeder K3). Snapshot kontrak tak tersentuh (K4).
+    Route::get('/wellbeing-packages', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'index'])->name('wellbeing-packages.index');
+    Route::get('/wellbeing-packages/{package}/edit', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'edit'])->name('wellbeing-packages.edit');
+    Route::put('/wellbeing-packages/{package}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'update'])->name('wellbeing-packages.update');
+    Route::put('/wellbeing-packages/{package}/bands/{band}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'updateBand'])->name('wellbeing-packages.bands.update');
 });

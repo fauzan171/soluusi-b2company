@@ -59,6 +59,7 @@
         request()->routeIs('admin.*') => [
             ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
             ['route' => 'admin.perusahaans.index', 'pattern' => 'admin.perusahaans*', 'label' => 'Perusahaan B2B', 'icon' => 'users'],
+            ['route' => 'admin.wellbeing-packages.index', 'pattern' => 'admin.wellbeing-packages*', 'label' => 'Katalog Paket Wellbeing', 'icon' => 'sparkles'],
             ['route' => 'admin.tenants.kliniks.index', 'pattern' => 'admin.tenants.kliniks*', 'label' => 'Klinik (tenant)', 'icon' => 'building'],
             ['route' => 'admin.tenants.sekolahs.index', 'pattern' => 'admin.tenants.sekolahs*', 'label' => 'Sekolah (tenant)', 'icon' => 'shield'],
             ['route' => 'admin.consultant-assignment.index', 'pattern' => 'admin.consultant-assignment*', 'label' => 'Assignment Konsultan', 'icon' => 'users'],
