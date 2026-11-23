@@ -38,16 +38,26 @@ class PerusahaanWellbeingTest extends TestCase
 
     public function test_assessment_score_uses_who5_formula()
     {
+        // B1: legacy WHO-5 path (NULL instrument_code) dihapus — formula
+        // WHO-5 kini lewat engine assignment-driven (contoh D8: perusahaan
+        // tanpa program dapat legacy who5 assignment).
         [, $emp, $user] = $this->makeEmployee();
+        $this->artisan('db:seed', ['--class' => \Database\Seeders\AssessmentInstrumentSeeder::class]);
+        $a = \App\Models\AssessmentAssignment::create([
+            'assignable_type' => 'perusahaan', 'assignable_id' => $emp->perusahaan_id,
+            'instrument_code' => 'who5', 'audience' => 'employee', 'source' => 'legacy',
+            'opens_at' => today()->subDay(),
+        ]);
 
-        $this->actingAs($user)->post(route('perusahaan.assessment.store'), [
-            'answers' => [3, 4, 2, 5, 1], // sum 15 × 4 = 60
-        ])->assertRedirect(route('perusahaan.employee'));
+        $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'who5'), [
+            'answers' => ['W1' => 3, 'W2' => 4, 'W3' => 2, 'W4' => 5, 'W5' => 1], // sum 15 × 4 = 60
+        ])->assertRedirect();
 
         $row = $emp->assessments()->first();
         $this->assertNotNull($row);
         $this->assertEquals(60, $row->score);
         $this->assertEquals('Perlu Perhatian', $row->band());
+        $this->assertEquals($a->id, $row->assessment_assignment_id);
     }
 
     public function test_booking_rejected_when_quota_full()

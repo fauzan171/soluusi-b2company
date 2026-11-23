@@ -87,6 +87,20 @@ class Wv1InstrumentLibraryTest extends TestCase
         return $out;
     }
 
+    /** B1 (D2): employee hanya bisa akses instrumen yang di-assign —
+     *  program aktif menang atas level perusahaan (D8). */
+    private function assign(PerusahaanEmployee $emp, string $code, string $type = 'perusahaan', ?int $assignableId = null, array $over = []): \App\Models\AssessmentAssignment
+    {
+        return \App\Models\AssessmentAssignment::create(array_merge([
+            'assignable_type' => $type,
+            'assignable_id' => $assignableId ?? $emp->perusahaan_id,
+            'instrument_code' => $code,
+            'audience' => 'employee',
+            'source' => 'core',
+            'opens_at' => today()->subDay(),
+        ], $over));
+    }
+
     // --- Seeder: 7 instrumen baru + domain + dimensions -----------------------
 
     public function test_seeder_adds_seven_instruments_with_domains_and_backfill()
@@ -235,13 +249,15 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_employee_index_shows_addon_badge_for_addon_instruments_only()
     {
         $this->seedInstruments();
-        [, , $user] = $this->makeEmployee('AddonA');
+        [$p, $emp, $user] = $this->makeEmployee('AddonA');
+        // B1 (D2): hanya instrumen yang di-assign yang tampil.
+        $this->assign($emp, 'bigfive', 'perusahaan', null, ['source' => 'addon']);
+        $this->assign($emp, 'who5');
 
         $res = $this->actingAs($user)->get(route('perusahaan.assessment.instruments'))->assertOk();
         $html = $res->getContent();
-        $this->assertStringContainsString('Add-on', $html);
-        $this->assertStringContainsString('Layanan tambahan berbayar — hubungi Soluusi', $html);
-        // instrumen non-add-on tidak membawa subtitle
+        $this->assertStringContainsString('Tambahan', $html); // badge addon baru (spec B1)
+        // instrumen non-add-on tidak membawa badge
         $who5 = AssessmentInstrument::where('code', 'who5')->firstOrFail();
         $this->assertSame(false, $who5->is_addon);
     }
@@ -250,9 +266,9 @@ class Wv1InstrumentLibraryTest extends TestCase
     {
         $this->seedInstruments();
         [$p, $emp, $user] = $this->makeEmployee('AddonB');
+        // B1 (D2): akses via assignment level perusahaan; is_addon murni label.
+        $this->assign($emp, 'ergonomic', 'perusahaan', null, ['source' => 'addon']);
 
-        // tanpa program aktif semua instrumen aktif terbuka — parity lama.
-        // is_addon murni label: form + store ergonomic tetap bekerja.
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'ergonomic'))->assertOk();
         $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'ergonomic'), [
             'answers' => $this->answers('ER', 8, fn () => 3),
@@ -278,8 +294,11 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_domain_gate_blocks_nutrition_under_foundation_mh_program()
     {
         $this->seedInstruments();
-        [$p, , $user] = $this->makeEmployee('GateA');
-        $this->program($p, ['mh']);
+        [$p, $emp, $user] = $this->makeEmployee('GateA');
+        $prog = $this->program($p, ['mh']);
+        // B1: gate domain kini implisit via assignment program (D8) — phq9
+        // di-assign di program, nutrition TIDAK → 404.
+        $this->assign($emp, 'phq9', 'program', $prog->id);
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'nutrition'))->assertNotFound();
         $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'nutrition'), ['answers' => []])->assertNotFound();
@@ -291,8 +310,10 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_domain_gate_allows_null_domain_instrument_under_program()
     {
         $this->seedInstruments();
-        [$p, , $user] = $this->makeEmployee('GateB');
-        $this->program($p, ['mh']);
+        [$p, $emp, $user] = $this->makeEmployee('GateB');
+        $prog = $this->program($p, ['mh']);
+        $this->assign($emp, 'bigfive', 'program', $prog->id);
+        $this->assign($emp, 'disc', 'program', $prog->id);
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'bigfive'))->assertOk();
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'disc'))->assertOk();
@@ -301,8 +322,9 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_discovery_program_with_wellbeing_domain_allows_who5()
     {
         $this->seedInstruments();
-        [$p, , $user] = $this->makeEmployee('GateC');
-        $this->program($p, ['mh', 'wellbeing']);
+        [$p, $emp, $user] = $this->makeEmployee('GateC');
+        $prog = $this->program($p, ['mh', 'wellbeing']);
+        $this->assign($emp, 'who5', 'program', $prog->id);
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'who5'))->assertOk();
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'nutrition'))->assertNotFound();
@@ -311,17 +333,21 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_program_with_null_domains_imposes_no_gate()
     {
         $this->seedInstruments();
-        [$p, , $user] = $this->makeEmployee('GateD');
-        $this->program($p, null);
+        [$p, $emp, $user] = $this->makeEmployee('GateD');
+        $prog = $this->program($p, null);
+        // domains null = tanpa gate domain → assignment program tetap bisa nutrition.
+        $this->assign($emp, 'nutrition', 'program', $prog->id);
 
-        // domains null = kontrak lama tanpa snapshot domain → bebas (parity cap test).
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'nutrition'))->assertOk();
     }
 
     public function test_without_program_all_active_instruments_open()
     {
         $this->seedInstruments();
-        [, , $user] = $this->makeEmployee('GateE');
+        [$p, $emp, $user] = $this->makeEmployee('GateE');
+        // B1 (D8): tanpa program aktif → assignment legacy level perusahaan.
+        $this->assign($emp, 'dass21');
+        $this->assign($emp, 'nutrition');
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'dass21'))->assertOk();
         $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'nutrition'))->assertOk();
@@ -454,7 +480,8 @@ class Wv1InstrumentLibraryTest extends TestCase
     {
         $this->seedInstruments();
         [$p, $emp, $user] = $this->makeEmployee('IdxA');
-        $this->program($p, ['mh']);
+        $prog = $this->program($p, ['mh']);
+        $this->assign($emp, 'phq9', 'program', $prog->id);
         InstrumentGrant::create([
             'employee_id' => $emp->id, 'instrument_code' => 'mcmi3', 'granted_by' => $this->admin()->id,
         ]);
@@ -470,7 +497,9 @@ class Wv1InstrumentLibraryTest extends TestCase
     public function test_result_view_shows_dimension_scores_and_recommendations()
     {
         $this->seedInstruments();
-        [, , $user] = $this->makeEmployee('ResA');
+        [$p, $emp, $user] = $this->makeEmployee('ResA');
+        // B1 (D2): tanpa program → assignment legacy level perusahaan.
+        $this->assign($emp, 'dass21');
 
         $answers = array_merge(
             $this->answers('D', 21, fn ($i) => $i <= 7 ? 2 : 1),

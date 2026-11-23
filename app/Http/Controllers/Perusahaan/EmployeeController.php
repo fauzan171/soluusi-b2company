@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Perusahaan;
 use App\Http\Controllers\Controller;
 use App\Models\Consultant;
 use App\Models\ConsultantPool;
-use App\Models\Perusahaan\PerusahaanAssessment;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use Illuminate\Http\Request;
@@ -111,7 +110,6 @@ class EmployeeController extends Controller
         $latest = $employee->assessments()->latest('taken_at')->first();
         $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
-        $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
         // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.
         $pendingProposals = \App\Models\SessionSlotProposal::where('status', 'pending')
@@ -147,7 +145,6 @@ class EmployeeController extends Controller
             'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
-            'needsAssessment' => $needsAssessment,
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
@@ -230,56 +227,10 @@ class EmployeeController extends Controller
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
     }
 
-    public function assessmentForm()
-    {
-        $employee = $this->resolveEmployee();
-        $latest = $employee->assessments()->latest('taken_at')->first();
-
-        return view('perusahaan.assessment', [
-            'employee' => $employee,
-            'perusahaan' => $employee->perusahaan,
-            'isPreview' => optional(auth()->user()->role)->name !== 'employee',
-            'items' => self::WHO5_ITEMS,
-            'options' => self::ANSWER_OPTIONS,
-            'latest' => $latest,
-        ]);
-    }
-
-    public function assessmentStore(Request $r)
-    {
-        $employee = $this->resolveEmployee();
-
-        $r->validate([
-            'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['integer', 'min:0', 'max:5'],
-        ]);
-
-        $answers = array_values($r->input('answers'));
-
-        // FIX (review wb REV#3): legacy WHO-5 path juga kena R3 cap (dulu bisa
-        // bypass via URL langsung). Scope window program, distinct employee.
-        if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
-            and $program->assessment_max_participants !== null) {
-            $scoped = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
-                ->where('taken_at', '>=', $program->starts_at);
-            $distinct = (clone $scoped)->distinct('employee_id')->count('employee_id');
-            $already = (clone $scoped)->where('employee_id', $employee->id)->exists();
-            abort_if($distinct >= $program->assessment_max_participants && ! $already,
-                403, 'Kuota peserta assessment penuh. Hubungi HR untuk info program.');
-        }
-
-        PerusahaanAssessment::create([
-            'perusahaan_id' => $employee->perusahaan_id,
-            'employee_id' => $employee->id,
-            'departement_id' => $employee->departement_id,
-            'answers' => $answers,
-            'score' => array_sum($answers) * 4, // 0-25 → 0-100 (formula WHO-5 standar)
-            'taken_at' => now(),
-        ]);
-
-        return redirect()->route('perusahaan.employee')
-            ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
-    }
+    // B1 (D8): assessmentForm/assessmentStore legacy WHO-5 dihapus —
+    // NULL instrument_code bug mati; route lama redirect 301 ke
+    // perusahaan.assessment.instruments. WHO5_ITEMS dipertahankan
+    // (dipakai Sekolah sampai B3). Engine baru: AssessmentController.
 
     public function bookingForm(Request $request)
     {
