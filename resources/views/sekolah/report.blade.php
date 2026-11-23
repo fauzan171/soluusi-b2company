@@ -66,6 +66,52 @@
         </div>
     </section>
 
+    <div class="space-y-4">
+        @foreach($instrumentSections as $section)
+            <section class="dash-card p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900">{{ $section['name'] }}</h2>
+                        <p class="mt-0.5 text-xs text-gray-500">{{ $section['audience'] === 'student' ? 'Siswa' : 'Staf' }} · {{ $section['instrument']->interpretation }}</p>
+                    </div>
+                    <span class="rounded-full bg-pine-100 px-3 py-1 text-[11px] font-medium text-pine-800">{{ $section['assessed'] }} / {{ $section['registered'] }} ({{ $section['pct'] }}%)</span>
+                </div>
+                @if($section['bands'] === null)
+                    <p class="mt-4 rounded-xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">Data belum cukup untuk ditampilkan.</p>
+                @else
+                    <div class="mt-4 space-y-3">
+                        @foreach($section['bands'] as $band => $count)
+                            @php
+                                $total = max(1, array_sum($section['bands']));
+                                $pctBand = round($count / $total * 100);
+                                $chip = $riskChips[$band] ?? 'bg-gray-100 text-gray-700';
+                            @endphp
+                            <div>
+                                <div class="mb-1 flex items-center justify-between text-sm">
+                                    <span class="font-medium text-gray-700">{{ $band }}</span>
+                                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $chip }}">{{ $count }} ({{ $pctBand }}%)</span>
+                                </div>
+                                <div class="h-2 overflow-hidden rounded-full bg-gray-100">
+                                    <div class="h-full rounded-full {{ $riskColors[$band] ?? 'bg-gray-400' }}" style="width: {{ $pctBand }}%"></div>
+                                </div>
+                            </div>
+                        @endforeach
+                        @if(($section['kelas'] ?? null) !== null)
+                            <div class="pt-2 border-t border-gray-100">
+                                <p class="text-xs text-gray-500 mb-2">Sebaran per kelas</p>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach($section['kelas'] as $kelas => $n)
+                                        <span class="rounded-full border border-[#e7e2d9] bg-white px-3 py-1 text-xs text-gray-700">{{ $kelas }}: {{ $n }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </section>
+        @endforeach
+    </div>
+
     <div class="grid gap-4 lg:grid-cols-2">
         <section class="dash-card p-5">
             <h2 class="text-sm font-semibold text-gray-900">Kelas</h2>
