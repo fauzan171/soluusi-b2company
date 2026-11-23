@@ -364,4 +364,13 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
     Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
     Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+
+    // wv2: webinars (research2-infra §2/§3) — CRUD webinar per kontrak + mark
+    // done/cancel/forfeit, dan complete review kuartalan Impact.
+    Route::get('/wellbeing-programs/{program}/webinars', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'index'])->name('wellbeing-webinars.index');
+    Route::post('/wellbeing-programs/{program}/webinars', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'store'])->name('wellbeing-webinars.store');
+    Route::post('/wellbeing-programs/{program}/webinars/{webinar}/mark-done', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'markDone'])->name('wellbeing-webinars.mark-done');
+    Route::post('/wellbeing-programs/{program}/webinars/{webinar}/cancel', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'cancel'])->name('wellbeing-webinars.cancel');
+    Route::post('/wellbeing-programs/{program}/webinars/forfeit', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'forfeit'])->name('wellbeing-webinars.forfeit');
+    Route::post('/wellbeing-reviews/{review}/complete', [\App\Http\Controllers\Admin\WellbeingProgramReviewController::class, 'complete'])->name('wellbeing-reviews.complete');
 });

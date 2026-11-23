@@ -113,9 +113,8 @@
                 </div>
                 <div class="flex items-baseline justify-between gap-4">
                     <dt class="text-gray-500">Jumlah expert chat</dt>
-                    {{-- TODO wb-T6 E2: gate ketersediaan expert per kontrak (assign expert ->
-                        sesi aktif) butuh entitas penugasan expert (backlog). Sumber data:
-                        snapshot katalog expert_chat_experts (Foundation 1, Growth/Impact 2). --}}
+                    {{-- wv2 §6: live dari katalog (no snapshot) + soft warning saat pool
+                        konsultan perusahaan < expert_chat_experts paket. --}}
                     <dd class="font-semibold text-pine-900">{{ $program->wellbeingPackage->expert_chat_experts }} expert</dd>
                 </div>
                 <div class="flex items-baseline justify-between gap-4">
@@ -147,6 +146,85 @@
             <a href="#" class="text-pine-700 font-medium hover:underline">Syarat &amp; Ketentuan program</a> — rincian lengkap kontrak tersedia dari account manager Anda.
         </p>
     </section>
+
+    {{-- wv2 §6: soft warning pool expert belum memenuhi angka katalog (live) --}}
+    @if($expertShortfall)
+    <div class="flex items-center gap-3 rounded-2xl border bg-amber-50 border-amber-200 text-amber-800 px-4 py-3 text-sm" role="status">
+        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-100">
+            @include('perusahaan.partials.icon', ['name' => 'chat'])
+        </span>
+        Jumlah expert chat belum lengkap: pool konsultan {{ $perusahaan->brand }} saat ini {{ $poolCount }} expert,
+        paket {{ $program->wellbeingPackage->name }} menetapkan {{ $packageExperts }} expert. Hubungi account manager Soluusi.
+    </div>
+    @endif
+
+    {{-- wv2 §2: jadwal webinar kontrak (read-only) --}}
+    <section class="dash-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="dash-section-title">Jadwal Webinar</h3>
+                <p class="dash-section-subtitle">Webinar program sesuai kuota kontrak — jadwal dikelola tim Soluusi.</p>
+            </div>
+        </div>
+        <div class="mt-4 overflow-x-auto"><table class="w-full text-sm">
+            <thead><tr class="border-b text-left text-gray-500">
+                <th class="p-2">Judul</th>
+                <th class="p-2">Jadwal</th>
+                <th class="p-2">Status</th>
+            </tr></thead>
+            <tbody>
+                @forelse($webinars as $w)
+                <tr class="border-b">
+                    <td class="p-2 font-semibold text-pine-900">{{ $w->title }}</td>
+                    <td class="p-2">{{ $w->scheduled_at->translatedFormat('j M Y, H:i') }}</td>
+                    <td class="p-2">
+                        @if($w->status === 'planned')
+                        <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Terjadwal</span>
+                        @elseif($w->status === 'done')
+                        <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-700 font-semibold">Selesai</span>
+                        @else
+                        <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">Dibatalkan</span>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr><td class="p-2 text-gray-400" colspan="3">Belum ada webinar dijadwalkan.</td></tr>
+                @endforelse
+            </tbody>
+        </table></div>
+    </section>
+
+    {{-- wv2 §3: review kuartalan (hanya paket Impact) --}}
+    @if($program->wellbeingPackage?->quarterly_review)
+    <section class="dash-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="dash-section-title">Review Kuartalan</h3>
+                <p class="dash-section-subtitle">Evaluasi program bersama tim Soluusi setiap 3 bulan.</p>
+            </div>
+        </div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            @foreach($reviews as $r)
+            <div class="panel-surface">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Periode {{ $r->period_no }}</p>
+                <p class="mt-1 text-sm font-semibold text-pine-900">{{ $r->due_at->translatedFormat('j M Y') }}</p>
+                <p class="mt-2">
+                    @if($r->status === 'upcoming')
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Akan Datang</span>
+                    @elseif($r->status === 'in_review')
+                    <span class="text-xs px-2 py-0.5 rounded bg-terra-100 text-terra-700 font-semibold">Sedang Review</span>
+                    @else
+                    <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-700 font-semibold">Selesai</span>
+                    @endif
+                </p>
+                @if($r->summary)
+                <p class="mt-2 text-xs text-gray-500 leading-relaxed">{{ Str::limit($r->summary, 140) }}</p>
+                @endif
+            </div>
+            @endforeach
+        </div>
+    </section>
+    @endif
     @endif
 </div>
 @endsection
