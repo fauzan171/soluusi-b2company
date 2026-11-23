@@ -42,6 +42,12 @@ class InstrumentController extends Controller
 
     public function toggle(AssessmentInstrument $instrument)
     {
+        // SEC MED-1 (audit 2026-11-23): instrumen klinis (MCMI-III) tidak boleh
+        // diaktifkan massal via toggle — akses tetap grant-only per karyawan
+        // (indication-based). Menonaktifkan boleh.
+        abort_if($instrument->domain === 'clinical' && ! $instrument->is_active, 403,
+            'Instrumen klinis hanya bisa diakses lewat grant per karyawan (indication-based), tidak bisa diaktifkan massal.');
+
         $instrument->update(['is_active' => ! $instrument->is_active]);
         AdminAction::record(auth()->id(), 'instrument.toggled', $instrument, [
             'is_active' => $instrument->is_active,

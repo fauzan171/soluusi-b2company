@@ -36,14 +36,30 @@ class SendEngagementCampaigns extends Command
                 ->whereNotNull('consent_at')
                 ->whereNotNull('email')
                 ->get();
+            $failed = 0;
             foreach ($recipients as $employee) {
-                Mail::raw(
-                    "Halo {$employee->name},\n\n{$campaign->title}\n\n{$campaign->body}\n\nSalam,\n{$perusahaan->brand}",
-                    fn ($m) => $m->to($employee->email)->subject($campaign->title)
-                );
+                // REV MED-3: try/catch per penerima — mail gagal di tengah tidak
+                // menandai campaign terkirim lalu re-send ke yang sudah dapat.
+                // ponytail: partial retry belum ada ledger per-penerima; upgrade
+                // ke tabel campaign_recipients bila resend duplikat jadi masalah.
+                try {
+                    Mail::raw(
+                        "Halo {$employee->name},\n\n{$campaign->title}\n\n{$campaign->body}\n\nSalam,\n{$perusahaan->brand}",
+                        fn ($m) => $m->to($employee->email)->subject($campaign->title)
+                    );
+                } catch (\Throwable $e) {
+                    $failed++;
+                    report($e);
+                }
             }
-            $campaign->update(['sent_at' => now()]);
-            $sent++;
+            // Tandai terkirim hanya bila semua penerima berhasil (atau tidak ada
+            // penerima sama sekali). Gagal total → tetap due, dicoba lagi besok.
+            if ($failed === 0) {
+                $campaign->update(['sent_at' => now()]);
+                $sent++;
+            } else {
+                $this->warn("Campaign {$campaign->id}: {$failed}/{$recipients->count()} penerima gagal — diulang besok.");
+            }
         }
 
         $this->info("Campaigns sent: {$sent}.");

@@ -90,8 +90,10 @@ class WellbeingWebinarController extends Controller
         ]);
 
         $webinar = $program->webinars()->whereKey($data['webinar_id'])->firstOrFail();
-        if ($webinar->status === WellbeingWebinar::STATUS_DONE) {
-            return back()->with('error', 'Webinar sudah ditandai selesai.');
+        // REV HIGH-1: forfeit hanya untuk webinar planned — status done/cancelled
+        // (termasuk sudah pernah di-forfeit) harus ditolak, bukan hanya done.
+        if ($webinar->status !== WellbeingWebinar::STATUS_PLANNED) {
+            return back()->with('error', 'Hanya webinar berstatus Terjadwal yang bisa dicatat no-show.');
         }
 
         WellbeingQuotaService::forfeitWebinar($program, $webinar, auth()->user(), $data['reason']);

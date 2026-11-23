@@ -10,6 +10,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('wellbeing_webinars')) {
+            return; // REV MED-4: idempotent vs stale migration names
+        }
         Schema::create('wellbeing_webinars', function (Blueprint $table) {
             $table->id();
             $table->foreignId('program_id')->constrained('company_wellbeing_programs')->cascadeOnDelete();

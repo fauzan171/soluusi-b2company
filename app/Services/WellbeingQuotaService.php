@@ -230,10 +230,14 @@ class WellbeingQuotaService
      */
     public static function forfeitWebinar(CompanyWellbeingProgram $program, WellbeingWebinar $webinar, User $actor, string $reason): WellbeingQuotaLedger
     {
+        // REV HIGH-1: idempotent — canonical reason "webinar:{id}", lookup prefix
+        // match supaya row dgn suffix alasan bebas tetap ketemu (dulu lookup
+        // eksak tak pernah match row yang disimpan → double-submit = quota
+        // terpotong 2x).
         $existing = WellbeingQuotaLedger::where('program_id', $program->id)
             ->where('bucket', 'webinar')
             ->where('event', WellbeingQuotaLedger::EVENT_FORFEITED)
-            ->where('reason', 'webinar:'.$webinar->id.' no-show')
+            ->where('reason', 'like', 'webinar:'.$webinar->id.'%')
             ->first();
         if ($existing) {
             return $existing;

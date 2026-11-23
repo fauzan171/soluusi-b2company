@@ -244,6 +244,32 @@ class WellbeingWebinarFlowTest extends TestCase
         $this->assertStringContainsString('peserta tidak hadir', (string) $row->reason);
     }
 
+    /** REV HIGH-1: double-submit forfeit tidak boleh menggandakan row ledger. */
+    public function test_forfeit_is_idempotent_on_double_submit()
+    {
+        $this->seed(WellbeingPackageSeeder::class);
+        $admin = $this->user('wv.forfeit2@wv.local');
+        $p = $this->company('WvForfeit2');
+        $program = $this->program($p, 'growth');
+        $webinar = WellbeingWebinar::create([
+            'program_id' => $program->id, 'title' => 'Double', 'scheduled_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.wellbeing-webinars.forfeit', $program), [
+                'webinar_id' => $webinar->id, 'reason' => 'peserta tidak hadir',
+            ])->assertRedirect();
+
+        // submit kedua (double-click / stale tab) — status sudah cancelled.
+        $this->actingAs($admin)
+            ->post(route('admin.wellbeing-webinars.forfeit', $program), [
+                'webinar_id' => $webinar->id, 'reason' => 'coba lagi',
+            ])->assertRedirect()->assertSessionHas('error');
+
+        $this->assertSame(1, WellbeingQuotaLedger::where('program_id', $program->id)
+            ->where('bucket', 'webinar')->where('event', 'forfeited')->count());
+    }
+
     // ------------------------------------------------------------------
     // Kuota snapshot 1/3/6 decrement per package
     // ------------------------------------------------------------------

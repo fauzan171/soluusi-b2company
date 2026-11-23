@@ -343,11 +343,17 @@ class Wv1InstrumentLibraryTest extends TestCase
             ->assertSee('mcmi3')
             ->assertSee('21'); // DASS-21 item count
 
-        // toggle aktif/nonaktif
+        // toggle aktif/nonaktif — instrumen non-klinis bebas toggle
+        $dass = AssessmentInstrument::where('code', 'dass21')->first();
+        $this->actingAs($admin)->post(route('admin.instruments.toggle', $dass))->assertRedirect();
+        $this->assertFalse((bool) $dass->fresh()->is_active);
+        $this->actingAs($admin)->post(route('admin.instruments.toggle', $dass))->assertRedirect();
+        $this->assertTrue((bool) $dass->fresh()->is_active);
+
+        // SEC MED-1: MCMI (clinical) tidak bisa diaktifkan massal — 403.
         $mcmi = AssessmentInstrument::where('code', 'mcmi3')->first();
-        $this->actingAs($admin)->post(route('admin.instruments.toggle', $mcmi))->assertRedirect();
-        $this->assertTrue((bool) $mcmi->fresh()->is_active);
-        $this->actingAs($admin)->post(route('admin.instruments.toggle', $mcmi))->assertRedirect();
+        $this->assertFalse((bool) $mcmi->fresh()->is_active);
+        $this->actingAs($admin)->post(route('admin.instruments.toggle', $mcmi))->assertForbidden();
         $this->assertFalse((bool) $mcmi->fresh()->is_active);
 
         // employee tidak boleh masuk admin area
