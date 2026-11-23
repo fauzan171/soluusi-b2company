@@ -68,6 +68,15 @@ class WellbeingProgramController extends Controller
 
     public function store(Request $request)
     {
+        // Fix REV#1: UI kirim string "12,15,19" — normalisasi ke array sebelum validasi.
+        if (is_string($request->input('selected_employee_ids'))) {
+            $ids = array_values(array_filter(
+                explode(',', (string) $request->input('selected_employee_ids')),
+                fn ($v) => $v !== '' && is_numeric(trim($v))
+            ));
+            $request->merge(['selected_employee_ids' => array_map('intval', $ids)]);
+        }
+
         $data = $request->validate([
             'perusahaan_id' => ['required', 'integer', 'exists:perusahaans,id'],
             'package_code' => ['required', 'string', Rule::in(['discovery', 'foundation', 'growth', 'impact'])],

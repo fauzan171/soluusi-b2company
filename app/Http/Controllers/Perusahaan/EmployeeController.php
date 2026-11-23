@@ -163,6 +163,13 @@ class EmployeeController extends Controller
 
         DB::transaction(function () use ($session) {
             \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+            // FIX (review wb REV#2): release ledger reserve requestConsultation —
+            // UI bilang "Kuota kamu kembali", ledger-nya sekarang juga (WB kontrak-level).
+            if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+                \App\Services\WellbeingQuotaService::release($session, 'employee cancel pending');
+            } else {
+                \App\Services\QuotaService::release($session, 'employee cancel pending');
+            }
             // D.2: proposal slot yang masih pending tidak boleh menggantung.
             \App\Models\SessionSlotProposal::where('session_id', $session->id)
                 ->where('status', 'pending')->update(['status' => 'rejected']);
@@ -244,6 +251,19 @@ class EmployeeController extends Controller
         ]);
 
         $answers = array_values($r->input('answers'));
+
+        // FIX (review wb REV#3): legacy WHO-5 path juga kena R3 cap (dulu bisa
+        // bypass via URL langsung). Scope window program, distinct employee.
+        if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
+            and $program->assessment_max_participants !== null) {
+            $scoped = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
+                ->where('taken_at', '>=', $program->starts_at);
+            $distinct = (clone $scoped)->distinct('employee_id')->count('employee_id');
+            $already = (clone $scoped)->where('employee_id', $employee->id)->exists();
+            abort_if($distinct >= $program->assessment_max_participants && ! $already,
+                403, 'Kuota peserta assessment penuh. Hubungi HR untuk info program.');
+        }
+
         PerusahaanAssessment::create([
             'perusahaan_id' => $employee->perusahaan_id,
             'employee_id' => $employee->id,

@@ -30,12 +30,17 @@ class ExpireWellbeingPrograms extends Command
 
         foreach ($stale as $program) {
             $program->update(['status' => 'ended']);
-            AdminAction::record(
-                (int) ($program->created_by ?? 0),
-                'wellbeing_program.ended',
-                $program,
-                ['reason' => $program->terminated_at ? 'terminasi 30-day notice efektif' : 'kontrak berakhir (ends_at)']
-            );
+            // FIX (SEC MED): created_by nullable — jangan coalesce ke 0 (FK
+            // admin_actions.admin_id → users di DB strict). Skip audit row
+            // bila creator sudah tidak ada; status update tetap jalan.
+            if ($program->created_by) {
+                AdminAction::record(
+                    (int) $program->created_by,
+                    'wellbeing_program.ended',
+                    $program,
+                    ['reason' => $program->terminated_at ? 'terminasi 30-day notice efektif' : 'kontrak berakhir (ends_at)']
+                );
+            }
         }
 
         $this->info("Programs ended: {$stale->count()}.");

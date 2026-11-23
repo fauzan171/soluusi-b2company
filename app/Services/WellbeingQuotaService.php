@@ -98,6 +98,14 @@ class WellbeingQuotaService
         $program = self::activeProgram($employee->perusahaan);
         abort_unless($program, 403, 'Tidak ada program wellbeing aktif.');
 
+        // SEC MED (K12 Discovery): deep support Discovery hanya untuk karyawan
+        // terpilih (max 8) yang di-set superadmin saat assign — bukan siapa pun.
+        if ($bucket === self::BUCKET_DEEP_SUPPORT
+            && $program->selected_employee_ids
+            && ! in_array($employee->id, (array) $program->selected_employee_ids)) {
+            abort(403, 'Sesi deep support program ini terbatas untuk peserta terpilih. Hubungi HR.');
+        }
+
         $existing = WellbeingQuotaLedger::where('perusahaan_session_id', $session->id)
             ->where('event', WellbeingQuotaLedger::EVENT_RESERVED)->first();
         if ($existing) {
