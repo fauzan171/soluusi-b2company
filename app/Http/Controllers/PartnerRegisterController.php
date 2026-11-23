@@ -70,6 +70,7 @@ class PartnerRegisterController extends Controller
                 'estimated_monthly_sessions' => $data['estimated_monthly_sessions'] ?? null,
                 'is_active' => false, // menunggu approval ops
                 'terms_agreed_at' => now(),
+                'terms_version' => config('terms.klinik_version'),
             ]);
 
             KlinikAdmin::create([

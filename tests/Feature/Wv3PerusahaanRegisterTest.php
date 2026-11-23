@@ -36,6 +36,7 @@ class Wv3PerusahaanRegisterTest extends TestCase
             'org_name' => 'PT Cipta Sejahtera',
             'hr_email' => 'hr@ciptasejahtera.test',
             'hr_name' => 'Dewi Kartika',
+            'registrant_position' => 'HR Manager',
             'employee_band' => '151-400',
             'phone' => '081234567890',
             'package_code' => 'growth',

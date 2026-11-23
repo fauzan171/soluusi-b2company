@@ -28,6 +28,7 @@ class Klinik extends Model
         'regency_id',
         'approved_at',
         'terms_agreed_at',
+        'terms_version',
         'facility_type',
         'branch_name',
         'address',

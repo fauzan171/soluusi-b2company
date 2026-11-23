@@ -26,8 +26,9 @@ class W1RollbackCheckTest extends TestCase
         // + wv4 engagement_campaigns.kind (2026_11_23_000201)
         // + QA10-F3 hap_pervormas status cancelled (2026_11_23_000300)
         // + A1 assessment_assignments wave (2026_11_24_000100/1/2)
-        // → step 7+1+1+1+2+1+1+2+2+1+1+1+1+3.
-        Artisan::call('migrate:rollback', ['--step' => 25, '--force' => true]);
+        // + B6 terms_version/registrant_position (2026_11_24_000104)
+        // → step 7+1+1+1+2+1+1+2+2+1+1+1+1+3+1.
+        Artisan::call('migrate:rollback', ['--step' => 26, '--force' => true]);
         $this->assertFalse(Schema::hasTable('assessment_instruments'));
         $this->assertFalse(Schema::hasTable('assessment_assignments'));
         $this->assertFalse(Schema::hasTable('action_plans'));
