@@ -30,12 +30,12 @@
         ],
         $isSekolahRoute && $role === 'sekolah_staff' => [
             ['route' => 'sekolah.staff', 'pattern' => 'sekolah.staff', 'label' => 'Dashboard', 'icon' => 'heart'],
-            ['route' => 'sekolah.staff.assessment.form', 'pattern' => 'sekolah.staff.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
+            ['route' => 'sekolah.staff.assessment.list', 'pattern' => 'sekolah.staff.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
             ['route' => 'sekolah.staff.booking', 'pattern' => 'sekolah.staff.booking*', 'label' => 'Booking', 'icon' => 'calendar'],
         ],
         $isSekolahRoute => [
             ['route' => 'sekolah.student', 'pattern' => 'sekolah.student', 'label' => 'Dashboard', 'icon' => 'heart'],
-            ['route' => 'sekolah.assessment.form', 'pattern' => 'sekolah.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
+            ['route' => 'sekolah.assessment.list', 'pattern' => 'sekolah.assessment*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
             ['route' => 'sekolah.booking', 'pattern' => 'sekolah.booking*', 'label' => 'Booking', 'icon' => 'calendar'],
         ],
         $isPerusahaanRoute && in_array($role, ['hr_admin', 'admin']) => [

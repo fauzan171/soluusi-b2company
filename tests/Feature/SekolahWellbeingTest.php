@@ -6,6 +6,7 @@ use App\Models\Sekolah\Sekolah;
 use App\Models\Sekolah\SekolahStudent;
 use App\Models\User;
 use App\Support\InsightEngine;
+use Database\Seeders\AssessmentInstrumentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +17,13 @@ use Tests\TestCase;
 class SekolahWellbeingTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // B3: engine butuh definisi instrumen who5 (item vertical perusahaan).
+        $this->seed(AssessmentInstrumentSeeder::class);
+    }
 
     private function makeStudent(int $quota = 2, bool $consent = true): array
     {
@@ -47,6 +55,13 @@ class SekolahWellbeingTest extends TestCase
         DB::table('sekolah_admins')->insert([
             'sekolah_id' => $sekolah->id, 'user_id' => $bkUser->id, 'role' => 'bk',
             'created_at' => now(), 'updated_at' => now(),
+        ]);
+        // B3/D8: assignment legacy who5 hasil backfill per sekolah — flow siswa lama tetap jalan.
+        \App\Models\AssessmentAssignment::create([
+            'assignable_type' => 'sekolah', 'assignable_id' => $sekolah->id,
+            'instrument_code' => 'who5', 'audience' => 'student',
+            'source' => 'legacy', 'round' => 1,
+            'opens_at' => '1970-01-01', 'closes_at' => null, 'status' => 'active',
         ]);
 
         return [$sekolah, $student, $user, $bkUser];

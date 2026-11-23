@@ -11,6 +11,7 @@ use App\Models\Sekolah\SekolahAssessment;
 use App\Models\Sekolah\SekolahSession;
 use App\Models\Sekolah\SekolahStudent;
 use App\Models\User;
+use Database\Seeders\AssessmentInstrumentSeeder;
 use App\Services\DashboardMetrics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,13 @@ use Tests\TestCase;
 class SekolahStaffFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // B3: engine butuh definisi instrumen who5 (item vertical perusahaan).
+        $this->seed(AssessmentInstrumentSeeder::class);
+    }
 
     private function user(string $email, string $role): User
     {
@@ -126,6 +134,13 @@ class SekolahStaffFlowTest extends TestCase
     {
         $sekolah = $this->sekolah();
         [$user, $person] = $this->staff($sekolah);
+        // B3/D8: assignment legacy who5 hasil backfill — flow staf tetap jalan.
+        \App\Models\AssessmentAssignment::create([
+            'assignable_type' => 'sekolah', 'assignable_id' => $sekolah->id,
+            'instrument_code' => 'who5', 'audience' => 'staff',
+            'source' => 'legacy', 'round' => 1,
+            'opens_at' => '1970-01-01', 'closes_at' => null, 'status' => 'active',
+        ]);
         $answers = [1, 2, 3, 4, 5];
 
         $this->actingAs($user)->post(route('sekolah.staff.assessment.store'), [

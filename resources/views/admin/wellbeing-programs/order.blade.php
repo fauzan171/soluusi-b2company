@@ -13,10 +13,24 @@
         ? 'Rp ' . number_format($program->monthly_price, 0, ',', '.') . ' + pajak'
         : 'Gratis';
     $months = (int) round($package->duration_days / 30);
-    $total = (float) $program->monthly_price * $months;
-    $totalLabel = $program->monthly_price
+    // B2 (D4): add-on assignment berbayar per program — baris terpisah + total.
+    $addons = \App\Models\AssessmentAssignment::where('assignable_type', $program->getMorphClass())
+        ->where('assignable_id', $program->id)
+        ->where('source', \App\Models\AssessmentAssignment::SOURCE_ADDON)
+        ->whereNotNull('addon_price')
+        ->orderBy('instrument_code')->get();
+    $addonTotal = (float) $addons->sum('addon_price');
+    $total = (float) $program->monthly_price * $months + $addonTotal;
+    $hasTotal = $program->monthly_price || $addonTotal > 0;
+    $totalLabel = $hasTotal
         ? 'Rp ' . number_format($total, 0, ',', '.') . ' + pajak'
         : null;
+    // B2 (D3): instrumen core program (termasuk add-on gratis/extras).
+    $coreInstruments = \App\Models\AssessmentAssignment::where('assignable_type', $program->getMorphClass())
+        ->where('assignable_id', $program->id)
+        ->where('source', \App\Models\AssessmentAssignment::SOURCE_CORE)
+        ->orderBy('instrument_code')->get()
+        ->map(fn ($a) => $a->instrument?->name ?? $a->instrument_code);
 @endphp
 
 <style>
@@ -59,15 +73,20 @@
                 <div class="order-row"><dt>Jumlah karyawan terdaftar</dt><dd>{{ number_format($program->employee_band_size, 0, ',', '.') }} karyawan</dd></div>
                 <div class="order-row"><dt>Harga per bulan</dt><dd>{{ $priceLabel }}</dd></div>
                 @if ($totalLabel)
-                    <div class="order-row"><dt>Total biaya kontrak</dt><dd>{{ $totalLabel }} ({{ $months }} bulan)</dd></div>
+                    <div class="order-row"><dt>Total biaya kontrak</dt><dd>{{ $totalLabel }}{{ $program->monthly_price ? ' (' . $months . ' bulan' . ($addonTotal > 0 ? ' + add-on sekali bayar' : '') . ')' : ' (add-on)' }}</dd></div>
                 @endif
-                <div class="order-row"><dt>Add-on</dt><dd>— (layanan tambahan berbayar terpisah)</dd></div>
+                @forelse ($addons as $addon)
+                    <div class="order-row"><dt>Add-on</dt><dd>Add-on: {{ $addon->instrument?->name ?? $addon->instrument_code }} — Rp {{ number_format((float) $addon->addon_price, 0, ',', '.') }} (sekali bayar, belum termasuk pajak)</dd></div>
+                @empty
+                    <div class="order-row"><dt>Add-on</dt><dd>— (layanan tambahan berbayar terpisah)</dd></div>
+                @endforelse
             </dl>
             <dl class="grid">
                 <div class="order-row"><dt>Kuota expert chat</dt><dd>{{ $program->expert_chat_quota }} sesi</dd></div>
                 <div class="order-row"><dt>Kuota deep support</dt><dd>{{ $program->deep_support_quota }} sesi{{ $program->deep_support_mode === 'mhcu' ? ' (MHCU)' : ($program->deep_support_mode === 'one_on_one' ? ' (1-on-1)' : '') }}</dd></div>
                 <div class="order-row"><dt>Kuota webinar</dt><dd>{{ $program->webinar_quota }} webinar</dd></div>
                 <div class="order-row"><dt>Domain assessment</dt><dd>{{ $domains ?: '—' }}</dd></div>
+                <div class="order-row"><dt>Instrumen core</dt><dd>{{ $coreInstruments->unique()->implode(', ') ?: '—' }}</dd></div>
                 <div class="order-row"><dt>Karyawan terpilih (Discovery)</dt><dd>{{ $selectedCount !== null ? $selectedCount . ' karyawan' : 'Semua karyawan' }}</dd></div>
             </dl>
         </div>

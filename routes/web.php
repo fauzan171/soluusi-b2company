@@ -121,8 +121,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
     });
     Route::middleware('role:sekolah_staff,admin')->group(function () {
         Route::get('/staff', [\App\Http\Controllers\Sekolah\StaffController::class, 'index'])->name('staff');
-        Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
-        Route::post('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');
+        Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentList'])->name('staff.assessment.list');
+        Route::get('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
+        Route::post('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');
         Route::get('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingForm'])->name('staff.booking');
         Route::post('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingStore'])->middleware('throttle:10,1')->name('staff.booking.store');
         Route::post('/staff/request', [\App\Http\Controllers\Sekolah\StaffController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('staff.request');
@@ -136,8 +137,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
     });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');
-        Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');
-        Route::post('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
+        Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentList'])->name('assessment.list');
+        Route::get('/siswa/assessment/{code?}', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');
+        Route::post('/siswa/assessment/{code?}', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
         Route::get('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingForm'])->name('booking');
         Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
         Route::post('/siswa/request', [\App\Http\Controllers\Sekolah\StudentController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('siswa.request');
@@ -194,8 +196,9 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
-        Route::get('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentForm'])->name('assessment.form');
-        Route::post('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentStore'])->name('assessment.store');
+        // B1 (D8): legacy WHO-5 path dihapus — 301 permanen ke daftar instrumen.
+        Route::get('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.form');
+        Route::post('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.store');
         Route::get('/employee/assessments', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'index'])->name('assessment.instruments');
         Route::get('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'form'])->name('assessment.instrument.form');
         Route::post('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'store'])->name('assessment.instrument.store');
@@ -396,6 +399,15 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/klinik-checkpoints', [\App\Http\Controllers\Admin\KlinikCheckpointController::class, 'index'])->name('klinik-checkpoints');
 });
 
+// B2 (D1): manajemen assignment instrumen per program — admin + operations
+// (group terpisah: role admin-only parent akan memblokir operations).
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    Route::get('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'index'])->name('programs.assessments');
+    Route::post('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'store'])->name('programs.assessments.store');
+    Route::put('/wellbeing-programs/{program}/assessments/{assignment}', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'update'])->name('programs.assessments.update');
+    Route::post('/wellbeing-programs/{program}/assessments/{assignment}/close', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'close'])->name('programs.assessments.close');
+});
+
 // wv4: hr pages — engagement, action plan (B), progres program, utilisasi expert, campaign (D).
 Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
     Route::middleware('role:hr_admin,admin')->group(function () {
@@ -417,4 +429,12 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/employee/privacy', [\App\Http\Controllers\Perusahaan\EmployeePrivacyController::class, 'index'])->name('employee.privacy');
     });
 
+});
+
+// B3: admin assignment instrumen per sekolah (admin + operations, D9 minor-safety gate).
+Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    Route::post('/sekolahs/{sekolah}/assignments', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'store'])->name('sekolahs.assignments.store');
+    Route::post('/sekolahs/{sekolah}/assignments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'close'])->name('sekolahs.assignments.close');
+    Route::post('/sekolahs/{sekolah}/assignments/{assignment}/reopen', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'reopen'])->name('sekolahs.assignments.reopen');
+    Route::put('/sekolahs/{sekolah}/assignments/{assignment}', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'update'])->name('sekolahs.assignments.update');
 });

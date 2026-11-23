@@ -104,16 +104,31 @@ class InstrumentScoring
      * tidak pernah identitas individu; eskalasi hanya COUNT.
      * wv1 (R10/K14): threshold perusahaan 10 — sekuat data laporan program.
      *
-     * @return array{assessed:int, bands:?array<string,int>, escalatedCount:?int}
+     * B4: optional $assignment — scope ke rows assignment tsb + legacy rows
+     * (NULL assessment_assignment_id, instrument_code match) di tenant yang sama.
+     * Tanpa $assignment → perilaku lama (semua rows kode tsb).
+     *
+     * @return array{assessed:int, bands:?array<string,int>, escalatedCount:?int, mean:?float}
      */
-    public static function aggregate($perusahaan, AssessmentInstrument $instrument): array
+    public static function aggregate($perusahaan, AssessmentInstrument $instrument, $assignment = null): array
     {
-        $latest = $perusahaan->assessments()
+        $rows = $perusahaan->assessments()
             ->where('instrument_code', $instrument->code)
-            ->where('status', 'completed')
-            ->get()
+            ->where('status', 'completed');
+
+        if ($assignment !== null) {
+            $rows = $rows->where(function ($q) use ($assignment) {
+                $q->where('assessment_assignment_id', $assignment->id);
+                // row tanpa assignment_id hanya milik assignment legacy (bukan program/round).
+                if ($assignment->source === \App\Models\AssessmentAssignment::SOURCE_LEGACY) {
+                    $q->orWhereNull('assessment_assignment_id');
+                }
+            });
+        }
+
+        $latest = $rows->get()
             ->groupBy('employee_id')
-            ->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
+            ->map(fn ($group) => $group->sortByDesc('taken_at')->first());
 
         $bandCounts = [];
         foreach ($latest as $row) {
@@ -123,13 +138,15 @@ class InstrumentScoring
 
         $assessed = $latest->count();
         if (! AggregatePrivacy::safe(array_values($bandCounts), 10)) {
-            return ['assessed' => $assessed, 'bands' => null, 'escalatedCount' => null];
+            return ['assessed' => $assessed, 'bands' => null, 'escalatedCount' => null, 'mean' => null];
         }
 
         return [
             'assessed' => $assessed,
             'bands' => $bandCounts,
-            'escalatedCount' => (int) $latest->where('escalated', true)->count(),
+            // M1: eskalasi 1-9 bisa re-identifikasi → tampil hanya 0 atau ≥10.
+            'escalatedCount' => ($esc = $latest->where('escalated', true)->count()) === 0 || $esc >= 10 ? $esc : null,
+            'mean' => round($latest->avg('score'), 1),
         ];
     }
 

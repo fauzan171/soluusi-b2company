@@ -47,6 +47,7 @@ class PerusahaanRegisterController extends Controller
             // paham harus login/pakai email lain.
             'hr_email' => 'required|email|max:255|unique:users,email',
             'hr_name' => 'required|string|max:255',
+            'registrant_position' => 'required|string|max:100',
             'employee_band' => 'required|in:' . implode(',', array_keys(self::BANDS)),
             'phone' => 'required|string|max:30',
             'package_code' => 'required|in:discovery,foundation,growth,impact',
@@ -79,6 +80,8 @@ class PerusahaanRegisterController extends Controller
                 'is_active' => false, // pending approval ops
                 'status' => 'pending',
                 'terms_agreed_at' => now(),
+                'terms_version' => config('terms.perusahaan_version'),
+                'registrant_position' => $data['registrant_position'],
             ]);
 
             PerusahaanAdmin::create([

@@ -19,6 +19,8 @@
         <div class="flex justify-between"><dt class="text-gray-500">Status program</dt>
             <dd>@if($perusahaan->is_active)<span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">Aktif</span>@else<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">Pending</span>@endif</dd>
         </div>
+        <div class="flex justify-between"><dt class="text-gray-500">Jabatan Pendaftar</dt><dd class="font-semibold">{{ $perusahaan->registrant_position ?? '—' }}</dd></div>
+        <div class="flex justify-between"><dt class="text-gray-500">Versi S&K</dt><dd class="font-semibold">{{ $perusahaan->terms_version ?? '—' }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">Lifecycle</dt>
             <dd>@if($perusahaan->status === 'suspended')<span class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">Suspended</span>@else<span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">{{ ucfirst($perusahaan->status ?? 'active') }}</span>@endif</dd>
         </div>

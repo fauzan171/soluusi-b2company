@@ -155,7 +155,7 @@ class AiInsightService
         $noShow = $sessions->where('status', 'no_show')->count();
 
         $assessmentModel = $school ? \App\Models\Sekolah\SekolahAssessment::class : \App\Models\Perusahaan\PerusahaanAssessment::class;
-        $assessed = $assessmentModel::where($vertical . '_id', $tenant->id)
+        $assessed = $assessmentModel::where('instrument_code', 'who5')->where($vertical . '_id', $tenant->id)
             ->where('taken_at', '>=', now()->copy()->subDays(90))->when($school, fn ($q) => $q->studentRoster())->get()
             ->groupBy($person)->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
 

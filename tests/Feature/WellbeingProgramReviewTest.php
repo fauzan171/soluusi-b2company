@@ -83,6 +83,8 @@ class WellbeingProgramReviewTest extends TestCase
             'package_code' => $code,
             'band_min' => $code === 'discovery' ? null : 50,
             'deep_support_mode' => $code === 'growth' || $code === 'impact' ? 'mhcu' : 'one_on_one',
+            // B2: pilihan domain assessment utk foundation (wajib).
+            'foundation_domain' => $code === 'foundation' ? 'mh' : null,
             'starts_at' => $startsAt,
             'confirm' => 1,
         ]);

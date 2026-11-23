@@ -1,0 +1,377 @@
+# Soluusi B2B — Wave "Assessment Assignment" (23 Nov 2026)
+# Source: Google Doc [All Wellbeing Product] (Assessment library, §4 feature matrix,
+#         §5C Wellbeing Trend, §6 final access structure, S&K Perusahaan §17/§19).
+# Mandor (planner/integrator/reviewer): Opus 5.5 (main session).
+# Kuli (workers): GLM 5.3 (srp/glm-5.3) for schema/logic, GLM 5.3 Flash (srp/glm-5.3-flash) for small tasks.
+# Research/QA/security review: Opus subagents (reviewer, security-auditor).
+
+project: soluusi-b2b
+repo_dev: /home/hermes/workspace/projects/soluusi-b2b-wellbeing   # branch feat/wellbeing-product
+repo_prod: /home/hermes/workspace/projects/soluusi-b2b-klinik     # branch improvement-live = LIVE
+baseline_test: "866 tests / 3436 assertions OK (commit b8d4f6f)"
+test_cmd: "/usr/local/bin/php vendor/bin/phpunit > /tmp/t.log 2>&1; tail -5 /tmp/t.log | tr -d '\\033'"
+
+constraints:
+  - Workers NEVER touch repo_prod, never push, never deploy, never migrate:fresh on a non-test DB.
+  - Each worker = own git worktree under ../wt/soluusi-b2b-<task-id>, branch feat/<task-id>-<slug> off the A1 commit.
+  - TDD: failing test first, then code. Tests use fake data only (no real names/emails/phones).
+  - Healthcare data: no PII/scores in logs, commits, fixtures. HR never sees individual results.
+  - Match existing style: Indonesian UI copy + comments, English identifiers/commits, Blade + Tailwind.
+  - Migrations idempotent (hasTable/hasColumn guards), MySQL+SQLite safe; update W1RollbackCheckTest step count.
+  - Ignore stderr lines containing "safelock" / "userdatadomains" (host noise).
+  - Smallest diff. No new composer/npm dependencies.
+
+# ---------------------------------------------------------------------------
+# BUSINESS DECISIONS (mandor, final — derived from the Doc; workers do not re-decide)
+# ---------------------------------------------------------------------------
+decisions:
+  D1_who_assigns: >
+    Superadmin/Operations (roles admin, operations) assign instruments. HR and
+    employees never choose instruments. Doc §3A "Program Activation / Assessment
+    Management" + role table (Operations = pelaksanaan program).
+  D2_one_mechanism: >
+    One table `assessment_assignments` serves Perusahaan and Sekolah (polymorphic
+    assignable: program | perusahaan | sekolah). Employee/student dashboard shows
+    ONLY assigned instruments (+ per-person clinical grants). Fixes today's bugs:
+    Big Five/DISC always visible, Ergonomic never visible, no-program = everything visible.
+  D3_core_per_package: |
+    Core instruments are auto-created by the program wizard (source=core):
+      discovery  : 1 instrument, admin picks WHO-5 (default) or DASS-21. MH only.
+                   (Doc conflict "MH/Nutrition" vs "Satu Mental Health Assessment" +
+                   placement table "WHO-5 atau DASS-21" -> 2 of 3 mentions = MH only.)
+      foundation : admin picks domain MH or Nutrition (radio, required).
+                   MH -> DASS-21; Nutrition -> Nutrition Assessment.
+                   assessment_domains snapshot = [chosen domain] (fixes hardcoded ['mh']).
+      growth     : DASS-21 + Nutrition Assessment.
+      impact     : DASS-21 + Nutrition Assessment.
+    Optional "included in MH domain" extras (no charge, source=core): WHO-5, PSS-10
+    — only when the program has domain mh.
+  D4_addons: >
+    Everything not core and not clinical is an add-on (source=addon), assignable per
+    company with addon_price (Rp, excl. tax, required >= 0): bigfive, disc, ergonomic,
+    phq9, gad7, cbi ("instrumen lain sesuai tujuan"). Add-ons appear on Program Order
+    as line items and in the order total. Doc §4 "Add-on: Berbayar/terpisah".
+  D5_clinical: >
+    MCMI-III is NEVER assignable to a company/school (Doc: tidak boleh massal). Stays
+    per-employee InstrumentGrant; grant now requires `reason` (indikasi klinis, max 500).
+  D6_rounds_and_windows: |
+    Each assignment has a window (opens_at..closes_at) and a round number.
+    One submission per (assignment, person) — DB unique index, no retake inside a window.
+    Rounds give Doc §5C "Wellbeing Progress" (— / — / Basic / Advanced):
+      discovery, foundation : 1 round = whole program period.
+      growth                : 2 rounds — R1 starts_at..+29d (baseline), R2 ends_at-29d..ends_at.
+      impact                : 4 rounds — Rn opens starts_at + 3*(n-1) months, closes +29d
+                              (aligned with the 4 quarterly reviews already generated).
+      add-ons               : 1 round = whole program period.
+    Admin may edit window, close early, or add a round.
+  D7_trend: >
+    Trend comparison (HR) only for growth (R1 vs R2) and impact (R1..R4), only when
+    every compared round has n >= 10 completers; always render the Doc §5C disclaimer:
+    "Perbedaan skor antarperiode tidak otomatis menunjukkan bahwa program menyebabkan perubahan."
+  D8_legacy_parity: >
+    Existing prod data (2 companies without active program, 83 WHO-5 rows; 2 schools,
+    35 WHO-5 rows) must keep working: migration backfills a `source=legacy` WHO-5
+    assignment per perusahaan (assignable=perusahaan) and per sekolah (audiences
+    student + staff), open-ended. Precedence: active program assignments override
+    perusahaan-level legacy ones. Legacy WHO-5 path EmployeeController::assessmentStore
+    (NULL instrument_code bug) is removed; its routes redirect to the new list.
+  D9_sekolah_safety: >
+    Students (minors) may only receive: who5, pss10, bigfive, disc. Symptom/clinical
+    instruments (dass21, phq9, gad7, cbi, mcmi3) are blocked for audience=student until
+    a safeguarding flow exists (PHQ-9 item 9). Sekolah staff (adults) may receive any
+    non-clinical instrument. Sekolah aggregate threshold stays n >= 5; company n >= 10.
+  D10_hr_view: >
+    HR sees per assignment: completion = distinct completers / registered employees
+    (counts always visible — not health data), band distribution only when
+    AggregatePrivacy::safe(n,10), restricted to instruments assigned to their program.
+    Never names, never individual scores.
+  D11_reminders: >
+    Company only (v1): creating an assignment schedules 2 EngagementCampaign rows
+    (kind=reminder): invite at opens_at, reminder at closes_at-3d (if closes_at set and
+    window >= 7 days). Sender skips employees who already submitted for that assignment.
+  D12_terms: >
+    S&K version tracking: config('terms.perusahaan_version') / ('terms.klinik_version'),
+    stored on registration (terms_version). Perusahaan registration adds required
+    "Jabatan" (registrant_position, max 100) per S&K Perusahaan §19.
+  D13_not_doing: >
+    Parent portal, safeguarding flow, consultant specialty matching for Foundation
+    domain, custom quote >1000 employees (already errors to Finance), Klinik S&K
+    §16.2 placeholder (legal text — owner must decide).
+
+# ---------------------------------------------------------------------------
+# SCHEMA (A1 implements exactly this)
+# ---------------------------------------------------------------------------
+schema:
+  assessment_assignments:
+    id: bigIncrements
+    assignable_type: "string(32)  # morph map: program=CompanyWellbeingProgram, perusahaan=Perusahaan, sekolah=Sekolah"
+    assignable_id: unsignedBigInteger
+    instrument_code: "string(32), index"
+    audience: "string(16) default 'employee'  # employee | student | staff"
+    source: "string(16)  # core | addon | legacy"
+    addon_price: "decimal(14,2) nullable  # only source=addon"
+    round: "unsignedSmallInteger default 1"
+    opens_at: date
+    closes_at: "date nullable  # null = open-ended (legacy)"
+    status: "string(16) default 'active'  # active | closed"
+    assigned_by: "foreignId users nullable, nullOnDelete"
+    timestamps: true
+    unique: [assignable_type, assignable_id, instrument_code, audience, round]
+    index: [assignable_type, assignable_id, status]
+  perusahaan_assessments_add:
+    assessment_assignment_id: "foreignId nullable, nullOnDelete"
+    unique: "[assessment_assignment_id, employee_id]  # NULLs allowed for old rows"
+  sekolah_assessments_add:
+    instrument_code: "string(32) nullable -> backfill 'who5'"
+    escalated: "boolean default false"
+    assessment_assignment_id: "foreignId nullable, nullOnDelete"
+    unique: "[assessment_assignment_id, student_id]"
+  instrument_grants_add:
+    reason: "string(500) nullable"
+  engagement_campaigns_add:
+    assessment_assignment_id: "foreignId nullable, nullOnDelete"
+  perusahaans_add: { registrant_position: "string(100) nullable", terms_version: "string(20) nullable" }
+  kliniks_add: { terms_version: "string(20) nullable" }
+
+# ---------------------------------------------------------------------------
+# TASKS
+# ---------------------------------------------------------------------------
+tasks:
+  - id: A1
+    status: done
+    phase: A (serial — everything depends on it)
+    model: srp/glm-5.3
+    title: assessment_assignments schema + AssessmentAccess service + legacy backfill
+    files:
+      - database/migrations/2026_11_24_000100_create_assessment_assignments_table.php (new)
+      - database/migrations/2026_11_24_000101_link_assessments_to_assignments.php (new; perusahaan_assessments, sekolah_assessments, instrument_grants.reason)
+      - database/migrations/2026_11_24_000102_backfill_legacy_assessment_assignments.php (new; data-only, idempotent)
+      - app/Models/AssessmentAssignment.php (new)
+      - app/Services/AssessmentAccess.php (new)
+      - app/Providers/AppServiceProvider.php (Relation::enforceMorphMap? NO — use Relation::morphMap without enforce to avoid breaking existing morphs)
+      - app/Models/Perusahaan/PerusahaanAssessment.php, app/Models/Sekolah/SekolahAssessment.php ($fillable/casts only)
+      - tests/Feature/AssessmentAccessTest.php (new), tests/Feature/W1RollbackCheckTest.php (step count +3)
+    spec: |
+      AssessmentAssignment:
+        - morphTo assignable; scopeOpen($date=today): status=active AND opens_at<=date AND (closes_at null OR closes_at>=date)
+        - instrument(): belongsTo AssessmentInstrument by code
+        - isOpen(): bool
+        - constants SOURCE_*, AUDIENCE_*, STUDENT_ALLOWED = ['who5','pss10','bigfive','disc'], CLINICAL = ['mcmi3']
+      AssessmentAccess (static, no interface):
+        - forEmployee(PerusahaanEmployee $e): Collection<AssessmentAssignment>
+            program = WellbeingQuotaService::activeProgram($e->perusahaan)
+            if program: open assignments where assignable=program, audience=employee
+            else: open assignments where assignable=perusahaan(e->perusahaan_id), audience=employee
+            filter instrument is_active (global master switch)
+        - forSekolahMember(SekolahStudent $s): open assignments assignable=sekolah(s->sekolah_id),
+            audience = s->type==student ? student : staff; for student additionally whereIn STUDENT_ALLOWED
+        - grantedCodes(PerusahaanEmployee $e): InstrumentGrant codes (bypass assignment; clinical)
+        - resolveForEmployee(PerusahaanEmployee $e, string $code): ?AssessmentAssignment
+            -> the open assignment for that code (lowest round open now) or null
+        - resolveForSekolahMember(SekolahStudent $s, string $code): ?AssessmentAssignment
+        - hasSubmitted(AssessmentAssignment $a, int $personId, string $tenant): bool
+      Backfill (000102): for each perusahaan WITHOUT any company_wellbeing_programs row
+        -> create (perusahaan, who5, employee, legacy, round 1, opens_at = perusahaan.created_at date, closes_at null);
+        for each perusahaan WITH programs -> create core assignments from the program snapshot:
+          assessment_domains contains mh -> dass21 + who5 ; nutrition -> nutrition ; wellbeing -> who5
+          round 1, opens_at=starts_at, closes_at=ends_at, source=core.
+        for each sekolah -> who5 legacy for audience student AND staff.
+        sekolah_assessments.instrument_code backfill 'who5' where null.
+        Use DB::table inserts with insertOrIgnore (idempotent via unique index). down(): delete source in (legacy) + backfilled core rows created by this migration (mark via assigned_by null + created_at = migration run? simpler: down() no-op with comment — data migration).
+    acceptance:
+      - Migrations up/down/up clean on sqlite (RefreshDatabase) ; W1RollbackCheckTest passes with new step count.
+      - AssessmentAccessTest covers: program precedence over perusahaan legacy; closed/not-yet-open/after-close hidden;
+        globally inactive instrument hidden; student never gets dass21 even if a row exists; staff can; grant bypass; unique (assignment, employee) rejects 2nd insert.
+      - Backfill test: perusahaan without program gets exactly 1 legacy who5; re-running migration creates no duplicates.
+    verify: "test_cmd (full suite) -> 0 failures"
+
+  - id: B1
+    status: done
+    phase: B (parallel, after A1)
+    model: srp/glm-5.3
+    title: Employee side — list/form/store driven by assignments; remove legacy WHO-5 path
+    files:
+      - app/Http/Controllers/Perusahaan/AssessmentController.php
+      - app/Http/Controllers/Perusahaan/EmployeeController.php (delete assessmentForm/assessmentStore; keep WHO5_ITEMS const — used by Sekolah until B3 lands)
+      - routes/web.php (legacy employee assessment GET/POST -> redirect()->route('perusahaan.assessment.index') 301)
+      - resources/views/perusahaan/assessment-instruments.blade.php, assessment-instrument.blade.php, employee.blade.php (CTA)
+      - tests/Feature/EmployeeAssessmentAssignmentTest.php (new); update tests/Feature/PerusahaanWellbeingTest.php legacy assertions
+    spec: |
+      index(): cards from AssessmentAccess::forEmployee + grants. Each card: name, domain label,
+        "Tambahan" badge if source=addon, status = Belum dikerjakan | Selesai (tanggal) ,
+        "Tutup {closes_at d M Y}" if closes_at, round label "Putaran {n}" if round>1.
+        Below: "Riwayat" = own past results (all instruments) with link to result page.
+        Empty state: "Belum ada asesmen yang dibuka untuk Anda saat ini."
+      form()/store(): resolveInstrument replaced by AssessmentAccess::resolveForEmployee (or grant).
+        No open assignment & no grant -> 404. Already submitted for this assignment -> redirect to
+        result with info flash "Asesmen putaran ini sudah Anda kerjakan." (no 2nd row).
+        store() inside DB::transaction: keep Discovery cap lock (QA8-F1), set assessment_assignment_id;
+        catch UniqueConstraintViolationException -> same redirect (double-submit race).
+      Remove needs_retake 30-day hint (replaced by rounds).
+    acceptance:
+      - Employee without any open assignment sees empty state; GET form of unassigned code -> 404.
+      - Assigned bigfive addon visible; unassigned disc hidden (regression of today's always-visible bug).
+      - Ergonomic visible when assigned (regression of today's never-visible bug).
+      - Second POST same assignment -> no new row, redirect with flash.
+      - Grant mcmi3 still works without assignment.
+      - Discovery cap 40 still enforced (existing test green).
+      - Legacy GET/POST URLs redirect; no route writes NULL instrument_code anymore.
+    verify: test_cmd
+
+  - id: B2
+    status: done
+    phase: B
+    model: srp/glm-5.3
+    title: Admin — wizard instrument step + per-program assignment management + Program Order add-ons
+    files:
+      - app/Http/Controllers/Admin/WellbeingProgramController.php (store: validate + create assignments in same transaction)
+      - app/Http/Controllers/Admin/AssessmentAssignmentController.php (new: index/store/update/close for a program)
+      - resources/views/admin/wellbeing-programs/create.blade.php (instrument step), resources/views/admin/assessment-assignments/index.blade.php (new)
+      - resources/views/perusahaan/order.blade.php (+ admin order view if separate) — add-on line items + total
+      - app/Http/Controllers/Admin/InstrumentController.php (grant requires reason)
+      - routes/web.php (admin group; middleware role:admin,operations for assignment routes)
+      - tests/Feature/AdminAssessmentAssignmentTest.php (new), tests/Feature/ProgramOrderAddonTest.php (new)
+    spec: |
+      Wizard new fields:
+        discovery_instrument: required_if package=discovery, in:who5,dass21 (default who5)
+        foundation_domain: required_if package=foundation, in:mh,nutrition
+        mh_extras[]: optional, each in:who5,pss10; ignored unless program has domain mh
+        addons[]: array of {code in:bigfive,disc,ergonomic,phq9,gad7,cbi, price numeric min:0 max:999999999}
+      Program snapshot assessment_domains: discovery ['mh'], foundation [chosen], growth/impact ['mh','nutrition'].
+      Create assignments per D3/D4/D6 (rounds math in a private method windowsFor($package, $starts, $ends): array).
+      AdminAction::record 'assessment_assignment.created' per row (code, round, source — no prices of people).
+      Management page (admin.programs.assessments): table code/source/round/window/status/completers count;
+        actions: add assignment (addon or extra round of an existing code), edit window (opens_at<=closes_at,
+        within program period), close (status=closed). Reject mcmi3 always; reject duplicates (unique) with friendly error.
+      Program Order: list core instruments; add-on rows "Add-on: {name} — Rp {price}" ; total = existing total + sum(addon_price)
+        (add-on is one-off, not ×months; label "(sekali bayar, belum termasuk pajak)").
+      InstrumentController grant: 'reason' required|string|max:500, stored.
+    acceptance:
+      - Foundation + nutrition -> exactly 1 core assignment nutrition, snapshot ['nutrition'].
+      - Impact -> dass21 & nutrition × 4 rounds with windows matching D6; Growth -> × 2 rounds.
+      - Discovery default who5; dass21 when chosen.
+      - mcmi3 in addons -> 422. Non-admin/HR -> 403 on management routes. operations role allowed.
+      - Order page shows add-on rows and correct total (assert formatted Rp).
+      - Existing wizard tests stay green (update fixtures only where new required fields are added).
+    verify: test_cmd
+
+  - id: B3
+    status: done
+    phase: B
+    model: srp/glm-5.3
+    title: Sekolah — generic instrument engine for students & staff + admin assign per sekolah
+    files:
+      - app/Http/Controllers/Sekolah/StudentController.php, app/Http/Controllers/Sekolah/StaffController.php
+      - app/Http/Controllers/Admin/SekolahAssessmentAssignmentController.php (new)
+      - resources/views/sekolah/student.blade.php, staff views, new sekolah/assessment-*.blade.php (copy perusahaan views' structure)
+      - resources/views/admin/sekolah/... (assignment panel on sekolah detail)
+      - routes/web.php (sekolah + admin groups)
+      - tests/Feature/SekolahAssessmentAssignmentTest.php (new); update existing sekolah WHO-5 tests
+    spec: |
+      Instrument definitions are tenant-independent: reuse AssessmentInstrument::questions() as-is
+      (vertical 'perusahaan' rows = canonical definitions). Add a one-line comment saying so. Do NOT duplicate items.
+      Student/staff dashboard: list from AssessmentAccess::forSekolahMember; form + store per code (InstrumentScoring::score),
+      write SekolahAssessment (instrument_code, escalated, assessment_assignment_id, kelas snapshot) + ScreeningAnswer rows
+      (assessable = SekolahAssessment). Keep parent_consent / is_active POST gate and suspend gate.
+      WHO-5 parity: engine who5 score MUST equal legacy sum*4 for the same answers — assert in test; if not equal,
+      STOP and report (do not change engine bands).
+      Trend chart: WHO-5 only (as today). Other instruments show latest band + note.
+      Admin panel on sekolah: add/close/edit assignment (audience student|staff); validation: audience=student
+      -> code in STUDENT_ALLOWED else 422 "Instrumen ini belum tersedia untuk siswa (butuh alur safeguarding)"; mcmi3 always 422.
+    acceptance:
+      - Student sees only assigned allowed instruments; dass21 assignment for student impossible (422 at admin, hidden at access).
+      - Staff can take dass21 when assigned; escalated stored.
+      - Legacy who5 assignment from backfill keeps current student flow working (existing sekolah tests green).
+      - One submission per assignment per student.
+    verify: test_cmd
+
+  - id: B4
+    status: done
+    phase: B
+    model: srp/glm-5.3
+    title: HR + Sekolah reporting — completion, assigned-only aggregates, round trend
+    files:
+      - app/Http/Controllers/Perusahaan/ReportController.php (assessment), app/Http/Controllers/Perusahaan/ProgramProgressController.php
+      - app/Http/Controllers/Sekolah/ReportController.php, app/Services/ProgramAggregate.php (per instrument)
+      - app/Services/Screening/InstrumentScoring.php (aggregate scoped by assignment ids — add optional param, keep old signature working)
+      - resources/views/perusahaan/report-assessment*.blade.php, program-progress, sekolah report views
+      - tests/Feature/HrAssessmentReportTest.php (new), tests/Feature/SekolahReportInstrumentTest.php (new)
+    spec: |
+      HR assessment report: one section per assignment of the active program (or perusahaan legacy):
+        completers (distinct employee with row for that assignment) / registered employees (perusahaan_employees count) + %.
+        Band distribution from rows of THAT assignment; hidden with "Data belum cukup untuk ditampilkan" unless
+        AggregatePrivacy::safe(n, 10) for every band count. No instrument outside assigned list is shown.
+      Trend (growth/impact only): mean score per round for same code, shown only if every round n>=10, + disclaimer D7.
+      Program Progress: replace "participants vs cap (null)" with per-assignment completion for paid packages; Discovery keeps x/40.
+      Sekolah report: per instrument (assigned to the sekolah), per audience, threshold 5, kelas breakdown only for who5 (as today).
+    acceptance:
+      - 9 completers -> distribution hidden, completion "9 / N" visible; 10 -> visible.
+      - Unassigned instrument rows never appear in HR report even if old rows exist.
+      - Trend hidden when any round < 10; disclaimer text present when shown.
+      - No employee name/email appears anywhere in report HTML (assertDontSee on factory names).
+    verify: test_cmd
+
+  - id: B5
+    status: done
+    phase: B
+    model: srp/glm-5.3-flash
+    title: Assessment invites/reminders via EngagementCampaign
+    files:
+      - database/migrations/2026_11_24_000103_add_assignment_to_engagement_campaigns.php (new)
+      - app/Models/EngagementCampaign.php ($fillable + relation), app/Observers/AssessmentAssignmentObserver.php (new, created event)
+      - app/Console/Commands/SendEngagementCampaigns.php (or current sender) — recipient filter
+      - tests/Feature/AssessmentReminderTest.php (new), W1RollbackCheckTest step +1 (coordinate: mandor fixes final count at merge)
+    spec: |
+      On AssessmentAssignment created with assignable=program|perusahaan:
+        campaign 1 kind=reminder, scheduled_at=opens_at 08:00, title "Asesmen {instrument name} sudah dibuka".
+        campaign 2 only if closes_at and (closes_at-opens_at)>=7 days: scheduled_at=closes_at-3d 08:00,
+        title "Pengingat: asesmen {instrument name} ditutup {closes_at}". Body: neutral copy, no scores.
+      Sender: if campaign.assessment_assignment_id set -> exclude employees with a perusahaan_assessments row for it.
+      Keep atomic sent_at claim + withoutOverlapping behaviour intact.
+    acceptance:
+      - Creating assignment creates 1 or 2 campaigns per rule; sekolah assignments create none.
+      - Completed employee receives no reminder; non-completer does (Mail::fake).
+    verify: test_cmd
+
+  - id: B6
+    status: done
+    phase: B
+    model: srp/glm-5.3-flash
+    title: S&K version + Jabatan on registration
+    files:
+      - config/terms.php (new: perusahaan_version '2026-11', klinik_version '2026-11')
+      - database/migrations/2026_11_24_000104_add_terms_version_and_position.php (new)
+      - app/Http/Controllers/Auth/PerusahaanRegisterController.php, resources/views/auth/register-perusahaan.blade.php
+      - klinik/partner register controller + view (store terms_version only)
+      - admin perusahaan detail view (show Jabatan + versi S&K)
+      - tests/Feature/RegistrationTermsVersionTest.php (new)
+    spec: |
+      Form field "Jabatan" (required|string|max:100) next to Nama HR; stored perusahaans.registrant_position.
+      terms_version = config value stored at registration for perusahaan and klinik.
+    acceptance:
+      - Registration without jabatan -> validation error; with -> stored + terms_version stored.
+      - Klinik registration stores terms_version.
+    verify: test_cmd
+
+  - id: C1
+    status: done
+    phase: C (mandor, serial)
+    model: opus (main session)
+    title: Integrate, review, QA, deploy
+    steps:
+      - Merge B branches one at a time into feat/wellbeing-product (order B6, B5, B1, B2, B3, B4); resolve routes/web.php
+        and W1RollbackCheckTest step count; full suite after each merge.
+      - reviewer + security-auditor (Opus) on combined diff — focus: tenant scoping of assignments (IDOR on
+        program/sekolah ids), HR privacy threshold, student safety gate, double-submit race.
+      - QA swarm (differentiated lenses, Opus): business-rule vs Doc, privacy, race/concurrency, regression legacy data, UX copy.
+      - Fix blockers; full suite green.
+      - Deploy (ASK FIRST): merge to improvement-live, migrate (backfill), perms chgrp hermes, restart queue+scheduler,
+        smoke /, /login, /daftar-perusahaan, employee assessment list; push GitHub main.
+    acceptance:
+      - Full suite green, 0 failures; reviewer/security blockers resolved.
+      - On prod: 2 companies + 2 schools still see WHO-5 (legacy); new program shows only assigned instruments.
+
+parallel_groups:
+  - [A1]
+  - [B1, B2, B3, B4, B5, B6]   # disjoint except routes/web.php + W1RollbackCheckTest -> mandor resolves at merge
+  - [C1]
