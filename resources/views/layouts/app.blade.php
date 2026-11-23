@@ -62,6 +62,7 @@
             ['route' => 'admin.tenants.kliniks.index', 'pattern' => 'admin.tenants.kliniks*', 'label' => 'Klinik (tenant)', 'icon' => 'building'],
             ['route' => 'admin.tenants.sekolahs.index', 'pattern' => 'admin.tenants.sekolahs*', 'label' => 'Sekolah (tenant)', 'icon' => 'shield'],
             ['route' => 'admin.consultant-assignment.index', 'pattern' => 'admin.consultant-assignment*', 'label' => 'Assignment Konsultan', 'icon' => 'users'],
+            ['route' => 'admin.wellbeing-programs.create', 'pattern' => 'admin.wellbeing-programs*', 'label' => 'Assign Program', 'icon' => 'heart'],
             ['route' => 'admin.ops-queue.index', 'pattern' => 'admin.ops-queue*', 'label' => 'Ops Queue', 'icon' => 'clock'],
             ['route' => 'admin.audit-logs.index', 'pattern' => 'admin.audit-logs*', 'label' => 'Audit Log', 'icon' => 'shield'],
             ['route' => 'admin.system-health.index', 'pattern' => 'admin.system-health*', 'label' => 'System Health', 'icon' => 'bolt'],

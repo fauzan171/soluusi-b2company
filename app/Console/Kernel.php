@@ -46,6 +46,9 @@ class Kernel extends ConsoleKernel
 
         // W7 (K11/W5): purge chat 90 hari post-sesi (Prunable di ChatMessage).
         $schedule->command('model:prune')->dailyAt('03:00');
+
+        // wb-T4 (bizrules R6): 30-day notice / kontrak lewat masa → status ended.
+        $schedule->command('wellbeing:expire-programs')->daily();
     }
 
     /**
