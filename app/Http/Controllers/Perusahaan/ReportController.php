@@ -35,7 +35,7 @@ class ReportController extends Controller
             ->where('assignable_type', $assignable->getMorphClass())
             ->where('assignable_id', $assignable->id)
             ->where('audience', \App\Models\AssessmentAssignment::AUDIENCE_EMPLOYEE)
-            ->where('status', 'active')
+            // closed tetap tampil: hasil putaran lama dibutuhkan utk trend.
             ->orderBy('instrument_code')->orderBy('round')
             ->get();
 

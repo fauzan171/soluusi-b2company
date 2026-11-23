@@ -118,8 +118,11 @@ class InstrumentScoring
 
         if ($assignment !== null) {
             $rows = $rows->where(function ($q) use ($assignment) {
-                $q->where('assessment_assignment_id', $assignment->id)
-                    ->orWhereNull('assessment_assignment_id');
+                $q->where('assessment_assignment_id', $assignment->id);
+                // legacy rows hanya milik putaran 1 (jangan dobel di tiap round).
+                if ((int) $assignment->round === 1) {
+                    $q->orWhereNull('assessment_assignment_id');
+                }
             });
         }
 

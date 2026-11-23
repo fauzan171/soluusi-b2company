@@ -202,6 +202,22 @@ class HrAssessmentReportTest extends TestCase
         $res->assertSee('Perbedaan skor antarperiode tidak otomatis menunjukkan bahwa program menyebabkan perubahan.');
     }
 
+    public function test_closed_round_still_reported_for_trend()
+    {
+        $program = $this->program($this->company);
+        $r1 = $this->assign($program, 'phq9', ['round' => 1]);
+        $r2 = $this->assign($program, 'phq9', ['round' => 2]);
+
+        $emps = $this->employees(10);
+        $this->submit($emps, $r1, 9);
+        $this->submit($emps, $r2, 10);
+        $r1->update(['status' => 'closed']);
+
+        $this->actingAs($this->hr)->get(route('perusahaan.report.assessment'))
+            ->assertOk()
+            ->assertSee('Perbedaan skor antarperiode tidak otomatis menunjukkan bahwa program menyebabkan perubahan.');
+    }
+
     public function test_trend_hidden_when_any_round_below_10()
     {
         $program = $this->program($this->company);
