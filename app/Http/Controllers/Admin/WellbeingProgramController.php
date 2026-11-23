@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminAction;
+use App\Models\AssessmentAssignment;
 use App\Models\CompanyWellbeingProgram;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\WellbeingPackage;
@@ -77,7 +78,19 @@ class WellbeingProgramController extends Controller
             $request->merge(['selected_employee_ids' => array_map('intval', $ids)]);
         }
 
-        $data = $request->validate([
+        // B2/D3-D4: step instrumen wizard — core paket + extras MH + add-on.
+        $instrumentRules = [
+            'discovery_instrument' => ['nullable', 'string', 'in:who5,dass21'],
+            'foundation_domain' => ['nullable', 'string', 'in:mh,nutrition'],
+            'mh_extras' => ['nullable', 'array'],
+            'mh_extras.*' => ['string', 'in:who5,pss10'],
+            'addons' => ['nullable', 'array'],
+            'addons.*.code' => ['required', 'string', 'distinct',
+                Rule::in(['bigfive', 'disc', 'ergonomic', 'phq9', 'gad7', 'cbi'])],
+            'addons.*.price' => ['required', 'numeric', 'min:0', 'max:999999999'],
+        ];
+
+        $data = $request->validate(array_merge([
             'perusahaan_id' => ['required', 'integer', 'exists:perusahaans,id'],
             'package_code' => ['required', 'string', Rule::in(['discovery', 'foundation', 'growth', 'impact'])],
             'band_min' => ['nullable', 'integer'],
@@ -86,7 +99,17 @@ class WellbeingProgramController extends Controller
             'confirm' => ['required', 'accepted'],
             'selected_employee_ids' => ['nullable', 'array'],
             'selected_employee_ids.*' => ['integer'],
-        ]);
+        ], $instrumentRules));
+
+        // D3: pilihan instrumen wajib sesuai paket.
+        if ($data['package_code'] === 'discovery') {
+            $data['discovery_instrument'] = $data['discovery_instrument'] ?? 'who5';
+        }
+        if ($data['package_code'] === 'foundation' && !in_array($data['foundation_domain'] ?? null, ['mh', 'nutrition'], true)) {
+            throw ValidationException::withMessages([
+                'foundation_domain' => 'Pilih domain assessment (Mental Health atau Nutrition) untuk paket Foundation.',
+            ]);
+        }
 
         $perusahaan = Perusahaan::findOrFail($data['perusahaan_id']);
         $package = WellbeingPackage::where('code', $data['package_code'])->firstOrFail();
@@ -162,7 +185,14 @@ class WellbeingProgramController extends Controller
 
         $startsAt = \Illuminate\Support\Carbon::parse($data['starts_at']);
 
-        $program = DB::transaction(function () use ($data, $perusahaan, $package, $band, $deepSupportQuota, $startsAt) {
+        // D3: snapshot domain per paket (bukan lagi domain katalog).
+        $assessmentDomains = match ($data['package_code']) {
+            'discovery' => ['mh'],
+            'foundation' => [$data['foundation_domain']],
+            default => ['mh', 'nutrition'], // growth/impact
+        };
+
+        $program = DB::transaction(function () use ($data, $perusahaan, $package, $band, $deepSupportQuota, $startsAt, $assessmentDomains) {
             $program = CompanyWellbeingProgram::create([
                 'perusahaan_id' => $perusahaan->id,
                 'wellbeing_package_id' => $package->id,
@@ -177,7 +207,7 @@ class WellbeingProgramController extends Controller
                 'assessment_count' => (int) $package->assessment_count,
                 'assessment_max_participants' => $package->assessment_max_participants,
                 'monthly_price' => $band?->monthly_price,
-                'assessment_domains' => $package->assessment_domains,
+                'assessment_domains' => $assessmentDomains,
                 'selected_employee_ids' => $data['selected_employee_ids'] ?? null,
                 'status' => 'active',
                 'created_by' => auth()->id(),
@@ -204,6 +234,10 @@ class WellbeingProgramController extends Controller
                     ]);
                 }
             }
+
+            // B2 (D3/D4/D6): assignment instrumen dibuat bersama program
+            // (transaksi sama) — core, extras MH, dan add-on.
+            $this->createAssignments($program, $data);
 
             return $program;
         });
@@ -263,5 +297,105 @@ class WellbeingProgramController extends Controller
         }
 
         return null; // di luar semua band (mis. 1200) → step 2 tampil error jelas
+    }
+
+    /**
+     * B2 (D3/D4/D6): buat assignment core (+ extras MH) + add-on untuk program
+     * baru. Dipanggil DALAM transaksi pembuatan program. MCMI-3 sudah
+     * diblokir validasi addons (never mass-assignable, D5).
+     */
+    private function createAssignments(CompanyWellbeingProgram $program, array $data): void
+    {
+        $packageCode = $data['package_code'];
+        $hasMh = in_array('mh', $program->assessment_domains ?? [], true);
+
+        // D3: core instruments per package.
+        $core = match ($packageCode) {
+            'discovery' => [$data['discovery_instrument'] ?? 'who5'],
+            'foundation' => [$data['foundation_domain'] === 'nutrition' ? 'nutrition' : 'dass21'],
+            default => ['dass21', 'nutrition'], // growth/impact
+        };
+
+        // D3: extras "included in MH domain" — gratis, hanya saat program MH.
+        $extras = $hasMh ? array_intersect($data['mh_extras'] ?? [], ['who5', 'pss10']) : [];
+
+        foreach (array_merge($core, $extras) as $code) {
+            foreach ($this->windowsFor($packageCode, $program->starts_at, $program->ends_at) as [$round, $opens, $closes]) {
+                $this->createAssignment($program, $code, AssessmentAssignment::SOURCE_CORE, null, $round, $opens, $closes);
+            }
+        }
+
+        // D4: add-on berbayar — 1 round, seluruh periode program.
+        foreach ($data['addons'] ?? [] as $addon) {
+            $this->createAssignment(
+                $program,
+                $addon['code'],
+                AssessmentAssignment::SOURCE_ADDON,
+                $addon['price'],
+                1,
+                $program->starts_at->toDateString(),
+                $program->ends_at->toDateString(),
+            );
+        }
+    }
+
+    private function createAssignment(
+        CompanyWellbeingProgram $program,
+        string $code,
+        string $source,
+        ?float $addonPrice,
+        int $round,
+        string $opens,
+        string $closes,
+    ): void {
+        $assignment = AssessmentAssignment::create([
+            'assignable_type' => $program->getMorphClass(),
+            'assignable_id' => $program->id,
+            'instrument_code' => $code,
+            'audience' => AssessmentAssignment::AUDIENCE_EMPLOYEE,
+            'source' => $source,
+            'addon_price' => $addonPrice,
+            'round' => $round,
+            'opens_at' => $opens,
+            'closes_at' => $closes,
+            'status' => 'active',
+            'assigned_by' => auth()->id(),
+        ]);
+
+        AdminAction::record(auth()->id(), 'assessment_assignment.created', $assignment, [
+            'instrument_code' => $code,
+            'round' => $round,
+            'source' => $source, // no prices, no people (D5/PII rule)
+        ]);
+    }
+
+    /**
+     * D6: window per round. [round, opens, closes] per entry.
+     *   discovery/foundation (core): 1 round = seluruh periode.
+     *   growth: R1 = starts..+29d (baseline), R2 = ends-29d..ends.
+     *   impact: Rn opens = starts + 3*(n-1) bulan, closes = +29 hari
+     *           (aligned dengan 4 review kuartalan).
+     */
+    private function windowsFor(string $packageCode, $startsAt, $endsAt): array
+    {
+        if (in_array($packageCode, ['discovery', 'foundation'], true)) {
+            return [[1, $startsAt->toDateString(), $endsAt->toDateString()]];
+        }
+
+        if ($packageCode === 'growth') {
+            return [
+                [1, $startsAt->toDateString(), $startsAt->copy()->addDays(29)->toDateString()],
+                [2, $endsAt->copy()->subDays(29)->toDateString(), $endsAt->toDateString()],
+            ];
+        }
+
+        // impact — 4 rounds kuartalan.
+        $rounds = [];
+        foreach (range(1, 4) as $n) {
+            $opens = $startsAt->copy()->addMonths(3 * ($n - 1));
+            $rounds[] = [$n, $opens->toDateString(), $opens->copy()->addDays(29)->toDateString()];
+        }
+
+        return $rounds;
     }
 }

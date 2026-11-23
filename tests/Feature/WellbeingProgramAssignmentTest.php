@@ -75,6 +75,16 @@ class WellbeingProgramAssignmentTest extends TestCase
         ], $over);
     }
 
+    /** B2: payload foundation — tambah domain assessment (wajib). */
+    private function foundationPayload(Perusahaan $p, array $over = []): array
+    {
+        return $this->payload($p, array_merge([
+            'package_code' => 'foundation',
+            'deep_support_mode' => 'one_on_one',
+            'foundation_domain' => 'mh',
+        ], $over));
+    }
+
     // ------------------------------------------------------------------
     // C1 — happy path: snapshot eksak + AdminAction + redirect/flash
     // ------------------------------------------------------------------
@@ -168,14 +178,14 @@ class WellbeingProgramAssignmentTest extends TestCase
 
         // assign kedua saat masih aktif → 422
         $this->actingAs($this->admin())
-            ->postJson(route('admin.wellbeing-programs.store'), $this->payload($p, ['package_code' => 'foundation', 'band_min' => 401, 'deep_support_mode' => 'one_on_one']))
+            ->postJson(route('admin.wellbeing-programs.store'), $this->foundationPayload($p))
             ->assertStatus(422);
         $this->assertSame(1, $p->programs()->count());
 
         // setelah ended → sukses
         $p->programs()->first()->update(['status' => 'ended']);
         $this->actingAs($this->admin())
-            ->post(route('admin.wellbeing-programs.store'), $this->payload($p, ['package_code' => 'foundation', 'band_min' => 401, 'deep_support_mode' => 'one_on_one']))
+            ->post(route('admin.wellbeing-programs.store'), $this->foundationPayload($p))
             ->assertRedirect();
 
         $this->assertSame(2, $p->programs()->count());

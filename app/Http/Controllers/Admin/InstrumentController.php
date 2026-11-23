@@ -70,11 +70,14 @@ class InstrumentController extends Controller
                 },
             ],
             'instrument_code' => ['required', 'string', 'exists:assessment_instruments,code'],
+            // D5: grant klinis wajib indikasi klinis (max 500).
+            'reason' => ['required', 'string', 'max:500'],
         ]);
 
         $grant = InstrumentGrant::create([
             'employee_id' => $validated['employee_id'],
             'instrument_code' => $validated['instrument_code'],
+            'reason' => $validated['reason'],
             'granted_by' => auth()->id(),
         ]);
         AdminAction::record(auth()->id(), 'instrument.granted', $grant, [

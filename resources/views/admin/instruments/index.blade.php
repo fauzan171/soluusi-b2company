@@ -85,6 +85,8 @@
                                 <option value="{{ $clinical->code }}">{{ $clinical->code }}</option>
                             @endforeach
                         </select>
+                        <input type="text" name="reason" required maxlength="500" placeholder="Indikasi klinis (wajib)…"
+                               class="border rounded text-xs px-2 py-1.5 mr-2 w-56">
                         <button type="submit" class="text-xs bg-amber-600 text-white rounded px-3 py-1.5 font-semibold">Grant</button>
                     </form>
                 </td>

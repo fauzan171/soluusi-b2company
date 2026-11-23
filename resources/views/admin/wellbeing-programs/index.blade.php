@@ -29,6 +29,7 @@
                             <th class="py-2 pr-4 font-medium">Karyawan</th>
                             <th class="py-2 pr-4 font-medium">Ringkasan kuota</th>
                             <th class="py-2 font-medium">Status</th>
+                            <th class="py-2 font-medium">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -41,6 +42,9 @@
                             <td class="py-2.5 pr-4 text-xs text-gray-500">{{ $p->quota_summary }}</td>
                             <td class="py-2.5">
                                 <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $p->status === 'active' ? 'bg-pine-100 text-pine-800' : 'bg-gray-100 text-gray-500' }}">{{ $statusLabels[$p->status] ?? $p->status }}</span>
+                            </td>
+                            <td class="py-2.5">
+                                <a href="{{ route('admin.programs.assessments', $p) }}" class="text-xs text-emerald-700 font-semibold hover:underline">Assignment</a>
                             </td>
                         </tr>
                         @endforeach

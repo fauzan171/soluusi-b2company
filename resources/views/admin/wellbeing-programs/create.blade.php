@@ -117,6 +117,81 @@
             </label>
         @endif
 
+        {{-- B2/D3: instrumen core per paket --}}
+        @if($package && $package->code === 'discovery')
+            <fieldset class="mb-4">
+                <legend class="text-sm font-semibold mb-1">Instrumen Assessment (Mental Health)</legend>
+                <div class="grid gap-2 text-sm">
+                    <label class="flex items-center gap-2 border rounded px-3 py-1.5 cursor-pointer">
+                        <input type="radio" name="discovery_instrument" value="who5" @checked(old('discovery_instrument', 'who5') === 'who5')>
+                        WHO-5 Well-Being Index (default)
+                    </label>
+                    <label class="flex items-center gap-2 border rounded px-3 py-1.5 cursor-pointer">
+                        <input type="radio" name="discovery_instrument" value="dass21" @checked(old('discovery_instrument') === 'dass21')>
+                        DASS-21 (Depresi, Kecemasan, Stres)
+                    </label>
+                </div>
+            </fieldset>
+        @endif
+
+        @if($package && $package->code === 'foundation')
+            <fieldset class="mb-4">
+                <legend class="text-sm font-semibold mb-1">Domain Assessment (pilih satu)</legend>
+                <div class="grid gap-2 text-sm">
+                    <label class="flex items-center gap-2 border rounded px-3 py-1.5 cursor-pointer">
+                        <input type="radio" name="foundation_domain" value="mh" required @checked(old('foundation_domain') === 'mh')>
+                        Mental Health — DASS-21
+                    </label>
+                    <label class="flex items-center gap-2 border rounded px-3 py-1.5 cursor-pointer">
+                        <input type="radio" name="foundation_domain" value="nutrition" @checked(old('foundation_domain') === 'nutrition')>
+                        Nutrition — Gizi &amp; Pola Makan
+                    </label>
+                </div>
+            </fieldset>
+        @endif
+
+        {{-- D3: extras gratis (hanya domain MH) --}}
+        @if($package && in_array($package->code, ['foundation', 'growth', 'impact']))
+            <fieldset class="mb-4">
+                <legend class="text-sm font-semibold mb-1">Extras domain MH (termasuk, tanpa biaya)</legend>
+                <p class="text-xs text-gray-400 mb-2">Hanya aktif bila program memakai domain Mental Health.</p>
+                <div class="flex gap-4 text-sm">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="mh_extras[]" value="who5" @checked(in_array('who5', old('mh_extras', [])))>
+                        WHO-5
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="mh_extras[]" value="pss10" @checked(in_array('pss10', old('mh_extras', [])))>
+                        PSS-10
+                    </label>
+                </div>
+            </fieldset>
+        @endif
+
+        {{-- D4: add-on berbayar --}}
+        @if($package)
+            <fieldset class="mb-4">
+                <legend class="text-sm font-semibold mb-1">Add-on instrumen berbayar (opsional)</legend>
+                <div class="grid gap-2 text-sm">
+                    @foreach(['bigfive' => 'Big Five (Kepribadian)', 'disc' => 'DISC (Gaya Perilaku)', 'ergonomic' => 'Ergonomi & Nyeri Kerja', 'phq9' => 'PHQ-9', 'gad7' => 'GAD-7', 'cbi' => 'CBI (Burnout)'] as $code => $label)
+                        <div class="flex items-center gap-3 border rounded px-3 py-1.5">
+                            <label class="flex items-center gap-2 flex-1">
+                                <input type="checkbox" name="addons[{{ $code }}][code]" value="{{ $code }}"
+                                       onchange="this.form.querySelector('[data-price={{ $code }}]').disabled = !this.checked"
+                                       @checked(old("addons.{$code}.code") === (string) $code)>
+                                {{ $label }}
+                            </label>
+                            <input type="number" name="addons[{{ $code }}][price]" min="0" max="999999999" placeholder="Rp"
+                                   data-price="{{ $code }}" disabled
+                                   value="{{ old("addons.{$code}.price") }}"
+                                   class="border rounded p-1 w-32 text-xs">
+                        </div>
+                    @endforeach
+                </div>
+                <p class="text-xs text-gray-400 mt-2">Add-on sekali bayar (belum termasuk pajak) dan muncul sebagai baris di Program Order.</p>
+            </fieldset>
+        @endif
+
         <div class="grid sm:grid-cols-2 gap-4 mb-4">
             <label class="text-sm">Tanggal Mulai
                 <input type="date" name="starts_at" required value="{{ old('starts_at', now()->addDay()->toDateString()) }}" class="w-full border rounded p-2 mt-1">
@@ -146,6 +221,10 @@
                 {{ \Illuminate\Support\Carbon::parse(old('starts_at', now()->addDay()))->addDays((int) $package?->duration_days)->subDay()->toDateString() }}
                 ({{ $package?->duration_days }} hari)
             </dd>
+            @if($package?->code === 'foundation')
+                <dt class="text-gray-500">Domain</dt>
+                <dd class="font-semibold">{{ old('foundation_domain') === 'nutrition' ? 'Nutrition' : 'Mental Health' }}</dd>
+            @endif
         </dl>
         <label class="flex items-start gap-2 text-sm mb-4">
             <input type="checkbox" name="confirm" value="1" required @checked(old('confirm')) class="mt-1">
