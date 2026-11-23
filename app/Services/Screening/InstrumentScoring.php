@@ -119,8 +119,8 @@ class InstrumentScoring
         if ($assignment !== null) {
             $rows = $rows->where(function ($q) use ($assignment) {
                 $q->where('assessment_assignment_id', $assignment->id);
-                // legacy rows hanya milik putaran 1 (jangan dobel di tiap round).
-                if ((int) $assignment->round === 1) {
+                // row tanpa assignment_id hanya milik assignment legacy (bukan program/round).
+                if ($assignment->source === \App\Models\AssessmentAssignment::SOURCE_LEGACY) {
                     $q->orWhereNull('assessment_assignment_id');
                 }
             });
@@ -144,7 +144,8 @@ class InstrumentScoring
         return [
             'assessed' => $assessed,
             'bands' => $bandCounts,
-            'escalatedCount' => (int) $latest->where('escalated', true)->count(),
+            // M1: eskalasi 1-9 bisa re-identifikasi → tampil hanya 0 atau ≥10.
+            'escalatedCount' => ($esc = $latest->where('escalated', true)->count()) === 0 || $esc >= 10 ? $esc : null,
             'mean' => round($latest->avg('score'), 1),
         ];
     }

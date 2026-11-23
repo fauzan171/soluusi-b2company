@@ -473,6 +473,18 @@ class AdminAssessmentAssignmentTest extends TestCase
             0,
             AssessmentAssignment::where('instrument_code', 'mcmi3')->count()
         );
+
+        // Uppercase bypass attempt is normalized then rejected too.
+        $this->actingAs($this->userWithRole('admin'))
+            ->postJson(route('admin.programs.assessments.store', $program), [
+                'instrument_code' => ' MCMI3 ',
+                'source' => 'addon',
+                'addon_price' => 1000000,
+                'round' => 1,
+                'opens_at' => $program->starts_at->toDateString(),
+                'closes_at' => $program->ends_at->toDateString(),
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('instrument_code');
     }
 
     public function test_store_rejects_duplicate_with_friendly_error()

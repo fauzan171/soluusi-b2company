@@ -278,8 +278,8 @@ class AssessmentAccessTest extends TestCase
             'assignable_type' => 'perusahaan', 'assignable_id' => $this->company->id,
             'instrument_code' => 'who5', 'audience' => 'employee', 'source' => 'legacy',
         ]);
-        // legacy tidak dibuat utk perusahaan ber-program
-        $this->assertSame(0, AssessmentAssignment::where('assignable_type', 'perusahaan')
+        // legacy dibuat juga utk perusahaan ber-program (fallback saat program berakhir)
+        $this->assertSame(1, AssessmentAssignment::where('assignable_type', 'perusahaan')
             ->where('assignable_id', $p2->id)->where('source', 'legacy')->count());
         // program mh → dass21 + who5 core
         $coreCodes = AssessmentAssignment::where('assignable_type', 'program')

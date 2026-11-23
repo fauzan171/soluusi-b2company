@@ -60,8 +60,8 @@ class StudentController extends Controller
         $quota = $sekolah->sessions_per_student_month;
         $history = $student->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
-        $latest = $student->assessments()->latest('taken_at')->first();
-        $trend = $student->assessments()->orderBy('taken_at')->limit(6)->get()
+        $latest = $student->assessments()->where('instrument_code', 'who5')->latest('taken_at')->first();
+        $trend = $student->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
         $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
@@ -92,7 +92,9 @@ class StudentController extends Controller
 
         $assignment = AssessmentAccess::resolveForSekolahMember($student, $code);
         abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
-        abort_if(AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah'), 422, 'Kamu sudah mengisi asesmen ini.');
+        if (AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah')) {
+            return redirect()->route('sekolah.assessment.list')->with('info', 'Kamu sudah mengisi asesmen ini untuk periode sekarang.');
+        }
 
         $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
         $latest = $student->assessments()->where('instrument_code', $code)->latest('taken_at')->first();
@@ -104,6 +106,7 @@ class StudentController extends Controller
             'instrument' => $instrument,
             'items' => InstrumentScoring::items($instrument),
             'latest' => $latest,
+            'listUrl' => route('sekolah.assessment.list'),
             'action' => route('sekolah.assessment.store', $code),
         ]);
     }
@@ -116,7 +119,9 @@ class StudentController extends Controller
 
         $assignment = AssessmentAccess::resolveForSekolahMember($student, $code);
         abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
-        abort_if(AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah'), 422, 'Kamu sudah mengisi asesmen ini.');
+        if (AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah')) {
+            return redirect()->route('sekolah.assessment.list')->with('info', 'Kamu sudah mengisi asesmen ini untuk periode sekarang.');
+        }
 
         $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
         SekolahAssessmentService::submit($student, $assignment, $instrument, $r);
@@ -142,7 +147,7 @@ class StudentController extends Controller
                 $instrument->latest_score = $latest?->score;
                 $instrument->latest_band = $latest ? $instrument->bandLabelFor((int) $latest->score) : null;
                 $instrument->latest_taken = $latest?->taken_at;
-                $instrument->done = $latest !== null;
+                $instrument->done = AssessmentAccess::hasSubmitted($assignment, $student->id, 'sekolah');
                 return $instrument;
             })
             ->filter()
@@ -153,6 +158,7 @@ class StudentController extends Controller
             'sekolah' => $student->sekolah,
             'isPreview' => optional(auth()->user()->role)->name !== 'student',
             'instruments' => $instruments,
+            'backUrl' => route('sekolah.student'),
             'formRoute' => fn ($code) => route('sekolah.assessment.form', $code),
         ]);
     }

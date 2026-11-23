@@ -291,7 +291,8 @@ class W4AssessmentEngineTest extends TestCase
         $res->assertOk();
         $body = $res->getContent();
 
-        $this->assertStringContainsString('Eskalasi: 2', $body);          // count eskalasi (PHQ n=10 ≥ 10)
+        // M1: eskalasi 1-9 disembunyikan (re-identifikasi), n=10 band tetap tampil.
+        $this->assertStringContainsString('Eskalasi: &lt;10 (disembunyikan)', $body);
         $this->assertStringNotContainsString('Agg 1', $body);             // tidak ada identitas individu
         $this->assertStringNotContainsString('Agg 3', $body);
 

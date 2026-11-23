@@ -49,14 +49,12 @@ class ReportController extends Controller
                     ->where('status', 'completed')
                     ->where(function ($q) use ($assignment) {
                         $q->where('assessment_assignment_id', $assignment->id);
-                        // legacy rows hanya milik putaran 1 (jangan dobel di tiap round).
-                        if ((int) $assignment->round === 1) {
+                        // row tanpa assignment_id hanya milik assignment legacy (bukan program/round).
+                        if ($assignment->source === \App\Models\AssessmentAssignment::SOURCE_LEGACY) {
                             $q->orWhereNull('assessment_assignment_id');
                         }
                     });
-                if ($isStudent) {
-                    $query->studentRoster();
-                }
+                $isStudent ? $query->studentRoster() : $query->staffRoster();
 
                 $latest = $query->get()
                     ->groupBy('student_id')

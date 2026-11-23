@@ -18,7 +18,7 @@ class ProgramAggregate
         $assessmentModel = $school ? \App\Models\Sekolah\SekolahAssessment::class : \App\Models\Perusahaan\PerusahaanAssessment::class;
         $sessions = $tenant->sessions()->where('scheduled_at', '>=', $start)->where('scheduled_at', '<', $end)->get();
         $done = $sessions->where('status', 'done');
-        $assessed = $assessmentModel::where($vertical.'_id', $tenant->id)->where('taken_at', '>=', $start)
+        $assessed = $assessmentModel::where('instrument_code', 'who5')->where($vertical.'_id', $tenant->id)->where('taken_at', '>=', $start)
             ->where('taken_at', '<', $end)->when($school, fn ($q) => $q->studentRoster())->get()
             ->groupBy($person)->map(fn ($rows) => $rows->sortByDesc('taken_at')->first());
         $risk = [

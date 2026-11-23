@@ -128,6 +128,45 @@ class SekolahAssessmentAssignmentTest extends TestCase
         $this->assertSame('who5', $row->instrument_code);
     }
 
+    public function test_legacy_who5_retake_allowed_after_30_days_and_links_stay_on_student_routes()
+    {
+        $sekolah = $this->sekolah();
+        [$user, $student] = $this->student($sekolah);
+        $this->assign($sekolah, 'who5', 'student', ['source' => 'legacy', 'opens_at' => '1970-01-01']);
+
+        $this->actingAs($user)->post(route('sekolah.assessment.store'), ['answers' => [1, 2, 3, 2, 2]])
+            ->assertRedirect(route('sekolah.student'));
+        // < 30 hari: redirect ramah, bukan 422.
+        $this->actingAs($user)->get(route('sekolah.assessment.form', 'who5'))
+            ->assertRedirect(route('sekolah.assessment.list'));
+        // list + back link tetap di route siswa (bukan staff → 403).
+        $this->actingAs($user)->get(route('sekolah.assessment.list'))->assertOk()
+            ->assertSee(route('sekolah.student'), false)
+            ->assertDontSee(route('sekolah.staff'), false);
+
+        $this->travel(31)->days();
+        $this->actingAs($user)->get(route('sekolah.assessment.form', 'who5'))->assertOk()
+            ->assertSee(route('sekolah.assessment.list'), false);
+        $this->actingAs($user)->post(route('sekolah.assessment.store'), ['answers' => [2, 2, 2, 2, 2]])
+            ->assertRedirect(route('sekolah.student'));
+        $this->assertSame(2, $student->assessments()->count());
+    }
+
+    public function test_staff_report_section_excludes_student_rows()
+    {
+        $sekolah = $this->sekolah();
+        $this->assign($sekolah, 'who5', 'staff', ['source' => 'legacy', 'opens_at' => '1970-01-01']);
+        [, $student] = $this->student($sekolah);
+        SekolahAssessment::create([
+            'sekolah_id' => $sekolah->id, 'student_id' => $student->id, 'kelas' => 'X',
+            'instrument_code' => 'who5', 'answers' => [1, 1, 1, 1, 1], 'score' => 20, 'taken_at' => now(),
+        ]);
+
+        $sections = (fn () => $this->instrumentSections($sekolah))
+            ->call(new \App\Http\Controllers\Sekolah\ReportController());
+        $this->assertSame(0, $sections[0]['assessed']);
+    }
+
     // --- D9: minor safety ----------------------------------------------------
 
     public function test_student_sees_only_assigned_allowed_instruments()
@@ -315,7 +354,7 @@ class SekolahAssessmentAssignmentTest extends TestCase
         $second = $this->actingAs($user)->post(route('sekolah.assessment.store', 'pss10'), [
             'answers' => $answers,
         ]);
-        $second->assertStatus(422);
+        $second->assertRedirect(route('sekolah.assessment.list'));
 
         $this->assertSame(1, SekolahAssessment::where('assessment_assignment_id', $assignment->id)->count());
     }

@@ -46,6 +46,12 @@ class SekolahAssessment extends Model
             ->where('type', SekolahStudent::TYPE_STUDENT));
     }
 
+    public function scopeStaffRoster($q)
+    {
+        return $q->whereIn('student_id', SekolahStudent::select('id')
+            ->where('type', SekolahStudent::TYPE_STAFF));
+    }
+
     /** Band WHO-5 — sama dengan PerusahaanAssessment::band() (satu formula). */
     public function band(): string
     {

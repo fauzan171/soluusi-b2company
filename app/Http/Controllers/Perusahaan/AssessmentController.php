@@ -57,8 +57,10 @@ class AssessmentController extends Controller
             return null;
         }
 
-        $row = PerusahaanAssessment::where('assessment_assignment_id', $assignment->id)
-            ->where('employee_id', $employee->id)->first();
+        $row = PerusahaanAssessment::where('employee_id', $employee->id)
+            ->where('instrument_code', $assignment->instrument_code)
+            ->where('assessment_assignment_id', AssessmentAccess::storedAssignmentId($assignment))
+            ->latest('taken_at')->first();
 
         return $row
             ? redirect()->route('perusahaan.assessment.result', $row)
@@ -82,11 +84,12 @@ class AssessmentController extends Controller
                 }
                 $latest = $employee->assessments()
                     ->where('instrument_code', $a->instrument_code)
-                    ->where('assessment_assignment_id', $a->id)
+                    ->where('assessment_assignment_id', AssessmentAccess::storedAssignmentId($a))
                     ->latest('taken_at')->first();
                 $a->card_name = $instrument->name;
                 $a->card_domain = self::DOMAIN_LABELS[$instrument->domain] ?? 'Umum';
-                $a->card_done_at = $latest?->taken_at;
+                // legacy: "done" hanya bila diisi ≤30 hari (boleh isi ulang).
+                $a->card_done_at = AssessmentAccess::hasSubmitted($a, $employee->id, 'perusahaan') ? $latest?->taken_at : null;
                 return $a;
             })
             ->filter()
@@ -194,7 +197,7 @@ class AssessmentController extends Controller
                     'section' => 'mental_health',
                     'status' => 'completed',
                     'taken_at' => now(),
-                    'assessment_assignment_id' => $assignment?->id,
+                    'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
                 ]);
 
                 foreach ($answers as $qCode => $value) {

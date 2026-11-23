@@ -432,7 +432,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
 });
 
 // B3: admin assignment instrumen per sekolah (admin + operations, D9 minor-safety gate).
-Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'role:admin,operations'])->group(function () {
+Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
     Route::post('/sekolahs/{sekolah}/assignments', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'store'])->name('sekolahs.assignments.store');
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'close'])->name('sekolahs.assignments.close');
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/reopen', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'reopen'])->name('sekolahs.assignments.reopen');

@@ -55,8 +55,8 @@ class ProgramProgressController extends Controller
                 ->map(function ($assignment) use ($perusahaan, $registered) {
                     $completers = PerusahaanAssessment::where('perusahaan_id', $perusahaan->id)
                         ->where(function ($q) use ($assignment) {
-                            $q->where('assessment_assignment_id', $assignment->id)
-                                ->orWhereNull('assessment_assignment_id');
+                            // program assignment: hanya row miliknya (NULL = legacy/grant).
+                            $q->where('assessment_assignment_id', $assignment->id);
                         })
                         ->where('instrument_code', $assignment->instrument_code)
                         ->where('status', 'completed')

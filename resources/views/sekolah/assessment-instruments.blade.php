@@ -9,7 +9,7 @@
             <h1 class="text-xl font-bold text-pine-900">Asesmen Kesejahteraan</h1>
             <p class="text-sm text-gray-500">Instrumen yang di-assign sekolahmu — kerjakan satu per satu, ~1-3 menit. Hasil hanya untuk kamu; sekolah melihat data agregat.</p>
         </div>
-        <a href="{{ $isPreview ? route('sekolah.student') : route('sekolah.staff') }}" class="text-sm text-pine-700 hover:underline">← Kembali</a>
+        <a href="{{ $backUrl }}" class="text-sm text-pine-700 hover:underline">← Kembali</a>
     </div>
 
     <div class="space-y-3">

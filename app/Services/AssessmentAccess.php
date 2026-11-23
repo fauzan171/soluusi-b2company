@@ -69,10 +69,26 @@ class AssessmentAccess
         $table = $tenant === 'sekolah' ? 'sekolah_assessments' : 'perusahaan_assessments';
         $personColumn = $tenant === 'sekolah' ? 'student_id' : 'employee_id';
 
+        // Legacy (open-ended who5): perilaku lama — boleh isi ulang tiap 30 hari;
+        // row disimpan tanpa assessment_assignment_id (lihat storedAssignmentId).
+        if ($a->source === AssessmentAssignment::SOURCE_LEGACY) {
+            return \Illuminate\Support\Facades\DB::table($table)
+                ->where($personColumn, $personId)
+                ->where('instrument_code', $a->instrument_code)
+                ->where('taken_at', '>=', now()->subDays(30))
+                ->exists();
+        }
+
         return (bool) \Illuminate\Support\Facades\DB::table($table)
             ->where('assessment_assignment_id', $a->id)
             ->where($personColumn, $personId)
             ->exists();
+    }
+
+    /** assessment_assignment_id utk row baru: legacy null (unique index hanya utk window). */
+    public static function storedAssignmentId(?AssessmentAssignment $a): ?int
+    {
+        return $a && $a->source !== AssessmentAssignment::SOURCE_LEGACY ? $a->id : null;
     }
 
     /** @return Collection<AssessmentAssignment> */

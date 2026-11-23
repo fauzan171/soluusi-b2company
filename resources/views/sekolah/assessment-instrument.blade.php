@@ -9,7 +9,7 @@
             <h1 class="text-xl font-bold text-pine-900">{{ $instrument->name }}</h1>
             <p class="text-sm text-gray-500">{{ $items->count() }} pertanyaan. {{ $instrument->interpretation }}</p>
         </div>
-        <a href="{{ route($isPreview ? 'sekolah.assessment.list' : 'sekolah.staff.assessment.list') }}" class="text-sm text-pine-700 hover:underline">← Pilih instrumen lain</a>
+        <a href="{{ $listUrl }}" class="text-sm text-pine-700 hover:underline">← Pilih instrumen lain</a>
     </div>
 
     @if($latest)

@@ -56,7 +56,9 @@ class ReportController extends Controller
                 ->where(function ($q) use ($group, $perusahaan) {
                     $q->whereIn('assessment_assignment_id', $group->pluck('id'))
                         ->orWhere(function ($legacy) use ($perusahaan, $group) {
-                            $legacy->whereNull('assessment_assignment_id')
+                            // row tanpa assignment_id hanya milik assignment legacy.
+                            $legacy->whereRaw($group->contains('source', \App\Models\AssessmentAssignment::SOURCE_LEGACY) ? '1 = 1' : '1 = 0')
+                                ->whereNull('assessment_assignment_id')
                                 ->where('perusahaan_id', $perusahaan->id)
                                 ->whereIn('instrument_code', $group->pluck('instrument_code'));
                         });

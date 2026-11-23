@@ -57,7 +57,8 @@ class PerusahaanWellbeingTest extends TestCase
         $this->assertNotNull($row);
         $this->assertEquals(60, $row->score);
         $this->assertEquals('Perlu Perhatian', $row->band());
-        $this->assertEquals($a->id, $row->assessment_assignment_id);
+        // legacy (open-ended) row tanpa assignment_id — retake tiap 30 hari.
+        $this->assertNull($row->assessment_assignment_id);
     }
 
     public function test_booking_rejected_when_quota_full()

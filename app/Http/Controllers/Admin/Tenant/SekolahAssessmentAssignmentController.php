@@ -17,6 +17,7 @@ class SekolahAssessmentAssignmentController extends Controller
 {
     public function store(Request $r, Sekolah $sekolah)
     {
+        $r->merge(['instrument_code' => strtolower(trim((string) $r->input('instrument_code')))]);
         $data = $r->validate([
             'instrument_code' => ['required', 'string', 'max:32'],
             'audience' => ['required', 'in:student,staff'],
@@ -29,13 +30,20 @@ class SekolahAssessmentAssignmentController extends Controller
         abort_unless($instrument, 404);
 
         // D5: MCMI-III tidak pernah mass-assign.
-        if (in_array($data['instrument_code'], AssessmentAssignment::CLINICAL, true)) {
+        if (in_array($data['instrument_code'], AssessmentAssignment::CLINICAL, true) || $instrument->domain === 'clinical') {
             abort(422, 'Instrumen klinis (MCMI-III) hanya via grant per-person, tidak bisa mass-assign.');
         }
         // D9: minor safety.
         if ($data['audience'] === AssessmentAssignment::AUDIENCE_STUDENT
             && ! in_array($data['instrument_code'], AssessmentAssignment::STUDENT_ALLOWED, true)) {
             abort(422, 'Instrumen ini belum tersedia untuk siswa (butuh alur safeguarding)');
+        }
+
+        $duplicate = AssessmentAssignment::where('assignable_type', $sekolah->getMorphClass())
+            ->where('assignable_id', $sekolah->id)->where('instrument_code', $data['instrument_code'])
+            ->where('audience', $data['audience'])->where('round', $data['round'] ?? 1)->exists();
+        if ($duplicate) {
+            return back()->withErrors(['round' => 'Putaran ini sudah ada untuk instrumen & audience tersebut.'])->withInput();
         }
 
         $assignment = AssessmentAssignment::create([
@@ -96,7 +104,11 @@ class SekolahAssessmentAssignmentController extends Controller
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
         ]);
 
-        $assignment->update($data);
+        try {
+            $assignment->update($data);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return back()->withErrors(['round' => 'Putaran ini sudah ada untuk instrumen & audience tersebut.']);
+        }
         AdminAction::record(auth()->id(), 'sekolah.assignment.update', $sekolah, ['assignment_id' => $assignment->id] + $data);
 
         return back()->with('success', 'Assignment diperbarui.');

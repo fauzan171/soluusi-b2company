@@ -45,6 +45,11 @@ class SendEngagementCampaigns extends Command
                 ->whereNotNull('consent_at')
                 ->whereNotNull('email');
             if ($campaign->assessment_assignment_id) {
+                // assignment ditutup/dihapus → reminder tidak relevan lagi.
+                $assignment = \App\Models\AssessmentAssignment::find($campaign->assessment_assignment_id);
+                if (! $assignment || ! $assignment->isOpen()) {
+                    continue;
+                }
                 $recipients->whereDoesntHave('assessments', function ($q) use ($campaign) {
                     $q->where('assessment_assignment_id', $campaign->assessment_assignment_id);
                 });

@@ -21,7 +21,7 @@ class SekolahAssessmentService
     {
         $items = InstrumentScoring::items($instrument);
 
-        $answers = self::normalize($r->input('answers'), $items);
+        $answers = self::normalize((array) $r->input('answers', []), $items);
         $rules = ['answers' => ['required', 'array', 'size:'.$items->count()]];
         foreach ($items as $item) {
             $max = (int) $item->weight;
@@ -47,7 +47,7 @@ class SekolahAssessmentService
             'student_id' => $person->id,
             'kelas' => $person->kelas,
             'instrument_code' => $instrument->code,
-            'assessment_assignment_id' => $assignment->id,
+            'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
             'answers' => $answers,
             'score' => $result['score'],
             'escalated' => $result['escalated'],

@@ -171,6 +171,17 @@ class AssessmentReminderTest extends TestCase
         $this->assertStringNotContainsString('noconsent@b5.local', $sent[0]->toString());
     }
 
+    public function test_sender_skips_campaign_of_closed_assignment()
+    {
+        $assignment = $this->assignment(['opens_at' => today()->subDay(), 'closes_at' => today()->addDay()]);
+        $this->employee('todo@b5.local');
+        $assignment->update(['status' => 'closed']);
+
+        $this->artisan('wellbeing:send-campaigns')->assertSuccessful();
+
+        $this->assertCount(0, $this->sentMessages());
+    }
+
     /** Mail::raw via array mailer — ambil pesan dari transport (Wv4CampaignTest). */
     private function sentMessages(): array
     {

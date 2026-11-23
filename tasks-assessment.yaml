@@ -138,6 +138,7 @@ schema:
 # ---------------------------------------------------------------------------
 tasks:
   - id: A1
+    status: done
     phase: A (serial — everything depends on it)
     model: srp/glm-5.3
     title: assessment_assignments schema + AssessmentAccess service + legacy backfill
@@ -185,6 +186,7 @@ tasks:
     verify: "test_cmd (full suite) -> 0 failures"
 
   - id: B1
+    status: done
     phase: B (parallel, after A1)
     model: srp/glm-5.3
     title: Employee side — list/form/store driven by assignments; remove legacy WHO-5 path
@@ -217,6 +219,7 @@ tasks:
     verify: test_cmd
 
   - id: B2
+    status: done
     phase: B
     model: srp/glm-5.3
     title: Admin — wizard instrument step + per-program assignment management + Program Order add-ons
@@ -253,6 +256,7 @@ tasks:
     verify: test_cmd
 
   - id: B3
+    status: done
     phase: B
     model: srp/glm-5.3
     title: Sekolah — generic instrument engine for students & staff + admin assign per sekolah
@@ -282,6 +286,7 @@ tasks:
     verify: test_cmd
 
   - id: B4
+    status: done
     phase: B
     model: srp/glm-5.3
     title: HR + Sekolah reporting — completion, assigned-only aggregates, round trend
@@ -307,6 +312,7 @@ tasks:
     verify: test_cmd
 
   - id: B5
+    status: done
     phase: B
     model: srp/glm-5.3-flash
     title: Assessment invites/reminders via EngagementCampaign
@@ -328,6 +334,7 @@ tasks:
     verify: test_cmd
 
   - id: B6
+    status: done
     phase: B
     model: srp/glm-5.3-flash
     title: S&K version + Jabatan on registration
@@ -347,6 +354,7 @@ tasks:
     verify: test_cmd
 
   - id: C1
+    status: done
     phase: C (mandor, serial)
     model: opus (main session)
     title: Integrate, review, QA, deploy

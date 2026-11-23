@@ -67,7 +67,7 @@
                         @endforeach
                         <div class="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                             <span class="text-gray-500">Butuh eskalasi (item khusus){{ $roundLabel }}</span>
-                            <span class="font-semibold {{ $agg['escalatedCount'] > 0 ? 'text-red-600' : 'text-gray-700' }}">Eskalasi: {{ $agg['escalatedCount'] }}</span>
+                            <span class="font-semibold {{ $agg['escalatedCount'] > 0 ? 'text-red-600' : 'text-gray-700' }}">Eskalasi: {{ $agg['escalatedCount'] ?? '<10 (disembunyikan)' }}</span>
                         </div>
                     @endif
                 @endforeach

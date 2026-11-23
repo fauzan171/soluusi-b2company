@@ -39,11 +39,15 @@ class AssessmentAssignmentController extends Controller
 
     public function store(Request $request, CompanyWellbeingProgram $program)
     {
+        // H1: normalisasi kode — "MCMI3" tidak boleh lolos gate klinis.
+        $request->merge(['instrument_code' => strtolower(trim((string) $request->input('instrument_code')))]);
         $data = $request->validate([
             'instrument_code' => [
-                'required', 'string',
+                'required', 'string', 'max:32',
+                \Illuminate\Validation\Rule::exists('assessment_instruments', 'code'),
                 function ($attribute, $value, $fail) {
-                    if (in_array($value, AssessmentAssignment::CLINICAL, true)) {
+                    if (in_array($value, AssessmentAssignment::CLINICAL, true)
+                        || \App\Models\AssessmentInstrument::where('code', $value)->value('domain') === 'clinical') {
                         $fail('Instrumen klinis (MCMI-III) hanya bisa diberikan per karyawan lewat grant dengan indikasi klinis, bukan massal.');
                     }
                 },
