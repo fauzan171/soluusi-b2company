@@ -31,6 +31,17 @@ class SekolahAssessmentService
 
         $result = InstrumentScoring::score($instrument, $answers);
 
+        try {
+            return \Illuminate\Support\Facades\DB::transaction(fn () => self::persist($person, $assignment, $instrument, $answers, $result));
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // double-submit race: unique (assignment, student) — sudah tersimpan.
+            return SekolahAssessment::where('assessment_assignment_id', $assignment->id)
+                ->where('student_id', $person->id)->firstOrFail();
+        }
+    }
+
+    private static function persist(SekolahStudent $person, AssessmentAssignment $assignment, AssessmentInstrument $instrument, array $answers, array $result): SekolahAssessment
+    {
         $row = SekolahAssessment::create([
             'sekolah_id' => $person->sekolah_id,
             'student_id' => $person->id,

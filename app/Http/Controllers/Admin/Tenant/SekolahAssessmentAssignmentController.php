@@ -15,17 +15,6 @@ use Illuminate\Http\Request;
  */
 class SekolahAssessmentAssignmentController extends Controller
 {
-    public function index(Sekolah $sekolah)
-    {
-        $assignments = $sekolah->morphMany(AssessmentAssignment::class, 'assignable')
-            ->orderByDesc('id')->get();
-
-        return view('admin.tenants.sekolah.assignments', [
-            'sekolah' => $sekolah,
-            'assignments' => $assignments,
-        ]);
-    }
-
     public function store(Request $r, Sekolah $sekolah)
     {
         $data = $r->validate([
