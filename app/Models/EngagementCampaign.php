@@ -19,6 +19,7 @@ class EngagementCampaign extends Model
         'scheduled_at',
         'sent_at',
         'created_by',
+        'assessment_assignment_id', // B5: link reminder ke assignment (sender exclude submitter)
     ];
 
     protected $casts = [
@@ -36,5 +37,11 @@ class EngagementCampaign extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** B5: assignment yang jadi sumber reminder ini (null = manual). */
+    public function assessmentAssignment()
+    {
+        return $this->belongsTo(AssessmentAssignment::class);
     }
 }

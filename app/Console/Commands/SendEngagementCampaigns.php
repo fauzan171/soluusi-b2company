@@ -40,10 +40,16 @@ class SendEngagementCampaigns extends Command
                 continue;
             }
             // Hanya karyawan dengan consent + email (privacy: opt-in).
+            // B5: campaign dari assessment assignment — skip yang sudah submit.
             $recipients = $perusahaan->employees()
                 ->whereNotNull('consent_at')
-                ->whereNotNull('email')
-                ->get();
+                ->whereNotNull('email');
+            if ($campaign->assessment_assignment_id) {
+                $recipients->whereDoesntHave('assessments', function ($q) use ($campaign) {
+                    $q->where('assessment_assignment_id', $campaign->assessment_assignment_id);
+                });
+            }
+            $recipients = $recipients->get();
             $failed = 0;
             foreach ($recipients as $employee) {
                 // REV MED-3: try/catch per penerima — mail gagal di tengah tidak

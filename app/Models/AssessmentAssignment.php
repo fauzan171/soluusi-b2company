@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Observers\AssessmentAssignmentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+
+#[ObservedBy([AssessmentAssignmentObserver::class])]
 
 /**
  * A1 (D2): assignment instrumen — satu mekanisme utk Perusahaan (level
