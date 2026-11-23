@@ -25,6 +25,8 @@ class Perusahaan extends Model
         'ai_enabled',
         'consultant_request_enabled',
         'terms_agreed_at',
+        'registrant_position',
+        'terms_version',
     ];
 
     protected $casts = [
