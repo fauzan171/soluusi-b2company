@@ -205,6 +205,7 @@
                     @endif
                 </td>
                 <td class="p-3">
+                    <a href="{{ route('admin.wellbeing-programs.order', $pr) }}" class="text-xs text-emerald-700 font-semibold hover:underline">Program Order</a>
                     @if($pr->status === 'active')
                         <div class="flex items-center gap-2">
                             <a href="{{ route('admin.wellbeing-webinars.index', $pr) }}"

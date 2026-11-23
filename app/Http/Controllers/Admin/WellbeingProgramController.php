@@ -213,6 +213,14 @@ class WellbeingProgramController extends Controller
             ->with('success', "Program {$package->name} untuk {$perusahaan->brand} diaktifkan ({$program->starts_at->format('d M Y')} – {$program->ends_at->format('d M Y')}).");
     }
 
+    /** wv3: Program Order printable — snapshot kontrak (dokumen = baris program). */
+    public function order(CompanyWellbeingProgram $program)
+    {
+        $program->load(['perusahaan', 'wellbeingPackage', 'pricingBand']);
+
+        return view('admin.wellbeing-programs.order', ['program' => $program]);
+    }
+
     /** R6: 30-day notice — program tetap aktif sampai tanggal efektif. */
     public function requestTermination(Request $request, CompanyWellbeingProgram $program)
     {
