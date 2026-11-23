@@ -29,6 +29,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        // A1: morph alias pendek utk assessment_assignments.assignable (D2).
+        // TANPA enforce — AdminAction::record target lama tetap simpan FQCN.
+        \Illuminate\Database\Eloquent\Relations\Relation::morphMap([
+            'program' => \App\Models\CompanyWellbeingProgram::class,
+            'perusahaan' => \App\Models\Perusahaan\Perusahaan::class,
+            'sekolah' => \App\Models\Sekolah\Sekolah::class,
+        ]);
+
         // Locale tanggal Indonesia global (F5): hari/bulan via translatedFormat jadi id.
         Date::setLocale('id');
 

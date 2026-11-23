@@ -11,7 +11,7 @@ use App\Models\User;
  */
 class InstrumentGrant extends Model
 {
-    protected $fillable = ['employee_id', 'instrument_code', 'granted_by'];
+    protected $fillable = ['employee_id', 'instrument_code', 'granted_by', 'reason'];
 
     public function employee()
     {

@@ -31,6 +31,7 @@ class PerusahaanAssessment extends Model
         'notes',
         'conclusion',
         'concluded_at',
+        'assessment_assignment_id',
     ];
 
     protected $casts = [

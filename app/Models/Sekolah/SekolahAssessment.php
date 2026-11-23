@@ -19,8 +19,10 @@ class SekolahAssessment extends Model
         'sekolah_id',
         'student_id',
         'kelas',
+        'instrument_code',
         'answers',
         'score',
+        'escalated',
         'taken_at',
         'section',
         'status',
@@ -28,11 +30,13 @@ class SekolahAssessment extends Model
         'notes',
         'conclusion',
         'concluded_at',
+        'assessment_assignment_id',
     ];
 
     protected $casts = [
         'answers' => 'array',
         'taken_at' => 'datetime',
+        'escalated' => 'bool',
     ];
 
     /** E.1: agregat hanya menghitung asesmen siswa, bukan staf. */
