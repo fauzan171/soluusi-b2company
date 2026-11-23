@@ -364,4 +364,10 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
     Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
     Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+
+    // wv1: instruments
+    Route::get('/instruments', [\App\Http\Controllers\Admin\InstrumentController::class, 'index'])->name('instruments.index');
+    Route::post('/instruments/{instrument}/toggle', [\App\Http\Controllers\Admin\InstrumentController::class, 'toggle'])->name('instruments.toggle');
+    Route::post('/instruments/grants', [\App\Http\Controllers\Admin\InstrumentController::class, 'storeGrant'])->name('instruments.grants.store');
+    Route::delete('/instruments/grants/{grant}', [\App\Http\Controllers\Admin\InstrumentController::class, 'destroyGrant'])->name('instruments.grants.destroy');
 });

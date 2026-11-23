@@ -18,6 +18,45 @@
         @if($bandNote)<p class="mt-3 text-sm text-gray-600">{{ $bandNote }}</p>@endif
     </div>
 
+    @if($dimensions)
+    <div class="portal-card p-6 mt-4">
+        <h2 class="text-sm font-bold mb-4">Rincian per Dimensi</h2>
+        <div class="space-y-3">
+            @foreach($dimensions as $dim)
+            <div class="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">{{ $dim['label'] }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ $dim['band']['note'] }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-lg font-bold {{ $dim['band']['label'] === 'Normal' || $dim['band']['label'] === 'Rendah' || $dim['band']['label'] === 'Baik' ? 'text-pine-700' : ($dim['band']['label'] === 'Ringan' || $dim['band']['label'] === 'Sedang' ? 'text-terra-500' : 'text-red-600') }}">{{ $dim['score'] }}</span>
+                    <span class="block text-xs font-semibold text-gray-500">{{ $dim['band']['label'] }}</span>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="portal-card p-4 mt-4">
+        <h2 class="text-sm font-bold mb-2">Rekomendasi untuk Kamu</h2>
+        <ul class="space-y-1.5 text-sm text-gray-700">
+            @foreach($dimensions as $dim)
+                @php($domainKey = $instrument?->dimensionDefinition($dim['key'])['domain'] ?? $instrument?->domain)
+                @if(in_array($dim['band']['label'], ['Sedang', 'Berat', 'Sangat Berat', 'Tinggi', 'Perlu Perhatian', 'Perlu Intervensi']))
+                <li class="flex gap-2"><span class="text-terra-500">•</span>
+                    <span><b>{{ $dim['label'] }} ({{ $dim['band']['label'] }})</b> — {{ \App\Support\DomainRecommendation::for($domainKey ?? 'mh', $dim['label']) }}</span>
+                </li>
+                @endif
+            @endforeach
+            @if(! collect($dimensions)->pluck('band.label')->intersect(['Sedang', 'Berat', 'Sangat Berat', 'Tinggi', 'Perlu Perhatian', 'Perlu Intervensi'])->count())
+                <li class="flex gap-2"><span class="text-pine-500">•</span>
+                    <span>Semua dimensi dalam rentang baik — pertahankan kebiasaan dan rutinitas positif kamu.</span>
+                </li>
+            @endif
+        </ul>
+    </div>
+    @endif
+
     @if($escalated)
     <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
         <p class="font-semibold">Penting: salah satu jawaban kamu menandakan kesulitan serius.</p>
