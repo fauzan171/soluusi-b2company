@@ -138,4 +138,37 @@ class Wv4ActionPlanTest extends TestCase
 
         $this->actingAs($emp)->get(route('perusahaan.action-plan.index'))->assertStatus(403);
     }
+
+    /** Policy path: HR perusahaan B tidak boleh mengubah/hapus plan perusahaan A. */
+    public function test_cross_tenant_hr_cannot_update_or_delete_other_company_plan(): void
+    {
+        [$pA,] = $this->makeHrCompany();
+        $programA = $this->makeProgram($pA, 'growth', 5);
+        $plan = $programA->actionPlans()->create(['area' => 'Keuangan', 'status' => 'planned']);
+
+        // Perusahaan B + HR-nya (tenant terpisah).
+        $pB = Perusahaan::create([
+            'name' => 'PT BP', 'brand' => 'BPCo',
+            'sessions_per_employee_month' => 2, 'employee_count' => 40, 'is_active' => true,
+        ]);
+        $hrBRoleId = DB::table('roles')->insertGetId(['name' => 'hr_admin_b', 'created_at' => now(), 'updated_at' => now()]);
+        $hrB = User::create([
+            'uuid' => Str::uuid(), 'firstname' => 'HR', 'lastname' => 'BP',
+            'username' => 'hr_bp', 'email' => 'hr_bp@test.local',
+            'password' => bcrypt('password'), 'is_active' => true, 'role_id' => $hrBRoleId,
+        ]);
+        DB::table('perusahaan_admins')->insert([
+            'perusahaan_id' => $pB->id, 'user_id' => $hrB->id, 'role' => 'hr_admin',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingAs($hrB)->post(route('perusahaan.action-plan.status', $plan), [
+            'status' => 'completed',
+        ])->assertStatus(403);
+
+        $this->actingAs($hrB)->delete(route('perusahaan.action-plan.destroy', $plan))
+            ->assertStatus(403);
+
+        $this->assertDatabaseHas('action_plans', ['id' => $plan->id, 'status' => 'planned']);
+    }
 }

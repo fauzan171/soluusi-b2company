@@ -9,6 +9,7 @@ use App\Models\Consultant;
 use App\Models\WellbeingWebinar;
 use App\Services\WellbeingQuotaService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * wv2 (research2-infra §2): CRUD webinar per kontrak Wellbeing superadmin.
@@ -70,7 +71,9 @@ class WellbeingWebinarController extends Controller
     /** Mark done: 1 webinar = 1 kuota terpakai (ledger row, no attendance v1). */
     public function markDone(Request $request, CompanyWellbeingProgram $program, WellbeingWebinar $webinar)
     {
-        if ($webinar->program_id !== $program->id) {
+        // Policy memegang authz (admin + webinar milik program); mismatch → 404
+        // (semantics URL asli dipertahankan, bukan 403).
+        if (! Gate::allows('manage', [$webinar, $program])) {
             abort(404);
         }
         if ($webinar->status !== WellbeingWebinar::STATUS_PLANNED) {
@@ -139,7 +142,7 @@ class WellbeingWebinarController extends Controller
     /** Cancel sebelum pelaksanaan: tanpa ledger row. */
     public function cancel(Request $request, CompanyWellbeingProgram $program, WellbeingWebinar $webinar)
     {
-        if ($webinar->program_id !== $program->id) {
+        if (! Gate::allows('manage', [$webinar, $program])) {
             abort(404);
         }
         if ($webinar->status !== WellbeingWebinar::STATUS_PLANNED) {
