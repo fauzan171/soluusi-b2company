@@ -30,9 +30,9 @@
                 <p class="mt-3 text-center text-xs text-gray-500">Skor wellbeing agregat</p>
             </div>
             <div class="space-y-4">
-                @if($riskSuppressed || $totalAssessed < 5)
+                @if($riskSuppressed || $totalAssessed < 10)
                 <p class="rounded-2xl bg-gray-50 px-4 py-6 text-center text-xs text-gray-400">
-                    Distribusi risiko disembunyikan sampai {{ max(5 - (int) $totalAssessed, 0) }} asesmen lagi terkumpul (aturan anonimitas n&ge;5).
+                    Distribusi risiko disembunyikan sampai {{ max(10 - (int) $totalAssessed, 0) }} asesmen lagi terkumpul (aturan anonimitas n&ge;10).
                 </p>
                 @else
                 @foreach($riskPalette as $label => $color)
@@ -183,7 +183,7 @@
     @if($groups->count())
     <section class="dash-card p-5">
         <h3 class="dash-section-title">Partisipasi per departemen</h3>
-        <p class="dash-section-subtitle">Nilai disembunyikan untuk departemen dengan peserta &lt; 5 (anonimitas).</p>
+        <p class="dash-section-subtitle">Nilai disembunyikan untuk departemen dengan peserta &lt; 10 (anonimitas).</p>
         <div class="mt-4 overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>

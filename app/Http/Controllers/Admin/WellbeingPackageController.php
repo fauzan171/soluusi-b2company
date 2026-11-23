@@ -60,7 +60,10 @@ class WellbeingPackageController extends Controller
         $data = $request->validate([
             'band_min' => 'required|integer|min:1|max:100000',
             'band_max' => 'required|integer|min:1|max:100000|gt:band_min',
-            'monthly_price' => 'required|integer|min:0|max:999999999',
+            // QA10-F4: paket berbayar wajib harga band > 0 — salah ketik 0
+            // tidak boleh jadi kontrak Rp0/bulan. Band paket gratis tak
+            // ter-restrict (snapshot program paket gratis tak pakai harga band).
+            'monthly_price' => ($package->is_free ? '' : 'not_in:0|') . 'required|integer|min:0|max:999999999',
             'mhcu_quota' => 'nullable|integer|min:0|max:9999',
         ]);
 

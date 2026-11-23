@@ -27,6 +27,14 @@ class SendEngagementCampaigns extends Command
 
         $sent = 0;
         foreach ($due as $campaign) {
+            // QA7-F1: claim atomic — conditional update sent_at WHERE NULL;
+            // invoker kedua (timer + daemon) tidak bisa double-send.
+            $claimed = EngagementCampaign::whereKey($campaign->id)
+                ->whereNull('sent_at')
+                ->update(['sent_at' => now()]);
+            if (! $claimed) {
+                continue; // sudah dikirim invoker lain
+            }
             $perusahaan = $campaign->perusahaan;
             if (! $perusahaan) {
                 continue;
@@ -55,9 +63,11 @@ class SendEngagementCampaigns extends Command
             // Tandai terkirim hanya bila semua penerima berhasil (atau tidak ada
             // penerima sama sekali). Gagal total → tetap due, dicoba lagi besok.
             if ($failed === 0) {
-                $campaign->update(['sent_at' => now()]);
                 $sent++;
             } else {
+                // Gagal sebagian → lepas claim, dicoba lagi besok (SEMANTIK LAMA:
+                // sent_at hanya final saat semua penerima berhasil).
+                EngagementCampaign::whereKey($campaign->id)->update(['sent_at' => null]);
                 $this->warn("Campaign {$campaign->id}: {$failed}/{$recipients->count()} penerima gagal — diulang besok.");
             }
         }

@@ -65,10 +65,22 @@ class WellbeingWebinarController extends Controller
             return back()->with('error', 'Hanya webinar berstatus planned yang bisa ditandai selesai.');
         }
 
+        // QA4/QA7-F3: transaction + lock program row — serialize guard status,
+        // lookup idempotent, insert ledger, dan update status jadi satu
+        // operasi atomic (double-click konkuren tidak bisa memotong kuota 2x).
         try {
-            WellbeingQuotaService::consumeWebinar($program, $webinar, auth()->user());
+            $ledger = \Illuminate\Support\Facades\DB::transaction(function () use ($program, $webinar) {
+                \App\Models\CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
+
+                return WellbeingQuotaService::consumeWebinar($program, $webinar, auth()->user());
+            });
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             return back()->with('error', $e->getMessage());
+        }
+        // Row idempotent sudah ada (double-submit) → jangan update audit dobel.
+        if (! $ledger->wasRecentlyCreated) {
+            return redirect()->route('admin.wellbeing-webinars.index', $program)
+                ->with('error', 'Webinar ini sudah tercatat selesai.');
         }
 
         $webinar->update(['status' => WellbeingWebinar::STATUS_DONE]);
@@ -96,7 +108,11 @@ class WellbeingWebinarController extends Controller
             return back()->with('error', 'Hanya webinar berstatus Terjadwal yang bisa dicatat no-show.');
         }
 
-        WellbeingQuotaService::forfeitWebinar($program, $webinar, auth()->user(), $data['reason']);
+        // QA4/QA7-F3: transaction + lock — serialisasi cek status + ledger.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($program, $webinar, $data) {
+            \App\Models\CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
+            WellbeingQuotaService::forfeitWebinar($program, $webinar, auth()->user(), $data['reason']);
+        });
         $webinar->update(['status' => WellbeingWebinar::STATUS_CANCELLED]);
 
         AdminAction::record(auth()->id(), 'wellbeing_webinar.forfeited', $webinar, [

@@ -53,6 +53,10 @@ class EmployeeController extends Controller
             return $employee;
         }
 
+        // QA1-MED: preview lintas tenant hanya untuk super admin — jangan
+        // fallback ke branch ini untuk role non-employee lain (hr_admin,
+        // consultant, dst) kalau routing middleware berubah di masa depan.
+        abort_unless(optional($user->role)->name === 'admin', 403, 'Akses ditolak.');
         abort_unless(request()->isMethod('GET'), 403, 'Preview read-only.');
         // Super admin: preview experience karyawan.
         $employee = PerusahaanEmployee::find(request('employee_id'))

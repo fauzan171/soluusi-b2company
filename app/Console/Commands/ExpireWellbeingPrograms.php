@@ -29,7 +29,14 @@ class ExpireWellbeingPrograms extends Command
             ->get();
 
         foreach ($stale as $program) {
-            $program->update(['status' => 'ended']);
+            // QA7-F5: conditional update — hanya ended bila masih active;
+            // serialisasi vs booking in-flight (MySQL prod).
+            $ended = CompanyWellbeingProgram::whereKey($program->id)
+                ->where('status', 'active')
+                ->update(['status' => 'ended']);
+            if (! $ended) {
+                continue;
+            }
             // FIX (SEC MED): created_by nullable — jangan coalesce ke 0 (FK
             // admin_actions.admin_id → users di DB strict). Skip audit row
             // bila creator sudah tidak ada; status update tetap jalan.
