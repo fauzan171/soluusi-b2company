@@ -34,22 +34,11 @@ class ProgramSubscriptionController extends Controller
             ]);
         }
 
-        // ponytail: saldo inline (snapshot - distinct sesi reserved/used/forfeited
-        // + released/refunded) — T2 WellbeingQuotaService milik worktree lain,
-        // jangan import. Kalau helper T2 sudah merge, ganti dengan
-        // WellbeingQuotaService::bucketBalance(). Rows tanpa session_id
-        // (mis. webinar) dihitung per-row.
-        $spent = fn (string $bucket) => (int) \App\Models\WellbeingQuotaLedger::where('program_id', $program->id)
-            ->where('bucket', $bucket)
-            ->whereIn('event', ['reserved', 'used', 'forfeited'])
-            ->whereNotNull('perusahaan_session_id')
-            ->distinct('perusahaan_session_id')
-            ->count('perusahaan_session_id')
-            + (int) \App\Models\WellbeingQuotaLedger::where('program_id', $program->id)
-                ->where('bucket', $bucket)
-                ->whereNull('perusahaan_session_id')
-                ->whereIn('event', ['reserved', 'used', 'forfeited'])
-                ->count();
+        // T2 helper: saldo bucket kontrak-level (snapshot - outflow ledger).
+        $balance = fn (string $bucket, int $snapshot) => [
+            'used' => max(0, $snapshot - \App\Services\WellbeingQuotaService::bucketBalance($program, $bucket)),
+            'total' => $snapshot,
+        ];
 
         $webinarDone = $program->quotaLedgers()
             ->where('bucket', 'webinar')
@@ -58,14 +47,17 @@ class ProgramSubscriptionController extends Controller
 
         $daysLeft = max(0, (int) today()->diffInDays($program->ends_at, false));
 
+        $chat = $balance('expert_chat', (int) $program->expert_chat_quota);
+        $deep = $balance('deep_support', (int) $program->deep_support_quota);
+
         $buckets = [
             [
                 'label' => 'Chat Expert', 'icon' => 'chat',
-                'used' => $spent('expert_chat'), 'total' => (int) $program->expert_chat_quota, 'unit' => 'sesi',
+                'used' => $chat['used'], 'total' => $chat['total'], 'unit' => 'sesi',
             ],
             [
                 'label' => 'Deep Support', 'icon' => 'hand-heart',
-                'used' => $spent('deep_support'), 'total' => (int) $program->deep_support_quota, 'unit' => 'sesi',
+                'used' => $deep['used'], 'total' => $deep['total'], 'unit' => 'sesi',
             ],
             [
                 'label' => 'Webinar', 'icon' => 'calendar',

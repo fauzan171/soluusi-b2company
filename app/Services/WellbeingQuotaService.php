@@ -58,6 +58,9 @@ class WellbeingQuotaService
 
         $snapshot = (int) ($bucket === self::BUCKET_EXPERT_CHAT
             ? $program->expert_chat_quota : $program->deep_support_quota);
+        // Rows ber-sesi dihitung distinct per sesi (1 sesi = 1 kuota, idempotent
+        // UNIQUE(session,event)); rows tanpa sesi (webinar, penyesuaian manual)
+        // dihitung per-row — COUNT(DISTINCT col) di sqlite mengabaikan NULL.
         $outflow = WellbeingQuotaLedger::where('program_id', $program->id)
             ->where('bucket', $bucket)
             ->whereIn('event', [
@@ -66,7 +69,16 @@ class WellbeingQuotaService
                 WellbeingQuotaLedger::EVENT_FORFEITED,
             ])
             ->distinct('perusahaan_session_id')
-            ->count('perusahaan_session_id');
+            ->count('perusahaan_session_id')
+            + WellbeingQuotaLedger::where('program_id', $program->id)
+                ->where('bucket', $bucket)
+                ->whereNull('perusahaan_session_id')
+                ->whereIn('event', [
+                    WellbeingQuotaLedger::EVENT_RESERVED,
+                    WellbeingQuotaLedger::EVENT_USED,
+                    WellbeingQuotaLedger::EVENT_FORFEITED,
+                ])
+                ->count();
         $inflow = WellbeingQuotaLedger::where('program_id', $program->id)
             ->where('bucket', $bucket)
             ->whereIn('event', [
