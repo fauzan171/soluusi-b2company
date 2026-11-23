@@ -43,6 +43,7 @@
             ['route' => 'perusahaan.wellbeing', 'pattern' => 'perusahaan.wellbeing', 'label' => 'Kesejahteraan', 'icon' => 'heart'],
             ['route' => 'perusahaan.consultants.catalog', 'pattern' => 'perusahaan.consultants.catalog*', 'label' => 'Konsultan', 'icon' => 'users'],
             ['route' => 'perusahaan.report', 'pattern' => 'perusahaan.report', 'label' => 'Laporan', 'icon' => 'document-arrow-down'],
+            ['route' => 'perusahaan.program-subscription', 'pattern' => 'perusahaan.program-subscription', 'label' => 'Program & Subscription', 'icon' => 'receipt'],
             ['route' => 'perusahaan.employees', 'pattern' => 'perusahaan.employees*', 'label' => 'Karyawan', 'icon' => 'users'],
         ],
         $isPerusahaanRoute => [
