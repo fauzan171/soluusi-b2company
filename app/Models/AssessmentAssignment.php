@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Observers\AssessmentAssignmentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * perusahaan / program wellbeing) dan Sekolah. Window opens_at..closes_at +
  * round; precedence program-aktif > legacy perusahaan di AssessmentAccess.
  */
+#[ObservedBy([AssessmentAssignmentObserver::class])]
 class AssessmentAssignment extends Model
 {
     public const SOURCE_CORE = 'core';
