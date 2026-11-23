@@ -52,4 +52,10 @@ class CompanyWellbeingProgram extends Model
     {
         return $this->hasMany(WellbeingQuotaLedger::class, 'program_id');
     }
+
+    // wv4: feature B — action plans per area prioritas (Growth/Impact only).
+    public function actionPlans()
+    {
+        return $this->hasMany(\App\Models\ActionPlan::class);
+    }
 }
