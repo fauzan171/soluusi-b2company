@@ -178,6 +178,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
         // W2: refund kuota (HR/superadmin, reason wajib, audit_logs entry)
         Route::post('/consultation-quota/{ledger}/refund', [\App\Http\Controllers\Perusahaan\QuotaAdminController::class, 'refund'])->name('quota.refund');
+        // wb-T5: HR read-only "Program & Subscription" — snapshot kontrak Wellbeing aktif.
+        Route::get('/program-subscription', [\App\Http\Controllers\Perusahaan\ProgramSubscriptionController::class, 'index'])->name('program-subscription');
 
         // W5: Room 1-on-1 (M5) — CRUD terbatas HR admin, tenant-scoped via PerusahaanContext.
         Route::get('/rooms', [\App\Http\Controllers\Perusahaan\RoomController::class, 'index'])->name('rooms.index');
@@ -350,4 +352,16 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/consultant-assignment', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'index'])->name('consultant-assignment.index');
     Route::post('/consultant-assignment/assign', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'assign'])->middleware('throttle:20,1')->name('consultant-assignment.assign');
     Route::post('/consultant-assignment/remove', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'remove'])->middleware('throttle:20,1')->name('consultant-assignment.remove');
+
+    // wb-T3: katalog paket Wellbeing superadmin (edit saja, no create/delete —
+    // katalog = 4 paket seeder K3). Snapshot kontrak tak tersentuh (K4).
+    Route::get('/wellbeing-packages', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'index'])->name('wellbeing-packages.index');
+    Route::get('/wellbeing-packages/{package}/edit', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'edit'])->name('wellbeing-packages.edit');
+    Route::put('/wellbeing-packages/{package}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'update'])->name('wellbeing-packages.update');
+    Route::put('/wellbeing-packages/{package}/bands/{band}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'updateBand'])->name('wellbeing-packages.bands.update');
+
+    // wb-T4: Assign Program wizard superadmin (create + store + terminasi 30-day notice).
+    Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
+    Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
+    Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
 });

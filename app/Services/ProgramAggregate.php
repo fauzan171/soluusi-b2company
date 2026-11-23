@@ -8,6 +8,9 @@ class ProgramAggregate
 {
     public static function monthly($tenant, string $vertical): array
     {
+        // R10: report perusahaan pakai threshold min 10 (re-identifikasi data
+        // kesehatan mental); sekolah tetap 5 (legacy baseline).
+        $min = $vertical === "perusahaan" ? 10 : 5;
         [$month, $start, $end] = AggregatePrivacy::month();
         $school = $vertical === 'sekolah';
         $person = $school ? 'student_id' : 'employee_id';
@@ -31,11 +34,11 @@ class ProgramAggregate
         $days = $sessions->groupBy(fn ($row) => $row->scheduled_at->format('Y-m-d'));
         $members = $roster->get();
         $groupKey = $school ? 'kelas' : 'departement_id';
-        $groups = $members->groupBy($groupKey)->map(function ($members, $key) use ($done, $person, $people, $school) {
+        $groups = $members->groupBy($groupKey)->map(function ($members, $key) use ($done, $person, $people, $school, $min) {
             $rows = $done->whereIn($person, $members->pluck('id')->all());
             $n = $people($rows);
             // P0.3: suppress per-group — departemen/kelas kecil bisa re-identifikasi.
-            $groupSafe = AggregatePrivacy::safe([$n, $rows->count()]);
+            $groupSafe = AggregatePrivacy::safe([$n, $rows->count()], $min);
             return [
                 'name' => $school ? (string) $key : ($members->first()->departement?->name ?? 'Tanpa departemen'),
                 'registered' => $members->count(),
@@ -44,13 +47,13 @@ class ProgramAggregate
             ];
         })->values();
         // ponytail: conservative whole-family suppression; narrower release needs disclosure review.
-        $safe = AggregatePrivacy::safe($statuses->map($people))
-            && AggregatePrivacy::safe($topics->map($people))
-            && AggregatePrivacy::safe($types->map($people))
-            && AggregatePrivacy::safe($ratings->map($people))
-            && AggregatePrivacy::safe($days->map($people))
-            && AggregatePrivacy::safe($groups->pluck('participants'));
-        $riskSafe = AggregatePrivacy::safe($risk) && ($assessed->isEmpty() || $assessed->count() >= 5);
+        $safe = AggregatePrivacy::safe($statuses->map($people), $min)
+            && AggregatePrivacy::safe($topics->map($people), $min)
+            && AggregatePrivacy::safe($types->map($people), $min)
+            && AggregatePrivacy::safe($ratings->map($people), $min)
+            && AggregatePrivacy::safe($days->map($people), $min)
+            && AggregatePrivacy::safe($groups->pluck('participants'), $min);
+        $riskSafe = AggregatePrivacy::safe($risk, $min) && ($assessed->isEmpty() || $assessed->count() >= 5);
         return [
             'month' => $month, 'start' => $start, 'registered' => $members->count(),
             'suppressed' => !$safe, 'riskSuppressed' => !$riskSafe,

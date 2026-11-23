@@ -1,0 +1,233 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\AdminAction;
+use App\Models\CompanyWellbeingProgram;
+use App\Models\Perusahaan\Perusahaan;
+use App\Models\WellbeingPackage;
+use App\Models\WellbeingPricingBand;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * wb-T4 — Assign Program wizard 3-step superadmin (ux §3c/§3d, bizrules R2/R4/R6/R9/§3/§4).
+ * Step = form POST step-by-step (input old()) bukan session state machine; step 3
+ * POST final create: snapshot kuota+harga+band+domains dalam 1 DB::transaction +
+ * AdminAction::record. Guard 1 program aktif per perusahaan (app-level, K8).
+ */
+class WellbeingProgramController extends Controller
+{
+    public function create(Request $request)
+    {
+        $packages = WellbeingPackage::where('is_active', true)->orderBy('id')->get();
+        $perusahaans = Perusahaan::where('is_active', true)->orderBy('brand')->get(['id', 'brand', 'name', 'employee_count']);
+
+        $step = (int) $request->query('step', 1);
+        if ($step < 1 || $step > 3) {
+            $step = 1;
+        }
+
+        // Step 2/3 butuh konteks perusahaan + paket terpilih (dari query old-form).
+        $perusahaan = $request->filled('perusahaan_id')
+            ? Perusahaan::find($request->query('perusahaan_id'))
+            : null;
+        $package = $request->filled('package_code')
+            ? $packages->firstWhere('code', $request->query('package_code'))
+            : null;
+        if ($step > 1 && (!$perusahaan || !$package)) {
+            $step = 1; // konteks hilang → mulai dari awal
+        }
+
+        $bands = collect();
+        $selectedBand = null;
+        $suggestedBandMin = null;
+        if ($package && !$package->is_free) {
+            $bands = WellbeingPricingBand::where('wellbeing_package_id', $package->id)
+                ->orderBy('band_min')->get();
+            $suggestedBandMin = $this->suggestedBandMin($bands, $perusahaan?->employee_count ?? 0);
+            $selectedBand = $bands->firstWhere('band_min', (int) ($request->query('band_min', $suggestedBandMin ?? 0)));
+        }
+
+        return view('admin.wellbeing-programs.create', [
+            'packages' => $packages,
+            'perusahaans' => $perusahaans,
+            'step' => $step,
+            'perusahaan' => $perusahaan,
+            'package' => $package,
+            'bands' => $bands,
+            'selectedBand' => $selectedBand,
+            'suggestedBandMin' => $suggestedBandMin,
+            'programs' => CompanyWellbeingProgram::with(['perusahaan', 'wellbeingPackage', 'pricingBand'])
+                ->orderByDesc('id')->limit(20)->get(),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        // Fix REV#1: UI kirim string "12,15,19" — normalisasi ke array sebelum validasi.
+        if (is_string($request->input('selected_employee_ids'))) {
+            $ids = array_values(array_filter(
+                explode(',', (string) $request->input('selected_employee_ids')),
+                fn ($v) => $v !== '' && is_numeric(trim($v))
+            ));
+            $request->merge(['selected_employee_ids' => array_map('intval', $ids)]);
+        }
+
+        $data = $request->validate([
+            'perusahaan_id' => ['required', 'integer', 'exists:perusahaans,id'],
+            'package_code' => ['required', 'string', Rule::in(['discovery', 'foundation', 'growth', 'impact'])],
+            'band_min' => ['nullable', 'integer'],
+            'deep_support_mode' => ['required', 'string', 'in:mhcu,one_on_one'],
+            'starts_at' => ['required', 'date', 'after_or_equal:today'],
+            'confirm' => ['required', 'accepted'],
+            'selected_employee_ids' => ['nullable', 'array'],
+            'selected_employee_ids.*' => ['integer'],
+        ]);
+
+        $perusahaan = Perusahaan::findOrFail($data['perusahaan_id']);
+        $package = WellbeingPackage::where('code', $data['package_code'])->firstOrFail();
+
+        // §4: guard 1 program aktif per perusahaan (app-level, K8).
+        if ($perusahaan->programs()->where('status', 'active')->exists()) {
+            throw ValidationException::withMessages([
+                'perusahaan_id' => "Perusahaan {$perusahaan->brand} masih ada program aktif. Akhiri program berjalan sebelum assign kontrak baru.",
+            ]);
+        }
+
+        $band = null;
+        if (!$package->is_free) {
+            $band = $this->resolveBand($package, (int) $data['band_min']);
+            // §3: validasi employee_count masuk band (admin boleh override band, tapi
+            // employee_count harus >= 50 dan tidak boleh di luar semua band).
+            if ((int) $perusahaan->employee_count < 50) {
+                throw ValidationException::withMessages([
+                    'band_min' => "Jumlah karyawan terdaftar {$perusahaan->employee_count} belum memenuhi band minimum 50 (paket berbayar). Gunakan paket Discovery atau perbarui data karyawan.",
+                ]);
+            }
+            if (!$band) {
+                throw ValidationException::withMessages([
+                    'band_min' => "Band tidak ditemukan untuk paket {$package->name}.",
+                ]);
+            }
+            // di luar semua band (mis. 1200 karyawan) → error jelas (biz §3).
+            $allBands = WellbeingPricingBand::where('wellbeing_package_id', $package->id)->get();
+            $covered = $allBands->contains(fn ($b) => $perusahaan->employee_count >= $b->band_min && $perusahaan->employee_count <= $b->band_max);
+            if (!$covered) {
+                $top = $allBands->max('band_max');
+                throw ValidationException::withMessages([
+                    'band_min' => "Jumlah karyawan terdaftar {$perusahaan->employee_count} di luar semua band harga (maksimum {$top}). Hubungi Finance untuk kontrak custom.",
+                ]);
+            }
+        } else {
+            // R2: discovery/foundation mode default paket — form menonaktifkan pilihan,
+            // nilai dikoreksi ke default katalog agar enum tetap valid.
+            $data['deep_support_mode'] = $package->deep_support_mode ?: 'one_on_one';
+        }
+
+        // R4: discovery — max 8 karyawan terpilih, employee milik perusahaan.
+        if ($package->code === 'discovery') {
+            if (!empty($data['selected_employee_ids'])) {
+                $valid = $perusahaan->employees()
+                    ->whereIn('id', $data['selected_employee_ids'])->pluck('id');
+                if ($valid->count() !== count($data['selected_employee_ids']) || count($data['selected_employee_ids']) > 8) {
+                    throw ValidationException::withMessages([
+                        'selected_employee_ids' => 'Karyawan terpilih maksimal 8 dan harus terdaftar di perusahaan ini.',
+                    ]);
+                }
+            }
+        }
+
+        // Snapshot: deep_support_quota — band MHCU jika option A; default katalog jika B/discovery.
+        $deepSupportQuota = (int) $package->deep_support_quota;
+        if ($band && $data['deep_support_mode'] === 'mhcu' && $band->mhcu_quota !== null) {
+            $deepSupportQuota = (int) $band->mhcu_quota;
+        }
+
+        $startsAt = \Illuminate\Support\Carbon::parse($data['starts_at']);
+
+        $program = DB::transaction(function () use ($data, $perusahaan, $package, $band, $deepSupportQuota, $startsAt) {
+            $program = CompanyWellbeingProgram::create([
+                'perusahaan_id' => $perusahaan->id,
+                'wellbeing_package_id' => $package->id,
+                'pricing_band_id' => $band?->id,
+                'employee_band_size' => (int) $perusahaan->employee_count,
+                'deep_support_mode' => $data['deep_support_mode'],
+                'starts_at' => $startsAt->toDateString(),
+                'ends_at' => $startsAt->copy()->addDays((int) $package->duration_days)->subDay()->toDateString(),
+                'expert_chat_quota' => (int) $package->expert_chat_quota,
+                'deep_support_quota' => $deepSupportQuota,
+                'webinar_quota' => (int) $package->webinar_count,
+                'assessment_count' => (int) $package->assessment_count,
+                'assessment_max_participants' => $package->assessment_max_participants,
+                'monthly_price' => $band?->monthly_price,
+                'assessment_domains' => $package->assessment_domains,
+                'selected_employee_ids' => $data['selected_employee_ids'] ?? null,
+                'status' => 'active',
+                'created_by' => auth()->id(),
+            ]);
+
+            AdminAction::record(auth()->id(), 'wellbeing_program.activated', $program, [
+                'perusahaan' => $perusahaan->brand,
+                'package' => $package->code,
+                'band' => $band?->only(['band_min', 'band_max', 'monthly_price']),
+                'deep_support_mode' => $data['deep_support_mode'],
+                'starts_at' => $program->starts_at->toDateString(),
+                'ends_at' => $program->ends_at->toDateString(),
+            ]);
+
+            return $program;
+        });
+
+        return redirect()
+            ->route('admin.wellbeing-programs.create')
+            ->with('success', "Program {$package->name} untuk {$perusahaan->brand} diaktifkan ({$program->starts_at->format('d M Y')} – {$program->ends_at->format('d M Y')}).");
+    }
+
+    /** R6: 30-day notice — program tetap aktif sampai tanggal efektif. */
+    public function requestTermination(Request $request, CompanyWellbeingProgram $program)
+    {
+        $data = $request->validate([
+            'effective_date' => [
+                'required', 'date',
+                'after_or_equal:' . now()->addDays(30)->toDateString(),
+            ],
+        ]);
+
+        abort_if($program->status !== 'active', 422, 'Program sudah berakhir.');
+
+        $program->update([
+            'notice_requested_at' => now(),
+            'terminated_at' => $data['effective_date'],
+        ]);
+
+        AdminAction::record(auth()->id(), 'wellbeing_program.termination_requested', $program, [
+            'effective_date' => $data['effective_date'],
+        ]);
+
+        $efektif = \Illuminate\Support\Carbon::parse($data['effective_date'])->format('d M Y');
+
+        return back()->with('success', "Terminasi program {$program->perusahaan->brand} diajukan, efektif {$efektif} (program tetap aktif sampai tanggal efektif).");
+    }
+
+    private function resolveBand(WellbeingPackage $package, int $bandMin): ?WellbeingPricingBand
+    {
+        return WellbeingPricingBand::where('wellbeing_package_id', $package->id)
+            ->where('band_min', $bandMin)->first();
+    }
+
+    /** §3: band auto-suggest dari perusahaans.employee_count (override manual boleh). */
+    private function suggestedBandMin($bands, int $employeeCount): ?int
+    {
+        foreach ($bands as $band) {
+            if ($employeeCount >= $band->band_min && $employeeCount <= $band->band_max) {
+                return $band->band_min;
+            }
+        }
+
+        return null; // di luar semua band (mis. 1200) → step 2 tampil error jelas
+    }
+}

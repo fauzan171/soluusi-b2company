@@ -121,7 +121,15 @@ class HrReviewController extends Controller
         $pending = $this->resolvePending($session);
         $r->validate(['reason' => ['required', 'string', 'max:1000']]);
 
+        // FIX (review wb REV#2): cancel path ini tidak me-release ledger padahal
+        // requestConsultation sudah reserve saat request dibuat — kuota kontrak
+        // WB bocor permanen (legacy self-heal via reset bulanan, WB tidak).
         \App\Support\SessionStateMachine::cancel($pending, '[HR] ' . $r->reason);
+        if (\App\Services\WellbeingQuotaService::reservedLedgerFor($pending)) {
+            \App\Services\WellbeingQuotaService::release($pending, 'hr reject');
+        } else {
+            \App\Services\QuotaService::release($pending, 'hr reject');
+        }
 
         // Reason = free-text HR, sudah terlihat ke employee di cancel_reason —
         // dicatat apa adanya (tidak menambah eksposur PII baru).

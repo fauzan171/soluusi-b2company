@@ -72,4 +72,16 @@ class Perusahaan extends Model
     {
         return $this->hasMany(PerusahaanAssessment::class);
     }
+
+    /** Kontrak Wellbeing aktif/berakhir per perusahaan (K1, 1 aktif guard app-level K8). */
+    public function programs()
+    {
+        return $this->hasMany(\App\Models\CompanyWellbeingProgram::class);
+    }
+
+    // WB: alias eksplisit utk routing kuota (WellbeingQuotaService::activeProgram).
+    public function wellbeingPrograms()
+    {
+        return $this->programs();
+    }
 }
