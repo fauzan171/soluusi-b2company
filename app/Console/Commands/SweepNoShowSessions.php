@@ -32,7 +32,13 @@ class SweepNoShowSessions extends Command
 
         $swept = 0;
         foreach ($stale as $session) {
-            QuotaService::forfeit($session, 'no_show: lewat jadwal > 24 jam (sweeper)');
+            // WB: routing — sesi wellbeing → hangus di ledger wellbeing saja;
+            // else QuotaService legacy (path lama identik).
+            if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+                \App\Services\WellbeingQuotaService::forfeit($session, 'no_show: lewat jadwal > 24 jam (sweeper)');
+            } else {
+                QuotaService::forfeit($session, 'no_show: lewat jadwal > 24 jam (sweeper)');
+            }
             $swept++;
         }
 

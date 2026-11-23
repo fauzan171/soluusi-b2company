@@ -458,7 +458,14 @@ class EmployeeController extends Controller
         }
 
         // W2: tutup quota hole (recon-R3 startChat:232) — guard saldo server-side.
-        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+        // WB: routing — program wellbeing aktif → kuota kontrak bucket expert_chat.
+        if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+            $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
+            if (\App\Services\WellbeingQuotaService::bucketBalance($program, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT) < 1) {
+                return redirect()->route('perusahaan.employee')
+                    ->with('error', 'Kuota chat program wellbeing sudah habis. Hubungi HR untuk info program.');
+            }
+        } elseif (\App\Services\QuotaService::balanceFor($employee) < 1) {
             $label = \App\Services\QuotaService::packageLabel($employee);
             return redirect()->route('perusahaan.employee')
                 ->with('error', "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
@@ -486,7 +493,14 @@ class EmployeeController extends Controller
             422, 'Masih ada permintaan menunggu review.');
 
         // W2: guard kuota server-side via QuotaService (entrypoint tunggal).
-        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+        // WB: routing — program wellbeing aktif → kuota kontrak bucket expert_chat
+        // (requestConsultation = sesi chat; 1-on-1 lewat booking).
+        if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+            $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
+            if (\App\Services\WellbeingQuotaService::bucketBalance($program, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT) < 1) {
+                abort(422, 'Kuota chat program wellbeing sudah habis. Hubungi HR untuk info program.');
+            }
+        } elseif (\App\Services\QuotaService::balanceFor($employee) < 1) {
             $label = \App\Services\QuotaService::packageLabel($employee);
             abort(422, "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
         }
@@ -508,7 +522,14 @@ class EmployeeController extends Controller
                 'request_notes' => $validated['body'],
                 'mode' => $validated['mode'],
             ]);
-            \App\Services\QuotaService::reserve($employee, $session);
+            // WB: routing reserve — program aktif → bucket expert_chat (sesi chat);
+            // else QuotaService bulanan legacy.
+            if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+                \App\Services\WellbeingQuotaService::reserve($employee, $session,
+                    \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT);
+            } else {
+                \App\Services\QuotaService::reserve($employee, $session);
+            }
             return $session;
         });
 

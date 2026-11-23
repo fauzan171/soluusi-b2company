@@ -78,4 +78,10 @@ class Perusahaan extends Model
     {
         return $this->hasMany(\App\Models\CompanyWellbeingProgram::class);
     }
+
+    // WB: alias eksplisit utk routing kuota (WellbeingQuotaService::activeProgram).
+    public function wellbeingPrograms()
+    {
+        return $this->programs();
+    }
 }

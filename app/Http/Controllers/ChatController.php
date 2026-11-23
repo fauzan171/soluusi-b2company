@@ -70,7 +70,12 @@ class ChatController extends Controller
 
         $session->update(['status' => 'done', 'completed_at' => now()]);
         // W2: sesi selesai → ledger event used (reserved jadi terminal).
-        \App\Services\QuotaService::consume($session);
+        // WB: routing — sesi wellbeing → ledger wellbeing; else legacy.
+        if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+            \App\Services\WellbeingQuotaService::consume($session, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT);
+        } else {
+            \App\Services\QuotaService::consume($session);
+        }
 
         \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);
@@ -91,7 +96,12 @@ class ChatController extends Controller
             'completed_at' => now(),
         ]);
         // W2: sesi selesai → ledger event used (reserved jadi terminal).
-        \App\Services\QuotaService::consume($session);
+        // WB: routing — sesi wellbeing → ledger wellbeing; else legacy.
+        if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+            \App\Services\WellbeingQuotaService::consume($session, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT);
+        } else {
+            \App\Services\QuotaService::consume($session);
+        }
 
         \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
         \App\Jobs\GenerateSessionSummary::dispatch($session->id);

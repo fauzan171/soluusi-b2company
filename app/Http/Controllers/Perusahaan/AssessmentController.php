@@ -70,6 +70,18 @@ class AssessmentController extends Controller
         $answers = collect($r->input('answers'))->only($items->pluck('code'))->all();
         $result = InstrumentScoring::score($instrument, $answers);
 
+        // WB: R3 cap — program wellbeing aktif membatasi peserta assessment
+        // distinct employee (retake employee sama tidak menambah count).
+        if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
+            and $program->assessment_max_participants !== null) {
+            $distinct = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
+                ->distinct('employee_id')->count('employee_id');
+            $already = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
+                ->where('employee_id', $employee->id)->exists();
+            abort_if($distinct >= $program->assessment_max_participants && ! $already,
+                403, 'Kuota peserta assessment penuh. Hubungi HR untuk info program.');
+        }
+
         $row = PerusahaanAssessment::create([
             'perusahaan_id' => $employee->perusahaan_id,
             'employee_id' => $employee->id,

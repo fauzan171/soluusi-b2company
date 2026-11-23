@@ -15,6 +15,13 @@ class WellbeingQuotaLedger extends Model
 {
     use HasFactory;
 
+    // Mirror ConsultationQuotaLedger (M2) — TANPA period_ym.
+    public const EVENT_RESERVED = 'reserved';
+    public const EVENT_USED = 'used';
+    public const EVENT_FORFEITED = 'forfeited';
+    public const EVENT_REFUNDED = 'refunded';
+    public const EVENT_RELEASED = 'released';
+
     protected $guarded = ['id'];
 
     protected $table = 'wellbeing_quota_ledger';
