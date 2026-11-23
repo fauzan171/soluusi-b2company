@@ -84,4 +84,10 @@ class Perusahaan extends Model
     {
         return $this->programs();
     }
+
+    // wv4: engagement campaigns (feature D) per perusahaan.
+    public function campaigns()
+    {
+        return $this->hasMany(\App\Models\EngagementCampaign::class);
+    }
 }

@@ -26,6 +26,12 @@ class DatabaseSeeder extends Seeder
             DB::table('roles')->updateOrInsert(['name' => $name], ['created_at' => $now, 'updated_at' => $now]);
         }
 
+        // wv4: internal roles B2B (doc 6 peran) — rows only. admin tetap gate
+        // tunggal middleware; granular gating menyusul saat ops split-role.
+        foreach (['account_manager', 'operations', 'expert_coordinator', 'finance'] as $name) {
+            DB::table('roles')->updateOrInsert(['name' => $name], ['created_at' => $now, 'updated_at' => $now]);
+        }
+
         $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
 
         // Neutral admin — white-label: no Soluusi brand leak (PRD §15.4).

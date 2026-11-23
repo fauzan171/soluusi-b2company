@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,3 +18,9 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// wv4: scheduler entries (feature D + renewal reminder).
+// Email campaign terjadwal yang due → kirim + tandai sent_at.
+Schedule::command('wellbeing:send-campaigns')->daily();
+// Kontrak ends_at < 30 hari → email HR admin (renewal reminder).
+Schedule::command('wellbeing:renewal-notice')->daily();

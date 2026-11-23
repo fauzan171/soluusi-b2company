@@ -66,4 +66,10 @@ class CompanyWellbeingProgram extends Model
     {
         return $this->hasMany(WellbeingProgramReview::class, 'program_id')->orderBy('period_no');
     }
+
+    // wv4: feature B — action plans per area prioritas (Growth/Impact only).
+    public function actionPlans()
+    {
+        return $this->hasMany(\App\Models\ActionPlan::class);
+    }
 }
