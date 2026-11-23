@@ -16,7 +16,15 @@
         @foreach($instruments as $instrument)
         <a href="{{ route('perusahaan.assessment.instrument.form', $instrument->code) }}" class="portal-card p-4 flex items-center justify-between transition hover:shadow-md hover:border-pine-300">
             <div>
-                <p class="text-sm font-semibold text-gray-900">{{ $instrument->name }}</p>
+                <p class="text-sm font-semibold text-gray-900">
+                    {{ $instrument->name }}
+                    @if($instrument->is_addon)
+                        <span class="ml-1 align-middle text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Add-on</span>
+                    @endif
+                </p>
+                @if($instrument->is_addon)
+                    <p class="text-xs text-amber-600 mt-0.5">Layanan tambahan berbayar — hubungi Soluusi</p>
+                @endif
                 <p class="text-xs text-gray-500 mt-0.5">
                     @if($instrument->latest_score !== null)
                         Terakhir: <span class="font-semibold text-gray-700">{{ $instrument->latest_score }}</span> ({{ $instrument->latest_band }}) · {{ $instrument->latest_taken->translatedFormat('d M Y') }}

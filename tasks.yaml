@@ -423,3 +423,68 @@ notes:
   - Deployment: menunggu PR #4 merge + deploy + set AI env vars dengan KEY YANG SUDAH DI-ROTATE + pastikan cron schedule:run aktif (zombie sweep + purge 24 jam jalan di situ).
   - QA.2 (manual browser pass) menunggu staging ter-deploy dengan state terbaru.
   - Known latent bug (pre-existing, bukan batch 6): employee.blade.php L425-426 `@php $ans = ... ?? 0; @endphp` — kombinasi `??` + `@endphp` meninggalkan Blade compiler dalam state broken diam-diam. Batch 6 menghindari dengan long-form; cleanup pre-existing line direkomendasikan terpisah.
+
+tasks_gapfill_2026_11_23:
+  mission: "Gap-fill 4 item doc '[All Wellbeing Product]' + QA 10 agent + bughunt"
+  worktree: /home/hermes/workspace/projects/soluusi-b2b-wellbeing
+  branch: feat/wellbeing-product
+  tasks:
+    - id: GAP.1
+      title: Quotation — Total Biaya Kontrak di Program Order
+      phase: gapfill
+      status: pending
+      files: [resources/views/admin/wellbeing-programs/order.blade.php, tests/Feature/Wv3PerusahaanRegisterTest.php]
+      spec: >
+        Tambah baris "Total Biaya Kontrak" (monthly_price × jumlah bulan durasi, dari
+        duration_days/30 dibulatkan, exclude pajak, Discovery = Gratis) + baris "Add-on"
+        (nilai '—' v1: berbayar terpisah sesuai S&K §8) di order.blade.php. Test: assert
+        halaman order menampilkan 'Total Biaya Kontrak' dan angka total yang benar utk
+        program growth 6 bulan (harga × 6).
+      verify: "php artisan test --filter=ProgramOrder"
+    - id: GAP.2
+      title: Add-on flag instrumen (Ergonomic/DISC/BigFive = berbayar terpisah)
+      phase: gapfill
+      status: pending
+      files: [database/migrations/2026_11_23_000200_add_is_addon_to_assessment_instruments_table.php, database/seeders/AssessmentInstrumentSeeder.php, app/Http/Controllers/Perusahaan/AssessmentInstrumentController.php, resources/views/perusahaan/assessment-instruments.blade.php]
+      spec: >
+        Migration: add nullable boolean is_addon default false ke assessment_instruments
+        (guarded hasColumn). Seeder set is_addon=true utk ergonomic, disc, bigfive
+        (doc: 'Add-on: Ergonomic Assessment, DISC, Big Five'). Domain-gate logic TIDAK
+        berubah — null-domain instruments tetap bebas dikerjakan; is_addon hanya label
+        UI 'Add-on berbayar' + copy "Tersedia sebagai layanan tambahan — hubungi Soluusi".
+        Test: kolom ada, seeder menandai 3 instrumen, employee index menampilkan badge
+        Add-on, is_addon tidak memblokir akses (paritas perilaku lama).
+      verify: "php artisan test --filter=Wv1InstrumentLibraryTest"
+    - id: GAP.3
+      title: Campaign kind 'reminder' (pengingat assessment, doc §5D)
+      phase: gapfill
+      status: pending
+      files: [database/migrations/2026_11_23_000201_add_kind_to_engagement_campaigns_table.php, app/Models/EngagementCampaign.php, app/Http/Controllers/Perusahaan/CampaignController.php, app/Console/Commands/SendEngagementCampaigns.php, resources/views/perusahaan/campaigns.blade.php]
+      spec: >
+        Migration: add string kind default 'announcement' (announcement|edukasi|pengumuman|reminder).
+        Form HR: dropdown kind 4 opsi (doc D: pengingat assessment, edukasi berkala,
+        pengumuman program, aktivitas mingguan — mapping: reminder|edukasi|pengumuman|announcement).
+        Sender command & announcement flow TIDAK berubah (kind hanya metadata kategori,
+        tidak mengubah jalur kirim). Test: kind tersimpan, validasi in:4 nilai, kirim
+        email tetap jalan untuk kind=reminder.
+      verify: "php artisan test --filter=Wv4CampaignTest"
+    - id: GAP.4
+      title: Klinik revenue-share calculator (S&K klinik §5, 4 tier)
+      phase: gapfill
+      status: pending
+      files: [app/Support/RevenueShare.php, resources/views/admin/klinik-checkpoints.blade.php, app/Http/Controllers/Admin/KlinikCheckpointController.php, tests/Feature/KlinikRevenueShareTest.php]
+      spec: >
+        Service class statis RevenueShare::rate(int $price): ?float — 250000-299999→0.10,
+        300000-349999→0.15, 350000-399999→0.20, >=400000→0.25, <250000→null (perlu
+        kesepakatan HPA). Rate = MAKSIMUM caps (doc: 'batas maksimum'). UI: di tabel
+        klinik-checkpoints tambah kolom "Bagi hasil maks" — tampilkan tier rate
+        berdasar median package_price sesi terverifikasi klinik itu + potensi estimasi
+        (rate × total nilai sesi terverifikasi). HANYA view admin; tidak menyimpan,
+        tidak mengubah payout engine HAP yang ada. Test: 4 boundary tier benar
+        (249999→null, 250000→10%, 299999→10%, 300000→15%, 350000→20%, 400000→25%),
+        estimasi = rate × sum, klinik tanpa sesi menampilkan '—'.
+      verify: "php artisan test --filter=KlinikRevenueShareTest"
+  qa_phase:
+    - "Setelah GAP.1-4 merge + suite full green: spawn 10 QA agent paralel (lens berbeda) + bughunt lens hunt-laravel/hunt-idor/hunt-business-logic/hunt-race-condition; semua temuan HIGH/MED harus fix sebelum deploy."
+  deploy:
+    - "Merge feat/wellbeing-product → prod improvement-live, migrate, perms chgrp hermes, restart, smoke test, push GitHub main."

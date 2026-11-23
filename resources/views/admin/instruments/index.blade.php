@@ -30,6 +30,9 @@
                     @else
                         <span class="text-xs text-gray-400">umum</span>
                     @endif
+                    @if($instrument->is_addon)
+                        <span class="ml-1 text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Add-on</span>
+                    @endif
                 </td>
                 <td class="p-3">{{ $instrument->item_count ?: '—' }}</td>
                 <td class="p-3">

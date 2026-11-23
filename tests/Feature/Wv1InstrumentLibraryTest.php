@@ -215,6 +215,64 @@ class Wv1InstrumentLibraryTest extends TestCase
         $this->assertSame('Sedang', $r['band']['label']);
     }
 
+    // --- wv1 add-on label: Ergonomic/DISC/Big Five (akses tidak berubah) ------
+
+    public function test_seeder_marks_exactly_ergonomic_disc_bigfive_as_addon()
+    {
+        $this->seedInstruments();
+
+        foreach (['ergonomic', 'disc', 'bigfive'] as $code) {
+            $this->assertTrue(AssessmentInstrument::where('code', $code)->value('is_addon'), $code);
+        }
+        $others = AssessmentInstrument::where('is_addon', true)->pluck('code')->all();
+        sort($others);
+        $this->assertSame(['bigfive', 'disc', 'ergonomic'], $others);
+        // idempotent: re-seed tetap 3 add-on, tidak duplikat
+        $this->seedInstruments();
+        $this->assertSame(3, AssessmentInstrument::where('is_addon', true)->count());
+    }
+
+    public function test_employee_index_shows_addon_badge_for_addon_instruments_only()
+    {
+        $this->seedInstruments();
+        [, , $user] = $this->makeEmployee('AddonA');
+
+        $res = $this->actingAs($user)->get(route('perusahaan.assessment.instruments'))->assertOk();
+        $html = $res->getContent();
+        $this->assertStringContainsString('Add-on', $html);
+        $this->assertStringContainsString('Layanan tambahan berbayar — hubungi Soluusi', $html);
+        // instrumen non-add-on tidak membawa subtitle
+        $who5 = AssessmentInstrument::where('code', 'who5')->firstOrFail();
+        $this->assertSame(false, $who5->is_addon);
+    }
+
+    public function test_addon_instruments_access_unchanged_form_and_store()
+    {
+        $this->seedInstruments();
+        [$p, $emp, $user] = $this->makeEmployee('AddonB');
+
+        // tanpa program aktif semua instrumen aktif terbuka — parity lama.
+        // is_addon murni label: form + store ergonomic tetap bekerja.
+        $this->actingAs($user)->get(route('perusahaan.assessment.instrument.form', 'ergonomic'))->assertOk();
+        $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'ergonomic'), [
+            'answers' => $this->answers('ER', 8, fn () => 3),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('perusahaan_assessments', [
+            'employee_id' => $emp->id, 'instrument_code' => 'ergonomic',
+        ]);
+    }
+
+    public function test_admin_instrument_list_shows_addon_text()
+    {
+        $this->seedInstruments();
+        $admin = $this->admin();
+
+        $res = $this->actingAs($admin)->get(route('admin.instruments.index'))->assertOk();
+        $html = $res->getContent();
+        $this->assertStringContainsString('Add-on', $html);
+    }
+
     // --- Domain gate per program aktif ----------------------------------------
 
     public function test_domain_gate_blocks_nutrition_under_foundation_mh_program()

@@ -17,6 +17,7 @@ class AssessmentInstrument extends Model
         'escalate_items' => 'array',
         'dimensions' => 'array',
         'is_active' => 'bool',
+        'is_addon' => 'bool',
     ];
 
     /**

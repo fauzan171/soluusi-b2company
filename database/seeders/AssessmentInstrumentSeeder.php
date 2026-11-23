@@ -347,6 +347,8 @@ class AssessmentInstrumentSeeder extends Seeder
             'license_note' => 'Item IPIP-NEO-style — public domain (ipip.ori.org).',
             'escalate_items' => null,
             'is_active' => true,
+            // wv1: add-on berbayar — label saja, tidak mengubah akses.
+            'is_addon' => true,
         ]);
 
         // 0-4 agreement; reverse item per dimensi (BF2, BF6, BF8, BF12, BF15).
@@ -397,6 +399,8 @@ class AssessmentInstrumentSeeder extends Seeder
             'license_note' => 'Model DISC (Marston 1928) — istilah tidak diasapi; item ringkas milik sendiri.',
             'escalate_items' => null,
             'is_active' => true,
+            // wv1: add-on berbayar — label saja, tidak mengubah akses.
+            'is_addon' => true,
         ]);
 
         $items = [
@@ -470,6 +474,8 @@ class AssessmentInstrumentSeeder extends Seeder
             'license_note' => 'Adaptasi Cornell Musculoskeletal Discomfort Questionnaire-style — free untuk riset/pemakaian internal.',
             'escalate_items' => ['ER7', 'ER8'],
             'is_active' => true,
+            // wv1: add-on berbayar — label saja, tidak mengubah akses.
+            'is_addon' => true,
         ]);
 
         // Nyeri per area (0-3), eskalasi punggung/pundak berat.
