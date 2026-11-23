@@ -407,7 +407,7 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/program-progress', [\App\Http\Controllers\Perusahaan\ProgramProgressController::class, 'index'])->name('program-progress');
         Route::get('/expert-utilization', [\App\Http\Controllers\Perusahaan\ExpertUtilizationController::class, 'index'])->name('expert-utilization');
         Route::get('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'index'])->name('campaigns.index');
-        Route::post('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'store'])->name('campaigns.store');
+        Route::post('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'store'])->middleware('throttle:10,1')->name('campaigns.store');
     });
 
     // wv4: employee pages — aktivitasku, hasilku, privasi & consent.
