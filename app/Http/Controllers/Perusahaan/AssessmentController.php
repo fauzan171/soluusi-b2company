@@ -109,6 +109,9 @@ class AssessmentController extends Controller
         // — assessment pra-program tidak dihitung.
         if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
             and $program->assessment_max_participants !== null) {
+            // QA8-F1: lock row program — cek cap + create ter-serialisasi
+            // (dua submit paralel tidak bisa lolos sisa 1 slot).
+            \App\Models\CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
             $scoped = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
                 ->where('taken_at', '>=', $program->starts_at);
             $distinct = (clone $scoped)->distinct('employee_id')->count('employee_id');

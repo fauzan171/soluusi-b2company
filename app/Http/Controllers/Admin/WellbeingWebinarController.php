@@ -38,6 +38,18 @@ class WellbeingWebinarController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // QA2-LOW: pembicara harus konsultan aktif di pool tenant program —
+        // konsultan platform-managed, cek pool menjaga konsistensi penugasan.
+        if ($data['consultant_id'] ?? null) {
+            abort_unless(
+                \App\Models\ConsultantPool::where('perusahaan_id', $program->perusahaan_id)
+                    ->where('consultant_id', $data['consultant_id'])
+                    ->where('status', 'active')
+                    ->exists(),
+                422, 'Konsultan belum di-assign ke perusahaan ini.'
+            );
+        }
+
         $webinar = $program->webinars()->create([
             'title' => $data['title'],
             'scheduled_at' => $data['scheduled_at'],

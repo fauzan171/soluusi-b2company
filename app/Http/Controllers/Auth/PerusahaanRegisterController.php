@@ -42,6 +42,9 @@ class PerusahaanRegisterController extends Controller
     {
         $data = $request->validate([
             'org_name' => 'required|string|max:255',
+            // QA1-LOW: pesan generik — form publik tidak membocorkan bahwa
+            // email sudah terdaftar (enumeration), tapi pendaftar sah tetap
+            // paham harus login/pakai email lain.
             'hr_email' => 'required|email|max:255|unique:users,email',
             'hr_name' => 'required|string|max:255',
             'employee_band' => 'required|in:' . implode(',', array_keys(self::BANDS)),
@@ -49,6 +52,7 @@ class PerusahaanRegisterController extends Controller
             'package_code' => 'required|in:discovery,foundation,growth,impact',
             'terms' => 'accepted',
         ], [
+            'hr_email.unique' => 'Email ini tidak bisa dipakai untuk pendaftaran. Silakan gunakan email lain.',
             'terms.accepted' => 'Anda wajib membaca dan menyetujui S&K Perusahaan untuk melanjutkan pendaftaran.',
         ]);
 

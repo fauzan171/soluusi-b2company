@@ -8,7 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 // wv4: feature D — engagement campaign (email / announcement).
 class EngagementCampaign extends Model
 {
-    protected $guarded = ['id'];
+    // QA8-F3: whitelist eksplisit — semua create/update call-site sudah pakai
+    // field-field ini (CampaignController::store).
+    protected $fillable = [
+        'perusahaan_id',
+        'title',
+        'body',
+        'channel',
+        'kind',
+        'scheduled_at',
+        'sent_at',
+        'created_by',
+    ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',

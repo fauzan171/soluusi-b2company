@@ -124,4 +124,48 @@ class KlinikRevenueShareTest extends TestCase
         $this->actingAs($user)->get(route('admin.klinik-checkpoints'))
             ->assertForbidden();
     }
+
+    // ------------------------------------------------------------------
+    // (e) QA3-LOW: median even-count — 4 sesi harga beda → rerata 2 tengah.
+    // [349_999, 350_000, 350_000, 400_000] → median 350_000 → tier 20%.
+    // ------------------------------------------------------------------
+
+    public function test_checkpoint_median_even_count_menggunakan_rerata_dua_tengah(): void
+    {
+        $admin = $this->admin();
+        $klinik = Klinik::create([
+            'name' => 'Klinik Even Median',
+            'brand' => 'KlinikEM',
+            'mou_at' => now()->subDay(),
+            'is_active' => true,
+        ]);
+        foreach ([349_999.0, 350_000.0, 350_000.0, 400_000.0] as $price) {
+            $consultant = Consultant::factory()->create();
+            $package = ConsultantPackage::factory()->create(['consultant_id' => $consultant->id]);
+            $schedule = Schedule::factory()->create(['consultant_id' => $consultant->id]);
+            $session = ConsultationSession::create([
+                'schedule_id' => $schedule->id,
+                'consultant_id' => $consultant->id,
+                'consultant_package_id' => $package->id,
+                'klinik_id' => $klinik->id,
+                'order_number' => 'EM-' . uniqid(),
+                'payment' => (string) $price,
+                'amount' => $price,
+                'package_price' => $price,
+                'order_at' => now(),
+                'payment_status' => 'verified',
+                'status' => 'scheduled',
+            ]);
+            $session->completion_verified_at = now();
+            $session->status = 'done';
+            $session->save();
+        }
+
+        // median = (350_000 + 350_000) / 2 = 350_000 → 20%; sum = 1_449_999.
+        // 0.20 × 1_449_999 = 289_999,8 → number_format 0 desimal → "Rp 290.000".
+        $this->actingAs($admin)->get(route('admin.klinik-checkpoints'))
+            ->assertOk()
+            ->assertSee('20%')
+            ->assertSee('Rp 290.000');
+    }
 }

@@ -17,8 +17,11 @@ class EmployeeResultController extends Controller
             ->orderByDesc('taken_at')
             ->limit(50)
             ->get()
-            ->map(function ($a) {
-                $instrument = \App\Models\AssessmentInstrument::where('code', $a->instrument_code)->first();
+            // QA-LOW: instrument di-resolve 1 query (map kode→model), bukan
+            // N+1 query per baris asesmen.
+            ->map(function ($a) use (&$instrumentCache) {
+                $instrument = $instrumentCache[$a->instrument_code]
+                    ??= \App\Models\AssessmentInstrument::where('code', $a->instrument_code)->first();
 
                 return [
                     'id' => $a->id,
