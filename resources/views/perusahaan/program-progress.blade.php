@@ -31,6 +31,26 @@
                 </div>
             </div>
             @endforeach
+
+            @if(count($assignmentRows) > 0)
+                <div class="dash-card p-5">
+                    <h2 class="text-[0.95rem] font-semibold text-gray-900">Asesmen per assignment</h2>
+                    <p class="mt-1 text-xs text-gray-400">Penyelesaian per assignment vs jumlah karyawan terdaftar — bukan data kesehatan.</p>
+                    <div class="mt-4 space-y-4">
+                        @foreach($assignmentRows as $row)
+                            <div>
+                                <div class="mb-1 flex items-center justify-between text-sm">
+                                    <span class="font-medium text-gray-700">{{ $row['instrument'] }}@if($row['round'] > 1) · Round {{ $row['round'] }}@endif</span>
+                                    <span class="text-gray-500">{{ $row['completers'] }} / {{ $row['registered'] }} karyawan ({{ $row['pct'] }}%)</span>
+                                </div>
+                                <div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+                                    <div class="h-full rounded-full bg-pine-600" style="width: {{ min(100, $row['pct']) }}%"></div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
 
         @if($prePost !== null)

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AssessmentAssignment;
 use App\Models\AssessmentInstrument;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanAdmin;
@@ -241,6 +242,20 @@ class W4AssessmentEngineTest extends TestCase
         $this->seedInstruments();
         [$p, , ] = $this->makeEmployee();
         $hr = $this->makeHr($p);
+
+        // B4: report is now per-assignment; add a legacy phq9 assignment so the
+        // PHQ-9 rows (NULL assessment_assignment_id) still map to a section.
+        // No privacy assertion weakened — same rows, same aggregate.
+        AssessmentAssignment::create([
+            'assignable_type' => 'perusahaan',
+            'assignable_id' => $p->id,
+            'instrument_code' => 'phq9',
+            'audience' => AssessmentAssignment::AUDIENCE_EMPLOYEE,
+            'source' => AssessmentAssignment::SOURCE_LEGACY,
+            'round' => 1,
+            'status' => 'active',
+            'opens_at' => now()->subDay(),
+        ]);
 
         // 10 karyawan PHQ-9 satu band (Ringan, skor 9) + 2 eskalasi → safe() lolos;
         // 3 GAD-7 → suppressed. Band minoritas <10 juga tersupresi (whole-family).

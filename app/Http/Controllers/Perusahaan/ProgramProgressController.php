@@ -22,6 +22,7 @@ class ProgramProgressController extends Controller
             return view('perusahaan.program-progress', [
                 'perusahaan' => $perusahaan,
                 'program' => null,
+                'assignmentRows' => [],
             ]);
         }
 
@@ -37,12 +38,62 @@ class ProgramProgressController extends Controller
             ->whereIn('event', ['used', 'forfeited'])
             ->count();
 
-        // Assessment completion: peserta unik vs max participants (agregat).
-        $assessedPeople = PerusahaanAssessment::where('perusahaan_id', $perusahaan->id)
-            ->whereBetween('taken_at', [$program->starts_at, $program->ends_at])
-            ->distinct('employee_id')
-            ->count('employee_id');
-        $maxParticipants = (int) $program->assessment_max_participants;
+        // Assessment progress: paket berbayar (max participants NULL) → per-assignment
+        // completion vs headcount (B4, D10 — completion bukan data kesehatan);
+        // Discovery (is_free, cap 40) tetap pakai peserta unik vs cap.
+        $assignmentRows = [];
+        if ($program->assessment_max_participants === null) {
+            // Headcount kolom employee_count (populasi), fallback jumlah baris.
+            $registered = (int) ($perusahaan->employee_count ?: $perusahaan->employees()->count());
+            $assignmentRows = \App\Models\AssessmentAssignment::query()
+                ->where('assignable_type', $program->getMorphClass())
+                ->where('assignable_id', $program->id)
+                ->where('audience', \App\Models\AssessmentAssignment::AUDIENCE_EMPLOYEE)
+                ->where('status', 'active')
+                ->orderBy('instrument_code')->orderBy('round')
+                ->get()
+                ->map(function ($assignment) use ($perusahaan, $registered) {
+                    $completers = PerusahaanAssessment::where('perusahaan_id', $perusahaan->id)
+                        ->where(function ($q) use ($assignment) {
+                            $q->where('assessment_assignment_id', $assignment->id)
+                                ->orWhereNull('assessment_assignment_id');
+                        })
+                        ->where('instrument_code', $assignment->instrument_code)
+                        ->where('status', 'completed')
+                        ->distinct('employee_id')
+                        ->count('employee_id');
+
+                    return [
+                        'instrument' => \App\Models\AssessmentInstrument::where('code', $assignment->instrument_code)->value('name') ?? $assignment->instrument_code,
+                        'round' => $assignment->round,
+                        'completers' => $completers,
+                        'registered' => $registered,
+                        'pct' => $registered > 0 ? round($completers / $registered * 100) : 0,
+                    ];
+                })->all();
+        }
+
+        $progressRows = [
+            ['label' => 'Chat Expert', 'used' => $chat['used'], 'total' => $chat['total'], 'unit' => 'sesi'],
+            ['label' => 'Deep Support', 'used' => $deep['used'], 'total' => $deep['total'], 'unit' => 'sesi'],
+            ['label' => 'Webinar', 'used' => $webinarDone, 'total' => (int) $program->webinar_quota, 'unit' => 'webinar'],
+        ];
+
+        // B4/D10: paket berbayar → progress asesmen tampil per assignment
+        // (assignmentRows), bukan peserta unik vs cap; row 'Asesmen' vs cap
+        // hanya utk Discovery (assessment_max_participants tidak NULL).
+        if ($program->assessment_max_participants !== null) {
+            $assessedPeople = PerusahaanAssessment::where('perusahaan_id', $perusahaan->id)
+                ->whereBetween('taken_at', [$program->starts_at, $program->ends_at])
+                ->distinct('employee_id')
+                ->count('employee_id');
+            $progressRows[] = [
+                'label' => 'Asesmen',
+                'used' => $assessedPeople,
+                'total' => (int) $program->assessment_max_participants,
+                'unit' => 'peserta',
+            ];
+        }
 
         // feature C: pre/post — asesmen pertama vs terakhir per orang dalam
         // window program, rata-rata selisih skor. Bukan klaim kausal.
@@ -54,12 +105,8 @@ class ProgramProgressController extends Controller
         return view('perusahaan.program-progress', [
             'perusahaan' => $perusahaan,
             'program' => $program,
-            'progressRows' => [
-                ['label' => 'Chat Expert', 'used' => $chat['used'], 'total' => $chat['total'], 'unit' => 'sesi'],
-                ['label' => 'Deep Support', 'used' => $deep['used'], 'total' => $deep['total'], 'unit' => 'sesi'],
-                ['label' => 'Webinar', 'used' => $webinarDone, 'total' => (int) $program->webinar_quota, 'unit' => 'webinar'],
-                ['label' => 'Asesmen', 'used' => $assessedPeople, 'total' => $maxParticipants, 'unit' => 'peserta'],
-            ],
+            'progressRows' => $progressRows,
+            'assignmentRows' => $assignmentRows,
             'prePost' => $prePost,
         ]);
     }
