@@ -9,6 +9,7 @@ use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Models\User;
 use App\Models\WellbeingQuotaLedger;
+use App\Models\WellbeingWebinar;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -56,8 +57,11 @@ class WellbeingQuotaService
             return 0;
         }
 
-        $snapshot = (int) ($bucket === self::BUCKET_EXPERT_CHAT
-            ? $program->expert_chat_quota : $program->deep_support_quota);
+        $snapshot = (int) match ($bucket) {
+            self::BUCKET_EXPERT_CHAT => $program->expert_chat_quota,
+            'webinar' => $program->webinar_quota, // wv2 §2: bucket webinar, snapshot sendiri
+            default => $program->deep_support_quota,
+        };
         // Rows ber-sesi dihitung distinct per sesi (1 sesi = 1 kuota, idempotent
         // UNIQUE(session,event)); rows tanpa sesi (webinar, penyesuaian manual)
         // dihitung per-row — COUNT(DISTINCT col) di sqlite mengabaikan NULL.
@@ -189,6 +193,60 @@ class WellbeingQuotaService
 
             return $row;
         });
+    }
+
+    /**
+     * wv2 (research2-infra §2): webinar selesai → ledger row bucket 'webinar'
+     * event 'used' TANPA sesi (counting per-row di bucketBalance). Guard saldo
+     * + window aktif; idempotent per webinar (reason "webinar:{id}").
+     */
+    public static function consumeWebinar(CompanyWellbeingProgram $program, WellbeingWebinar $webinar, User $actor): WellbeingQuotaLedger
+    {
+        $ledger = WellbeingQuotaLedger::where('program_id', $program->id)
+            ->where('bucket', 'webinar')
+            ->where('event', WellbeingQuotaLedger::EVENT_USED)
+            ->where('reason', 'webinar:'.$webinar->id)
+            ->first();
+        if ($ledger) {
+            return $ledger; // idempotent (retry / double-submit)
+        }
+
+        $balance = self::bucketBalance($program, 'webinar');
+        abort_if($balance < 1, 422, 'Kuota webinar kontrak sudah habis atau program tidak aktif.');
+
+        return WellbeingQuotaLedger::create([
+            'program_id' => $program->id,
+            'bucket' => 'webinar',
+            'perusahaan_session_id' => null,
+            'event' => WellbeingQuotaLedger::EVENT_USED,
+            'reason' => 'webinar:'.$webinar->id,
+            'actor_id' => $actor->id,
+        ]);
+    }
+
+    /**
+     * wv2: no-show webinar → event forfeited manual (TERHITUNG terpakai, R11).
+     * Row per webinar, idempotent (reason "webinar:{id} no-show").
+     */
+    public static function forfeitWebinar(CompanyWellbeingProgram $program, WellbeingWebinar $webinar, User $actor, string $reason): WellbeingQuotaLedger
+    {
+        $existing = WellbeingQuotaLedger::where('program_id', $program->id)
+            ->where('bucket', 'webinar')
+            ->where('event', WellbeingQuotaLedger::EVENT_FORFEITED)
+            ->where('reason', 'webinar:'.$webinar->id.' no-show')
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return WellbeingQuotaLedger::create([
+            'program_id' => $program->id,
+            'bucket' => 'webinar',
+            'perusahaan_session_id' => null,
+            'event' => WellbeingQuotaLedger::EVENT_FORFEITED,
+            'reason' => 'webinar:'.$webinar->id.' no-show: '.$reason,
+            'actor_id' => $actor->id,
+        ]);
     }
 
     /** Pesan 403 kuota habis (nama paket kontrak + bucket). */

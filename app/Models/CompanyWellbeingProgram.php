@@ -6,6 +6,8 @@ use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Models\User;
+use App\Models\WellbeingProgramReview;
+use App\Models\WellbeingWebinar;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
@@ -51,5 +53,17 @@ class CompanyWellbeingProgram extends Model
     public function quotaLedgers()
     {
         return $this->hasMany(WellbeingQuotaLedger::class, 'program_id');
+    }
+
+    /** wv2: webinar per kontrak (§2 research2-infra). */
+    public function webinars()
+    {
+        return $this->hasMany(WellbeingWebinar::class, 'program_id');
+    }
+
+    /** wv2: review kuartalan per kontrak — hanya Impact (§3 research2-infra). */
+    public function reviews()
+    {
+        return $this->hasMany(WellbeingProgramReview::class, 'program_id')->orderBy('period_no');
     }
 }

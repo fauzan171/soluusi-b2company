@@ -35,10 +35,26 @@ class WellbeingProgramAssignmentTest extends TestCase
 
     private function perusahaan(int $employeeCount = 500, int $n = 1): Perusahaan
     {
-        return Perusahaan::create([
+        $p = Perusahaan::create([
             'name' => "PT WB Assign {$n}", 'brand' => "WBAssign{$n}",
             'sessions_per_employee_month' => 2, 'employee_count' => $employeeCount, 'is_active' => true,
         ]);
+
+        // wv2 §6: expert gate — payload default growth butuh 2 expert di pool.
+        foreach (range(1, 2) as $i) {
+            $role = Role::firstOrCreate(['name' => 'consultant']);
+            $u = User::factory()->create(['role_id' => $role->id]);
+            $consultant = \App\Models\Consultant::create([
+                'user_id' => $u->id, 'uuid' => (string) Str::uuid(),
+                'about' => 'Test', 'profit_sharing' => 0,
+                'status' => \App\Models\Consultant::ACCEPT, 'is_active' => true,
+            ]);
+            \App\Models\ConsultantPool::create([
+                'perusahaan_id' => $p->id, 'consultant_id' => $consultant->id, 'is_active' => true,
+            ]);
+        }
+
+        return $p;
     }
 
     private function seedCatalog(): void

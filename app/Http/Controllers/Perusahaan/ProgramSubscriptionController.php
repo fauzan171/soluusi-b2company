@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Perusahaan;
 
 use App\Http\Controllers\Controller;
 use App\Models\CompanyWellbeingProgram;
+use App\Models\ConsultantPool;
 use App\Support\PerusahaanContext;
 
 /**
  * wb-T5: HR "Program & Subscription" — read-only snapshot kontrak Wellbeing
  * aktif + saldo bucket kuota (D1 kontrak-level, tidak reset bulanan).
  * Aggregate-only: tidak ada data individual karyawan di halaman ini.
+ *
+ * wv2: + jadwal webinar kontrak (read-only), periode review kuartalan
+ * (Impact), dan soft warning pool expert < expert_chat_experts katalog
+ * (live dari katalog, no snapshot — research2-infra §2/§3/§6).
  */
 class ProgramSubscriptionController extends Controller
 {
@@ -65,12 +70,26 @@ class ProgramSubscriptionController extends Controller
             ],
         ];
 
+        // wv2 §6: soft warning — pool live < expert_chat_experts katalog.
+        $packageExperts = (int) ($program->wellbeingPackage?->expert_chat_experts ?? 0);
+        $poolCount = $packageExperts > 0
+            ? ConsultantPool::where('perusahaan_id', $perusahaan->id)->count()
+            : $packageExperts;
+        $expertShortfall = $poolCount < $packageExperts;
+
         return view('perusahaan.program-subscription', [
             'perusahaan' => $perusahaan,
             'program' => $program,
             'buckets' => $buckets,
             'daysLeft' => $daysLeft,
             'nearExpiry' => $daysLeft <= 30,
+            'webinars' => $program->webinars()->orderBy('scheduled_at')->get(),
+            'reviews' => $program->wellbeingPackage?->quarterly_review
+                ? $program->reviews()->orderBy('period_no')->get()
+                : collect(),
+            'packageExperts' => $packageExperts,
+            'poolCount' => $poolCount,
+            'expertShortfall' => $expertShortfall,
         ]);
     }
 }
