@@ -131,4 +131,46 @@ class HapPervormaService
         }
         return null;
     }
+
+    /**
+     * QA10-F3 claw-back: dipanggil dari refund webhook setelah sesi flip ke
+     * REFUNDED. Stage 'due' yang milestone-nya tak lagi tercapai oleh
+     * completedCounts dibatalkan; stage yang masih tercapai tetap due.
+     * Payout 'paid' immutable — claw-back post-payout di luar scope (ops).
+     * Idempotent: status 'cancelled' tidak diproses ulang.
+     */
+    public static function cancelUnmetStages(ConsultationSession $session): array
+    {
+        $klinik = $session->klinik;
+        if (!$klinik) {
+            return [];
+        }
+
+        $cfg = config('klinik.hap');
+        $counts = self::completedCounts($klinik);
+
+        $cancelled = [];
+        foreach (HapPervorma::where('klinik_id', $klinik->id)->where('status', 'due')->get() as $pervorma) {
+            $trigger = $cfg['stage' . $pervorma->stage . '_trigger'];
+            $count = $pervorma->stage === 1 ? $counts['inWindow'] : $counts['sinceMou'];
+            if ($count >= $trigger) {
+                continue;
+            }
+
+            $pervorma->status = 'cancelled';
+            $pervorma->save();
+
+            // Audit satu pintu (pola AuditLog::record): alasan + hitungan terkini.
+            \App\Models\AuditLog::record(null, 'hap.payout_cancelled', $pervorma, [
+                'session_id' => $session->id,
+                'completed_count' => $count,
+                'stage_trigger' => $trigger,
+                'reason' => 'refund sesi menurunkan hitungan completed di bawah milestone stage',
+            ]);
+
+            $cancelled[] = $pervorma;
+        }
+
+        return $cancelled;
+    }
 }

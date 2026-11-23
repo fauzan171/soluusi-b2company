@@ -62,7 +62,7 @@ class ActionPlanController extends Controller
     {
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
-        $this->authorizePlan($perusahaan, $plan);
+        $this->authorize('manage', [$plan, $perusahaan]);
 
         $validated = $request->validate([
             'status' => ['required', 'in:planned,in_progress,completed'],
@@ -76,15 +76,10 @@ class ActionPlanController extends Controller
     {
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
-        $this->authorizePlan($perusahaan, $plan);
+        $this->authorize('manage', [$plan, $perusahaan]);
 
         $plan->delete();
 
         return redirect()->route('perusahaan.action-plan.index')->with('success', 'Action plan dihapus.');
-    }
-
-    private function authorizePlan($perusahaan, ActionPlan $plan): void
-    {
-        abort_unless($plan->program?->perusahaan_id === $perusahaan->id, 403);
     }
 }
