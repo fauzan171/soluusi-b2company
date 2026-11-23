@@ -45,12 +45,13 @@ class AssessmentAssignmentObserver
 
         // Closing reminder hanya bila window >= 7 hari: H-3 sebelum tutup.
         $closes = $assignment->closes_at;
-        if ($closes && $assignment->opens_at->diffInDays($closes) >= 7) {
-            $at = $closes->copy()->subDays(3)->setTime(8, 0);
+        $at = $closes?->copy()->subDays(3)->setTime(8, 0);
+        // Skip bila H-3 sudah lewat (assignment dibuat mepet/terlambat) — jangan kirim telat.
+        if ($closes && $assignment->opens_at->diffInDays($closes) >= 7 && $at->isFuture()) {
             EngagementCampaign::create([
                 'perusahaan_id' => $perusahaanId,
                 'assessment_assignment_id' => $assignment->id,
-                'title' => "Asesmen {$name} sudah dibuka",
+                'title' => "Pengingat: asesmen {$name} ditutup {$closes->translatedFormat('d F Y')}",
                 'body' => "Pengingat: asesmen {$name} ditutup {$closes->translatedFormat('d F Y')}. "
                     .'Yang belum mengisi, silakan lengkapi melalui menu Assessment. '
                     .'Jawaban Anda bersifat rahasia dan hanya digunakan untuk laporan agregat.',

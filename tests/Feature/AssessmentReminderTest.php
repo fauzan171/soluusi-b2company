@@ -85,9 +85,20 @@ class AssessmentReminderTest extends TestCase
             ->orderBy('scheduled_at')->get();
         $this->assertCount(2, $campaigns);
         $this->assertSame('Asesmen DASS-21 (Depresi, Kecemasan, Stres) sudah dibuka', $campaigns[0]->title);
-        $this->assertSame('Asesmen DASS-21 (Depresi, Kecemasan, Stres) sudah dibuka', $campaigns[1]->title);
+        $this->assertStringStartsWith('Pengingat: asesmen DASS-21 (Depresi, Kecemasan, Stres) ditutup', $campaigns[1]->title);
         $this->assertEquals(today()->addDay()->setTime(8, 0), $campaigns[0]->scheduled_at);
         $this->assertEquals(today()->addDays(7)->setTime(8, 0), $campaigns[1]->scheduled_at);
+    }
+
+    /** Assignment dibuat mepet: H-3 sudah lewat → tidak ada closing reminder telat. */
+    public function test_no_closing_reminder_when_h_minus_3_already_passed()
+    {
+        $assignment = $this->assignment([
+            'opens_at' => today()->subDays(10),
+            'closes_at' => today()->addDays(2),
+        ]);
+
+        $this->assertSame(1, EngagementCampaign::where('assessment_assignment_id', $assignment->id)->count());
     }
 
     public function test_short_window_creates_no_closing_reminder()
