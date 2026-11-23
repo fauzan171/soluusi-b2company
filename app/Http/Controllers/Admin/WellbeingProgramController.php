@@ -84,8 +84,6 @@ class WellbeingProgramController extends Controller
             'foundation_domain' => ['nullable', 'string', 'in:mh,nutrition'],
             'mh_extras' => ['nullable', 'array'],
             'mh_extras.*' => ['string', 'in:who5,pss10'],
-            'mh_extras' => ['nullable', 'array'],
-            'mh_extras.*' => ['string', 'in:who5,pss10'],
             'addons' => ['nullable', 'array'],
             'addons.*.code' => ['required', 'string', 'distinct',
                 Rule::in(['bigfive', 'disc', 'ergonomic', 'phq9', 'gad7', 'cbi'])],

@@ -124,6 +124,13 @@ class AssessmentAssignmentController extends Controller
             'closes_at' => $data['closes_at'],
         ]);
 
+        AdminAction::record(auth()->id(), 'assessment_assignment.window_updated', $assignment, [
+            'instrument_code' => $assignment->instrument_code,
+            'round' => $assignment->round,
+            'opens_at' => $data['opens_at'],
+            'closes_at' => $data['closes_at'],
+        ]);
+
         return redirect()->route('admin.programs.assessments', $program)
             ->with('success', "Window {$assignment->instrument_code} R{$assignment->round} diperbarui.");
     }
