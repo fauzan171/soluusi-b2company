@@ -178,6 +178,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
         // W2: refund kuota (HR/superadmin, reason wajib, audit_logs entry)
         Route::post('/consultation-quota/{ledger}/refund', [\App\Http\Controllers\Perusahaan\QuotaAdminController::class, 'refund'])->name('quota.refund');
+        // wb-T5: HR read-only "Program & Subscription" — snapshot kontrak Wellbeing aktif.
+        Route::get('/program-subscription', [\App\Http\Controllers\Perusahaan\ProgramSubscriptionController::class, 'index'])->name('program-subscription');
 
         // W5: Room 1-on-1 (M5) — CRUD terbatas HR admin, tenant-scoped via PerusahaanContext.
         Route::get('/rooms', [\App\Http\Controllers\Perusahaan\RoomController::class, 'index'])->name('rooms.index');
