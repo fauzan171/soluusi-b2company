@@ -396,6 +396,15 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/klinik-checkpoints', [\App\Http\Controllers\Admin\KlinikCheckpointController::class, 'index'])->name('klinik-checkpoints');
 });
 
+// B2 (D1): manajemen assignment instrumen per program — admin + operations
+// (group terpisah: role admin-only parent akan memblokir operations).
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    Route::get('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'index'])->name('programs.assessments');
+    Route::post('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'store'])->name('programs.assessments.store');
+    Route::put('/wellbeing-programs/{program}/assessments/{assignment}', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'update'])->name('programs.assessments.update');
+    Route::post('/wellbeing-programs/{program}/assessments/{assignment}/close', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'close'])->name('programs.assessments.close');
+});
+
 // wv4: hr pages — engagement, action plan (B), progres program, utilisasi expert, campaign (D).
 Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
     Route::middleware('role:hr_admin,admin')->group(function () {

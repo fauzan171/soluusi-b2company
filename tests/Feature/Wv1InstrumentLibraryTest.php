@@ -348,6 +348,8 @@ class Wv1InstrumentLibraryTest extends TestCase
         $this->actingAs($admin)->post(route('admin.instruments.grants.store'), [
             'employee_id' => $emp->id,
             'instrument_code' => 'mcmi3',
+            // B2: alasan klinis wajib saat grant instrumen klinis.
+            'reason' => 'Indikasi klinis untuk pengujian.',
         ])->assertRedirect(route('admin.instruments.index'))->assertSessionHas('success');
 
         $this->assertDatabaseHas('instrument_grants', [
@@ -378,6 +380,8 @@ class Wv1InstrumentLibraryTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.instruments.grants.store'), [
             'employee_id' => $emp->id, 'instrument_code' => 'mcmi3',
+            // B2: alasan klinis wajib saat grant instrumen klinis.
+            'reason' => 'Indikasi klinis untuk pengujian.',
         ])->assertSessionHas('success');
 
         // duplikat → error (unique employee+instrument)

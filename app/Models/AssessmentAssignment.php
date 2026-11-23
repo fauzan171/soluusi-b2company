@@ -61,6 +61,12 @@ class AssessmentAssignment extends Model
         return $this->belongsTo(\App\Models\User::class, 'assigned_by');
     }
 
+    /** B2: submission perusahaan terkait assignment ini (completers count). */
+    public function submissions()
+    {
+        return $this->hasMany(\App\Models\Perusahaan\PerusahaanAssessment::class);
+    }
+
     /** Assignment terbuka pada $date: active + dalam window (null closes = open-ended). */
     public function scopeOpen(Builder $q, $date = null): Builder
     {

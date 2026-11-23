@@ -72,6 +72,8 @@ class WellbeingExpertGateTest extends TestCase
             'package_code' => $code,
             'band_min' => 50,
             'deep_support_mode' => $code === 'growth' || $code === 'impact' ? 'mhcu' : 'one_on_one',
+            // B2: pilihan domain assessment utk foundation (default mh).
+            'foundation_domain' => $code === 'foundation' ? 'mh' : null,
             'starts_at' => now()->addDay()->toDateString(),
             'confirm' => 1,
         ]);
