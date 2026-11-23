@@ -364,4 +364,32 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
     Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
     Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+
+    // wv4: admin pages — daftar program + browser karyawan + billing/kontrak.
+    Route::get('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramListController::class, 'index'])->name('wellbeing-programs.index');
+    Route::get('/employees', [\App\Http\Controllers\Admin\EmployeeBrowseController::class, 'index'])->name('employees.index');
+    Route::get('/billing', [\App\Http\Controllers\Admin\BillingContractController::class, 'index'])->name('billing.index');
+    Route::get('/assessment-instruments', [\App\Http\Controllers\Admin\AssessmentInstrumentsController::class, 'index'])->name('assessment-instruments.index');
+});
+
+// wv4: hr pages — engagement, action plan (B), progres program, utilisasi expert, campaign (D).
+Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
+    Route::middleware('role:hr_admin,admin')->group(function () {
+        Route::get('/engagement', [\App\Http\Controllers\Perusahaan\EngagementController::class, 'index'])->name('engagement');
+        Route::get('/action-plan', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'index'])->name('action-plan.index');
+        Route::post('/action-plan', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'store'])->name('action-plan.store');
+        Route::post('/action-plan/{plan}/status', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'updateStatus'])->name('action-plan.status');
+        Route::delete('/action-plan/{plan}', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'destroy'])->name('action-plan.destroy');
+        Route::get('/program-progress', [\App\Http\Controllers\Perusahaan\ProgramProgressController::class, 'index'])->name('program-progress');
+        Route::get('/expert-utilization', [\App\Http\Controllers\Perusahaan\ExpertUtilizationController::class, 'index'])->name('expert-utilization');
+        Route::get('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'index'])->name('campaigns.index');
+        Route::post('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'store'])->name('campaigns.store');
+    });
+
+    // wv4: employee pages — aktivitasku, hasilku, privasi & consent.
+    Route::middleware('role:employee,admin')->group(function () {
+        Route::get('/employee/activities', [\App\Http\Controllers\Perusahaan\EmployeeActivityController::class, 'index'])->name('employee.activities');
+        Route::get('/employee/results', [\App\Http\Controllers\Perusahaan\EmployeeResultController::class, 'index'])->name('employee.results');
+        Route::get('/employee/privacy', [\App\Http\Controllers\Perusahaan\EmployeePrivacyController::class, 'index'])->name('employee.privacy');
+    });
 });
