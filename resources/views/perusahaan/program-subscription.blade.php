@@ -112,6 +112,13 @@
                     <dd class="font-semibold text-pine-900">{{ $buckets[0]['total'] }} sesi</dd>
                 </div>
                 <div class="flex items-baseline justify-between gap-4">
+                    <dt class="text-gray-500">Jumlah expert chat</dt>
+                    {{-- TODO wb-T6 E2: gate ketersediaan expert per kontrak (assign expert ->
+                        sesi aktif) butuh entitas penugasan expert (backlog). Sumber data:
+                        snapshot katalog expert_chat_experts (Foundation 1, Growth/Impact 2). --}}
+                    <dd class="font-semibold text-pine-900">{{ $program->wellbeingPackage->expert_chat_experts }} expert</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-4">
                     <dt class="text-gray-500">Sesi dukungan mendalam</dt>
                     <dd class="font-semibold text-pine-900">{{ $buckets[1]['total'] }} sesi</dd>
                 </div>
