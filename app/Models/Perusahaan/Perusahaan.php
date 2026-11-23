@@ -24,12 +24,14 @@ class Perusahaan extends Model
         'status',
         'ai_enabled',
         'consultant_request_enabled',
+        'terms_agreed_at',
     ];
 
     protected $casts = [
         'mou_at' => 'datetime',
         'is_active' => 'boolean',
         'ai_enabled' => 'boolean',
+        'terms_agreed_at' => 'datetime',
     ];
 
     public function associate()

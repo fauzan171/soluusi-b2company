@@ -68,6 +68,10 @@ Route::get('/portal', fn () => redirect()->route('loginIndex'));
 Route::get('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'create'])->name('partner.register');
 Route::post('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'store'])->middleware('throttle:5,1')->name('partner.register.store');
 
+// wv3: daftar-perusahaan — publik "Daftar Sekarang" (lead-capture, approval ops).
+Route::get('/daftar-perusahaan', [\App\Http\Controllers\Auth\PerusahaanRegisterController::class, 'create'])->name('perusahaan.register');
+Route::post('/daftar-perusahaan', [\App\Http\Controllers\Auth\PerusahaanRegisterController::class, 'store'])->middleware('throttle:5,1')->name('perusahaan.register.store');
+
 // --- Klinik portal (Partner Admin/Staff) — Build-NEW #5/#6 ---
 Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,admin', 'force.password'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\Klinik\DashboardController::class, 'index'])->name('dashboard');
@@ -364,4 +368,10 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
     Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
     Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+
+    // wv3: Program Order printable (snapshot kontrak — dokumen cetak, no PDF lib).
+    Route::get('/wellbeing-programs/{program}/order', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'order'])->name('wellbeing-programs.order');
+
+    // wv3: klinik checkpoints — progress Checkpoint 40 Konsultasi per klinik.
+    Route::get('/klinik-checkpoints', [\App\Http\Controllers\Admin\KlinikCheckpointController::class, 'index'])->name('klinik-checkpoints');
 });

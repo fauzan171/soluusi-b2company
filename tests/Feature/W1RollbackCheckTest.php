@@ -18,8 +18,9 @@ class W1RollbackCheckTest extends TestCase
         // (2026_11_22_000001), prod rebase menambah consultant_requests
         // (2026_11_21_000001), wellbeing katalog+kontrak menambah 2 migrasi
         // (2026_11_23_000001/2) + wb-T3 description (2026_11_23_000003)
-        // → step 7+1+1+1+2+1.
-        Artisan::call('migrate:rollback', ['--step' => 13, '--force' => true]);
+        // + wv3 terms_agreed_at perusahaan (2026_11_23_000004)
+        // → step 7+1+1+1+2+1+1.
+        Artisan::call('migrate:rollback', ['--step' => 14, '--force' => true]);
         $this->assertFalse(Schema::hasTable('assessment_instruments'));
         foreach (['packages', 'employee_packages', 'consultation_quota_ledger', 'consultant_work_hours',
             'consultant_availability_exceptions', 'consultation_notes', 'consultation_results',
