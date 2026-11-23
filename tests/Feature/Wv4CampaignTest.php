@@ -73,6 +73,57 @@ class Wv4CampaignTest extends TestCase
             ->assertSee('Jangan lupa ikut webinar');
     }
 
+    public function test_store_persists_kind(): void
+    {
+        [$p, $hr] = $this->makeHrCompany();
+
+        $this->actingAs($hr)->post(route('perusahaan.campaigns.store'), [
+            'title' => 'Pengingat asesmen', 'body' => 'Isi asesmenmu ya.',
+            'channel' => 'announcement', 'kind' => 'reminder',
+        ])->assertRedirect(route('perusahaan.campaigns.index'));
+
+        $campaign = EngagementCampaign::where('perusahaan_id', $p->id)->first();
+        $this->assertSame('reminder', $campaign->kind);
+    }
+
+    public function test_invalid_kind_rejected(): void
+    {
+        [$p, $hr] = $this->makeHrCompany();
+
+        $this->actingAs($hr)->post(route('perusahaan.campaigns.store'), [
+            'title' => 'X', 'body' => 'Y', 'channel' => 'email', 'kind' => 'ngasal',
+        ])->assertSessionHasErrors('kind');
+
+        $this->assertSame(0, EngagementCampaign::where('perusahaan_id', $p->id)->count());
+    }
+
+    public function test_announcement_auto_sent_for_any_kind(): void
+    {
+        [$p, $hr] = $this->makeHrCompany();
+
+        foreach (['edukasi', 'pengumuman', 'reminder'] as $kind) {
+            $this->actingAs($hr)->post(route('perusahaan.campaigns.store'), [
+                'title' => "T {$kind}", 'body' => 'B', 'channel' => 'announcement', 'kind' => $kind,
+            ])->assertRedirect(route('perusahaan.campaigns.index'));
+        }
+
+        $this->assertSame(3, EngagementCampaign::where('perusahaan_id', $p->id)->whereNotNull('sent_at')->count());
+    }
+
+    public function test_email_edukasi_kind_still_due_for_sender(): void
+    {
+        [$p, $hr] = $this->makeHrCompany();
+
+        $p->campaigns()->create([
+            'title' => 'Tips tidur', 'body' => 'Tidur 7-8 jam.',
+            'channel' => 'email', 'kind' => 'edukasi',
+            'scheduled_at' => now()->subMinute(), 'sent_at' => null, 'created_by' => $hr->id,
+        ]);
+
+        $this->artisan('wellbeing:send-campaigns')->assertExitCode(0);
+        $this->assertNotNull($p->campaigns()->first()->refresh()->sent_at, 'Email edukasi due harus terkirim');
+    }
+
     public function test_scheduled_email_campaign_sends_via_command_to_consented_only(): void
     {
         [$p, $hr] = $this->makeHrCompany();

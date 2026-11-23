@@ -12,6 +12,11 @@
     $priceLabel = $program->monthly_price
         ? 'Rp ' . number_format($program->monthly_price, 0, ',', '.') . ' + pajak'
         : 'Gratis';
+    $months = (int) round($package->duration_days / 30);
+    $total = (float) $program->monthly_price * $months;
+    $totalLabel = $program->monthly_price
+        ? 'Rp ' . number_format($total, 0, ',', '.') . ' + pajak'
+        : null;
 @endphp
 
 <style>
@@ -53,6 +58,10 @@
                 <div class="order-row"><dt>Band karyawan</dt><dd>{{ $band ? number_format($band->band_min, 0, ',', '.') . '–' . number_format($band->band_max, 0, ',', '.') . ' karyawan' : '—' }}</dd></div>
                 <div class="order-row"><dt>Jumlah karyawan terdaftar</dt><dd>{{ number_format($program->employee_band_size, 0, ',', '.') }} karyawan</dd></div>
                 <div class="order-row"><dt>Harga per bulan</dt><dd>{{ $priceLabel }}</dd></div>
+                @if ($totalLabel)
+                    <div class="order-row"><dt>Total biaya kontrak</dt><dd>{{ $totalLabel }} ({{ $months }} bulan)</dd></div>
+                @endif
+                <div class="order-row"><dt>Add-on</dt><dd>— (layanan tambahan berbayar terpisah)</dd></div>
             </dl>
             <dl class="grid">
                 <div class="order-row"><dt>Kuota expert chat</dt><dd>{{ $program->expert_chat_quota }} sesi</dd></div>

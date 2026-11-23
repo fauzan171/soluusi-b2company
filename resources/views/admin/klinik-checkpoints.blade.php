@@ -18,6 +18,7 @@
                 <th class="p-3">Klinik</th>
                 <th class="p-3">Konsultasi selesai</th>
                 <th class="p-3 w-64">Progress ke 40</th>
+                <th class="p-3">Bagi hasil maks.</th>
                 <th class="p-3">Status</th>
             </tr>
         </thead>
@@ -33,6 +34,13 @@
                         <span class="mt-1 block text-xs text-gray-400">{{ $k->progress }}%</span>
                     </td>
                     <td class="p-3">
+                        @if($k->shareRate !== null)
+                            {{ (int) round($k->shareRate * 100) }}% <span class="block text-xs font-normal text-gray-400">(potensi Rp {{ number_format($k->estimatedShare, 0, ',', '.') }})</span>
+                        @else
+                            <span class="text-gray-400">—</span>
+                        @endif
+                    </td>
+                    <td class="p-3">
                         @if($k->reached)
                             <span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">Checkpoint tercapai</span>
                         @else
@@ -44,9 +52,12 @@
                     </td>
                 </tr>
             @empty
-                <tr><td class="p-3 text-gray-400" colspan="4">Belum ada klinik terdaftar.</td></tr>
+                <tr><td class="p-3 text-gray-400" colspan="5">Belum ada klinik terdaftar.</td></tr>
             @endforelse
         </tbody>
     </table>
 </div>
+<p class="text-xs text-gray-400 mt-3">
+    Rate = batas MAKSIMUM S&amp;K Klinik §5; persentase final via HPA. Estimasi berbasis harga sesi terverifikasi.
+</p>
 @endsection

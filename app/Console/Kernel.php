@@ -21,14 +21,14 @@ class Kernel extends ConsoleKernel
         })->everyFiveMinutes();
 
         // F1.4: auto-cancel scheduled B2B sessions tanpa check-in, restore kuota.
-        $schedule->command('sessions:cancel-expired')->hourly();
+        $schedule->command('sessions:cancel-expired')->hourly()->withoutOverlapping();
 
         // Retensi privasi: hapus transkrip chat untuk sesi done ≥24 jam.
-        $schedule->command('chat:purge-ended')->daily();
+        $schedule->command('chat:purge-ended')->daily()->withoutOverlapping();
 
         // ONB.2: file CSV import berisi password awal plaintext. Jalur commit
         // menghapus sendiri; ini jaring pengaman untuk pratinjau yang ditinggal.
-        $schedule->command('imports:prune')->hourly();
+        $schedule->command('imports:prune')->hourly()->withoutOverlapping();
 
         // Dual-confirm fallback (Spec §9.1): konsultan done >24h tanpa customer
         // confirm → flag ops review (anti fake sesi). Tidak auto-complete.
@@ -42,13 +42,13 @@ class Kernel extends ConsoleKernel
         // W2 (MASTER-PLAN K2): sesi scheduled lewat jadwal >24 jam → no_show +
         // ledger forfeited. PROD: `schedule:run` must be enabled (systemd timer
         // / cron — aktivasi didokumentasikan untuk W8 deploy doc).
-        $schedule->command('sessions:sweep-no-show')->hourly();
+        $schedule->command('sessions:sweep-no-show')->hourly()->withoutOverlapping();
 
         // W7 (K11/W5): purge chat 90 hari post-sesi (Prunable di ChatMessage).
-        $schedule->command('model:prune')->dailyAt('03:00');
+        $schedule->command('model:prune')->dailyAt('03:00')->withoutOverlapping();
 
         // wb-T4 (bizrules R6): 30-day notice / kontrak lewat masa → status ended.
-        $schedule->command('wellbeing:expire-programs')->daily();
+        $schedule->command('wellbeing:expire-programs')->daily()->withoutOverlapping();
     }
 
     /**

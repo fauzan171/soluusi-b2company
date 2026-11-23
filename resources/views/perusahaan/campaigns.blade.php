@@ -27,6 +27,16 @@
                           class="w-full rounded-xl border border-[#e7e2d9] px-3 py-2 text-sm" placeholder="Isi pesan untuk karyawan…"></textarea>
                 @error('body')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
+            <div>
+                <label for="kind" class="block text-xs font-medium text-gray-500 mb-1">Jenis campaign</label>
+                <select id="kind" name="kind" class="w-full rounded-xl border border-[#e7e2d9] px-3 py-2 text-sm">
+                    <option value="announcement">Pengumuman / aktivitas mingguan</option>
+                    <option value="edukasi">Edukasi berkala</option>
+                    <option value="pengumuman">Pengumuman program</option>
+                    <option value="reminder">Pengingat assessment</option>
+                </select>
+                @error('kind')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+            </div>
             <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                     <label for="channel" class="block text-xs font-medium text-gray-500 mb-1">Kanal</label>
@@ -59,7 +69,7 @@
                     <div class="flex items-center justify-between gap-3">
                         <p class="font-medium text-gray-700">{{ $c->title }}</p>
                         <div class="flex items-center gap-2 shrink-0">
-                            <span class="text-xs text-gray-400">{{ $c->channel === 'email' ? 'Email' : 'Pengumuman' }}</span>
+                            <span class="text-xs text-gray-400">{{ ['announcement' => 'Pengumuman / aktivitas mingguan', 'edukasi' => 'Edukasi berkala', 'pengumuman' => 'Pengumuman program', 'reminder' => 'Pengingat assessment', ][$c->kind] ?? 'Pengumuman / aktivitas mingguan' }} · {{ $c->channel === 'email' ? 'Email' : 'Pengumuman' }}</span>
                             <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $c->sent_at ? 'bg-pine-100 text-pine-800' : 'bg-gray-100 text-gray-500' }}">{{ $c->sent_at ? 'Terkirim '.optional($c->sent_at)->format('d M') : 'Terjadwal '.optional($c->scheduled_at)->format('d M') }}</span>
                         </div>
                     </div>

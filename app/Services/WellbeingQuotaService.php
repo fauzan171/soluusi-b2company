@@ -102,6 +102,12 @@ class WellbeingQuotaService
         $program = self::activeProgram($employee->perusahaan);
         abort_unless($program, 403, 'Tidak ada program wellbeing aktif.');
 
+        // QA7-F2: kunci baris program supaya cek saldo + insert ter-serialisasi
+        // lintas karyawan yang sama-sama mengambil unit terakhir bucket.
+        // WAJIB dipanggil dalam DB::transaction (BookingService::book).
+        // SQLite: no-op (single writer); MySQL prod: lock nyata.
+        CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
+
         // SEC MED (K12 Discovery): deep support Discovery hanya untuk karyawan
         // terpilih (max 8) yang di-set superadmin saat assign — bukan siapa pun.
         if ($bucket === self::BUCKET_DEEP_SUPPORT
@@ -230,14 +236,13 @@ class WellbeingQuotaService
      */
     public static function forfeitWebinar(CompanyWellbeingProgram $program, WellbeingWebinar $webinar, User $actor, string $reason): WellbeingQuotaLedger
     {
-        // REV HIGH-1: idempotent — canonical reason "webinar:{id}", lookup prefix
-        // match supaya row dgn suffix alasan bebas tetap ketemu (dulu lookup
-        // eksak tak pernah match row yang disimpan → double-submit = quota
-        // terpotong 2x).
+        // REV HIGH-1: idempotent — lookup "webinar:{id} no-show:" (dengan
+        // delimiter spasi) supaya webinar 5 TIDAK match row webinar 51
+        // (prefix "webinar:5%" menabrak "webinar:51 no-show: ..." — QA4 HIGH).
         $existing = WellbeingQuotaLedger::where('program_id', $program->id)
             ->where('bucket', 'webinar')
             ->where('event', WellbeingQuotaLedger::EVENT_FORFEITED)
-            ->where('reason', 'like', 'webinar:'.$webinar->id.'%')
+            ->where('reason', 'like', 'webinar:'.$webinar->id.' no-show:%')
             ->first();
         if ($existing) {
             return $existing;

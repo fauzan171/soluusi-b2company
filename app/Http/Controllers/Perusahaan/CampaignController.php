@@ -31,9 +31,10 @@ class CampaignController extends Controller
         abort_unless($perusahaan && $perusahaan->is_active, 403);
 
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:120'],
+            'title' => ['required', 'string', 'max:120', 'not_regex:/[\r\n]/'],
             'body' => ['required', 'string', 'max:4000'],
             'channel' => ['required', 'in:email,announcement'],
+            'kind' => ['nullable', 'in:announcement,edukasi,pengumuman,reminder'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
         ]);
 
@@ -44,6 +45,7 @@ class CampaignController extends Controller
             'title' => $validated['title'],
             'body' => $validated['body'],
             'channel' => $validated['channel'],
+            'kind' => $validated['kind'] ?? 'announcement',
             'scheduled_at' => $validated['scheduled_at'] ?? now(),
             'sent_at' => $isAnnouncement ? now() : null,
             'created_by' => auth()->id(),

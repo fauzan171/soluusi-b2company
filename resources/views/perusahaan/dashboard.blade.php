@@ -298,9 +298,9 @@
                     <p class="mt-3 text-center text-xs text-gray-500">Skor wellbeing agregat</p>
                 </div>
                 <div class="space-y-4">
-                    @if($totalAssessed < 5)
+                    @if($totalAssessed < 10)
                         <p class="rounded-2xl bg-gray-50 px-4 py-6 text-center text-xs text-gray-400">
-                            Distribusi risiko disembunyikan sampai {{ 5 - $totalAssessed }} asesmen lagi terkumpul (aturan anonimitas n≥5).
+                            Distribusi risiko disembunyikan sampai {{ 10 - $totalAssessed }} asesmen lagi terkumpul (aturan anonimitas n≥10).
                         </p>
                     @else
                     @foreach($riskPalette as $label => $color)

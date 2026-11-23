@@ -258,8 +258,15 @@ class CheckoutFlow
             // F6: increment usage dalam transaksi yang sama — kalau crash di
             // tengah, semua rollback (sesi hilang + link bebas lagi), jadi tidak
             // ada sesi jalan tanpa usage tercatat (voucher over-limit).
+            // QA10-F2: increment ATOMIC conditional — dua checkout link beda
+            // schedule (lock beda) tidak bisa me-redeem voucher di atas kuota.
             if ($voucher) {
-                $voucher->increment('usage');
+                $redeemed = Voucher::whereKey($voucher->id)
+                    ->where('usage', '<', \DB::raw('kuota'))
+                    ->increment('usage');
+                if (! $redeemed) {
+                    return null; // kuota habis oleh transaksi konkuren
+                }
             }
 
             return $session;
