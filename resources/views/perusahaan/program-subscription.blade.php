@@ -143,7 +143,13 @@
             </dl>
         </div>
         <p class="mt-4 text-xs text-gray-500">
-            <a href="#" class="text-pine-700 font-medium hover:underline">Syarat &amp; Ketentuan program</a> — rincian lengkap kontrak tersedia dari account manager Anda.
+            <details class="mt-2">
+                <summary class="text-pine-700 font-medium hover:underline cursor-pointer">Syarat &amp; Ketentuan program</summary>
+                <div class="mt-3 rounded-xl border border-[#e7e2d9] bg-white p-4 text-xs text-gray-700 leading-relaxed max-h-96 overflow-y-auto">
+                    @include('auth.partials.terms-perusahaan')
+                </div>
+            </details>
+            Rincian lengkap kontrak tersedia dari account manager Anda.
         </p>
     </section>
 

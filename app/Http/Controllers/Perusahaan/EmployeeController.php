@@ -279,6 +279,11 @@ class EmployeeController extends Controller
             ->values();
 
         $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
+
+        // Audit UX item 10: halaman booking memakai saldo ledger-aware —
+        // konsisten dengan dashboard; monthQuotaUsed lama mengabaikan
+        // event released/refunded di ledger.
+        $quotaLeft = max(0, \App\Services\QuotaService::balanceFor($employee));
         $visibleSlots = $selectedConsultant
             ? $slots->where('consultant_id', $selectedConsultant['id'])->values()
             : $slots;
@@ -295,7 +300,7 @@ class EmployeeController extends Controller
             'activeCategory' => $category,
             'selectedConsultant' => $selectedConsultant,
             'slots' => $visibleSlots,
-            'quotaLeft' => max(0, $quota - $usedMonth),
+            'quotaLeft' => $quotaLeft,
         ]);
     }
 
