@@ -74,6 +74,7 @@ class PerusahaanController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'brand' => ['required', 'string', 'max:100'],
+            'employee_count' => ['required', 'integer', 'min:0', 'max:1000000'],
             'pepm_rate' => ['nullable', 'integer', 'min:0'],
             'sessions_per_employee_month' => ['nullable', 'integer', 'min:1', 'max:30'],
             'ai_enabled' => ['nullable', 'boolean'],
