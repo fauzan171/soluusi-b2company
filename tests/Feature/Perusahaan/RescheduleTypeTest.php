@@ -53,7 +53,7 @@ class RescheduleTypeTest extends TestCase
             'status' => 'scheduled', 'schedule_version' => 0,
             'scheduled_at' => $slot1->started_at, 'ended_at' => $slot1->ended_at,
         ]);
-        session(['_ CASSES' => '']);
+        unset($session);
 
         $this->actingAs($user)->post(route('perusahaan.booking.store'), [
             'schedule_id' => $slot1->id,
@@ -78,6 +78,6 @@ class RescheduleTypeTest extends TestCase
         $rescheduled = PerusahaanSession::where('employee_id', $emp->id)->where('schedule_id', $slot2->id)->firstOrFail();
         $this->assertSame('one_on_one', $rescheduled->consultation_type);
         $this->assertNotNull($rescheduled->room_id, 'Room harus ter-assign ulang untuk one_on_one setelah reschedule.');
-        $this->assertSame(1, (int) $rescheduled->schedule_version);
+        $this->assertSame('cancelled', $booked->fresh()->status);
     }
 }
