@@ -80,9 +80,12 @@ class ConsultantAssignmentTest extends TestCase
             'consultant_id' => $c->id,
         ])->assertRedirect();
 
-        $this->assertDatabaseMissing('consultant_pools', [
+        // Audit F5: row TIDAK dihapus (cascade schedules/workhours) — status=ended.
+        $this->assertDatabaseHas('consultant_pools', [
             'consultant_id' => $c->id,
             'perusahaan_id' => $p->id,
+            'status' => 'ended',
+            'is_active' => false,
         ]);
         $this->assertDatabaseHas('admin_actions', [
             'action' => 'consultant_pool.remove',

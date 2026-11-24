@@ -26,8 +26,10 @@ class ConsultantAssignmentController extends Controller
             ? Perusahaan::orderBy('brand')->get(['id', 'brand', 'name'])
             : Sekolah::orderBy('name')->get(['id', 'name']);
 
+        // Audit F5: hanya pool aktif yang dianggap "assigned" di daftar.
         $assignedIds = $tenantId
-            ? ConsultantPool::where("{$tenant}_id", $tenantId)->pluck('consultant_id')->all()
+            ? ConsultantPool::where("{$tenant}_id", $tenantId)
+                ->where('status', 'active')->pluck('consultant_id')->all()
             : [];
 
         $consultants = Consultant::with('user:id,firstname,lastname')
@@ -60,9 +62,14 @@ class ConsultantAssignmentController extends Controller
         $pool = ConsultantPool::firstOrCreate([
             'consultant_id' => $data['consultant_id'],
             "{$data['tenant']}_id" => $tenantModel->id,
-        ]);
+        ], ['is_active' => true, 'status' => 'active']);
 
-        if ($pool->wasRecentlyCreated) {
+        // Audit F5: re-assign setelah remove → aktifkan kembali row yang sama.
+        if (!$pool->wasRecentlyCreated) {
+            $pool->update(['is_active' => true, 'status' => 'active']);
+        }
+
+        if ($pool->wasRecentlyCreated || $pool->wasChanged()) {
             AdminAction::record(auth()->id(), 'consultant_pool.assign', $tenantModel, [
                 'tenant' => $data['tenant'],
                 'consultant_id' => (int) $data['consultant_id'],
@@ -84,11 +91,16 @@ class ConsultantAssignmentController extends Controller
             ? Perusahaan::findOrFail($data['tenant_id'])
             : Sekolah::findOrFail($data['tenant_id']);
 
-        $deleted = ConsultantPool::where('consultant_id', $data['consultant_id'])
-            ->where("{$data['tenant']}_id", $tenantModel->id)
-            ->delete();
+        // Audit F5: jangan hard-delete — cascade schedules/workhours ikut hilang.
+        // Set status=ended; re-assign mengaktifkan kembali row yang sama.
+        $pool = ConsultantPool::firstOrCreate([
+            'consultant_id' => $data['consultant_id'],
+            "{$data['tenant']}_id" => $tenantModel->id,
+        ]);
+        $wasActive = $pool->status !== 'ended' || $pool->is_active;
+        $pool->update(['status' => 'ended', 'is_active' => false]);
 
-        if ($deleted) {
+        if ($wasActive) {
             AdminAction::record(auth()->id(), 'consultant_pool.remove', $tenantModel, [
                 'tenant' => $data['tenant'],
                 'consultant_id' => (int) $data['consultant_id'],
