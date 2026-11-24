@@ -315,8 +315,8 @@ class EmployeeController extends Controller
             return $this->cancelPendingRequest($session);
         }
 
-        request()->validate(['reason' => ['required', 'string', 'max:1000']]);
-        $restored = \App\Services\BookingService::cancel('perusahaan', $session, request('reason'));
+        request()->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+        $restored = \App\Services\BookingService::cancel('perusahaan', $session, (string) request('reason'));
 
         return back()->with('success', $restored ? 'Sesi dibatalkan. Kuota kamu kembali.' : 'Sesi dibatalkan. Kuota tetap terpakai karena melewati batas pembatalan.');
     }
@@ -349,8 +349,8 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
             'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
-            'consultant_id' => ['nullable', 'integer'],
-            'scheduled_at' => ['nullable', 'date', 'after:now'],
+            // Audit UX item 15: consultant_id/scheduled_at tidak pernah dipakai —
+            // konsultan & jam slot diputuskan via schedule_id di BookingService::book().
         ]);
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);

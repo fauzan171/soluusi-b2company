@@ -24,7 +24,7 @@
     @if($quotaLeft <= 0)
     <div class="bg-terra-50 border border-terra-200 rounded-2xl p-4 mb-5 text-sm text-terra-800" role="alert">
         <strong class="font-semibold">Kuota bulan ini habis.</strong>
-        <span class="block mt-1">Pilih slot bulan depan, atau hubungi HR kamu untuk tambahan sesi.</span>
+        <span class="block mt-1">Slot bulan depan dibuka setelah bulan ini berakhir — hubungi HR kamu untuk tambahan sesi.</span>
     </div>
     @endif
 

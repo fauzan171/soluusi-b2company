@@ -4,8 +4,6 @@
 @php
     $typeLabels = ['psikolog' => 'Psikolog', 'nutrisionis' => 'Nutrisionis', 'fisioterapis' => 'Fisioterapis', 'karir' => 'Konselor Karir'];
     $modeLabels = ['online' => 'Online', 'offline' => 'Tatap muka'];
-    $who5Items = \App\Http\Controllers\Perusahaan\EmployeeController::WHO5_ITEMS;
-    $answerLabels = \App\Http\Controllers\Perusahaan\EmployeeController::ANSWER_OPTIONS;
     $resources = [
         ['title' => 'Teknik pernapasan 4-7-8 untuk cemas', 'desc' => 'Latihan 3 menit untuk menenangkan sistem saraf sebelum tidur atau meeting.', 'tag' => 'Kecemasan', 'icon' => 'wind'],
         ['title' => 'Istirahat mikro di sela kerja', 'desc' => 'Riset menunjukkan jeda 5 menit tiap jam menjaga fokus dan menurunkan burnout.', 'tag' => 'Burnout', 'icon' => 'bolt'],
@@ -14,7 +12,7 @@
     ];
 @endphp
 
-<div x-data="{ detail: null, wellbeing: false, rescheduleId: null, requestConsult: false, rescheduleSlots: {{ Js::from($rescheduleSlots->map(fn ($slots) => $slots->map(fn ($slot) => ['id' => $slot->id, 'label' => $slot->started_at->translatedFormat('d M Y H.i').' · '.$slot->consultant->user->firstname]))) }} }" @keydown.escape.window="detail = null; wellbeing = false; rescheduleId = null; requestConsult = false">
+<div x-data="{ detail: null, rescheduleId: null, requestConsult: false, rescheduleSlots: {{ Js::from($rescheduleSlots->map(fn ($slots) => $slots->map(fn ($slot) => ['id' => $slot->id, 'label' => $slot->started_at->translatedFormat('d M Y H.i').' · '.$slot->consultant->user->firstname]))) }} }" @keydown.escape.window="detail = null; rescheduleId = null; requestConsult = false">
     <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-pine-900">Halo, {{ $employee->name }}</h1>
         @if($isPreview)
@@ -46,8 +44,10 @@
             @endif
         </div>
 
-        <button type="button" @if($assessment) @click="wellbeing = true" @endif class="portal-card p-5 text-left flex flex-col transition hover:shadow-md hover:border-pine-300">
-            @if($assessment)
+        {{-- Audit UX item 13: kartu = satu <a> (dulu <button> berisi <a> —
+             interactive bersarang + fake-link span). --}}
+        @if($assessment)
+        <a href="{{ route('perusahaan.assessment.result', $assessment) }}" class="portal-card p-5 text-left flex flex-col transition hover:shadow-md hover:border-pine-300">
             @php
                 $levelClass = $assessment->band() === 'Sehat' ? 'text-pine-700'
                     : ($assessment->band() === 'Perlu Perhatian' ? 'text-terra-500' : 'text-red-600');
@@ -61,13 +61,16 @@
             <div class="h-12 w-full"><canvas id="chartTrend"></canvas></div>
             @endif
             <span class="mt-auto pt-2 text-xs text-pine-700 font-semibold">Lihat asesmen →</span>
-            @else
+            <p class="text-[11px] text-gray-400 mt-2">Hasil ini milikmu sendiri, tidak dibagikan ke perusahaan.</p>
+        </a>
+        @else
+        <a href="{{ route('perusahaan.assessment.instruments') }}" class="portal-card p-5 text-left flex flex-col transition hover:shadow-md hover:border-pine-300">
             <div class="text-2xl font-bold text-gray-300">—</div>
             <div class="text-xs text-gray-500 mb-2">Belum ada hasil wellbeing</div>
-            <a href="{{ route('perusahaan.assessment.instruments') }}" class="mt-auto inline-block text-xs bg-pine-700 text-white font-semibold rounded-lg px-3 py-1.5 hover:bg-pine-800 text-center">Isi asesmen (1 menit) →</a>
-            @endif
+            <span class="mt-auto inline-block text-xs bg-pine-700 text-white font-semibold rounded-lg px-3 py-1.5 hover:bg-pine-800 text-center">Isi asesmen (1 menit) →</span>
             <p class="text-[11px] text-gray-400 mt-2">Hasil ini milikmu sendiri, tidak dibagikan ke perusahaan.</p>
-        </button>
+        </a>
+        @endif
 
         <div class="rounded-2xl p-5 flex flex-col justify-between text-white transition hover:shadow-lg" style="background: linear-gradient(135deg, #0c3b2e, #007648);">
             <div>
@@ -464,7 +467,7 @@
                     <button @click="rescheduleId = detail.id; detail = null" class="rounded-lg border border-pine-700 text-pine-700 text-sm font-semibold px-3 py-2 hover:bg-pine-50">Ubah jadwal</button>
                     <form method="POST" :action="detail?.cancelUrl" onsubmit="return confirm('Batalkan sesi ini? Kuota kembali hanya sebelum batas 2 jam.')">
                         @csrf
-                        <label class="block text-sm">Alasan pembatalan <input name="reason" required maxlength="1000" class="w-full border rounded"></label>
+                        <label class="block text-sm">Alasan pembatalan (opsional) <input name="reason" maxlength="1000" class="w-full border rounded"></label>
                         <button class="w-full rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-semibold px-3 py-2 hover:bg-red-100">Batalkan</button>
                     </form>
                 </div>
@@ -500,45 +503,6 @@
             </form>
         </div>
     </div>
-
-    {{-- Modal: wellbeing detail WHO-5 --}}
-    @if($assessment)
-    <div x-show="wellbeing" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
-        <div @click.outside="wellbeing = false" x-show="wellbeing" x-transition.scale class="portal-card w-full max-w-md p-6">
-            <div class="flex items-start justify-between">
-                <div>
-                    <h3 class="font-semibold text-pine-900">Skor wellbeing kamu</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">{{ $assessment->taken_at->translatedFormat('d F Y') }} · WHO-5</p>
-                </div>
-                <button @click="wellbeing = false" class="text-gray-400 hover:text-gray-700">✕</button>
-            </div>
-            <div class="mt-4 flex items-center gap-4">
-                <div class="text-4xl font-bold {{ $levelClass }}">{{ $assessment->score }}</div>
-                <div>
-                    <span class="text-xs font-semibold rounded-full px-2.5 py-1 {{ $assessment->band() === 'Sehat' ? 'bg-pine-100 text-pine-800' : ($assessment->band() === 'Perlu Perhatian' ? 'bg-terra-100 text-terra-800' : 'bg-red-100 text-red-800') }}">{{ $assessment->band() }}</span>
-                    <p class="text-[11px] text-gray-400 mt-1">dari 100</p>
-                </div>
-            </div>
-            <div class="mt-5 space-y-3">
-                @foreach($who5Items as $i => $item)
-                @php
-                $ans = (int) (array_values((array) $assessment->answers)[$i] ?? 0);
-                @endphp
-                <div>
-                    <div class="flex justify-between text-xs mb-1">
-                        <span class="text-gray-600">{{ $item }}</span>
-                        <span class="font-medium text-gray-800">{{ $answerLabels[$ans] }}</span>
-                    </div>
-                    <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                        <div class="h-full rounded-full {{ $ans >= 3 ? 'bg-pine-600' : ($ans >= 2 ? 'bg-terra-400' : 'bg-red-400') }}" style="width: {{ $ans / 5 * 100 }}%"></div>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-            <p class="mt-5 text-xs leading-5 text-gray-500">Skor di bawah 50 menandakan kamu mungkin butuh dukungan. @if($quotaLeft > 0)<a href="{{ route('perusahaan.booking') }}" class="text-pine-700 font-semibold hover:underline">Booking sesi konsultasi</a> — gratis lewat program kantor.@endif</p>
-        </div>
-    </div>
-    @endif
 </div>
 @endsection
 
