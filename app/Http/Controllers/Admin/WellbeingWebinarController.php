@@ -21,7 +21,7 @@ class WellbeingWebinarController extends Controller
 {
     public function index(CompanyWellbeingProgram $program)
     {
-        $program->load(['wellbeingPackage', 'perusahaan']);
+        $program->load(['wellbeingPackage', 'perusahaan', 'reviews']);
 
         return view('admin.wellbeing-webinars.index', [
             'program' => $program,
