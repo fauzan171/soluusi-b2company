@@ -131,6 +131,15 @@ class EmployeeController extends Controller
             ->get(['perusahaan_session_id', 'client_advice'])
             ->keyBy('perusahaan_session_id');
 
+        // Audit UX: modal "Ubah jadwal" hanya menawarkan slot milik konsultan
+        // sesi masing-masing (keyed by session id) — bukan semua slot tenant.
+        // Server-side: lebih murah daripada render semua slot + filter Alpine,
+        // sekaligus menghapus pemanggilan BookingService::available di view (N+1 render).
+        $rescheduleSlots = $mySessions
+            ->mapWithKeys(fn ($s) => [$s->id => \App\Services\BookingService::available('perusahaan', $perusahaan->id)
+                ->where('consultant_id', $s->consultant_id)->values()])
+            ->filter(fn ($slots) => $slots->isNotEmpty());
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -148,6 +157,7 @@ class EmployeeController extends Controller
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
+            'rescheduleSlots' => $rescheduleSlots,
         ]);
     }
 

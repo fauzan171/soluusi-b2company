@@ -14,7 +14,7 @@
     ];
 @endphp
 
-<div x-data="{ detail: null, wellbeing: false, rescheduleId: null, requestConsult: false }" @keydown.escape.window="detail = null; wellbeing = false; rescheduleId = null; requestConsult = false">
+<div x-data="{ detail: null, wellbeing: false, rescheduleId: null, requestConsult: false, rescheduleSlots: {{ Js::from($rescheduleSlots->map(fn ($slots) => $slots->map(fn ($slot) => ['id' => $slot->id, 'label' => $slot->started_at->translatedFormat('d M Y H.i').' · '.$slot->consultant->user->firstname]))) }} }" @keydown.escape.window="detail = null; wellbeing = false; rescheduleId = null; requestConsult = false">
     <div class="flex items-center justify-between mb-1">
         <h1 class="text-xl font-bold text-pine-900">Halo, {{ $employee->name }}</h1>
         @if($isPreview)
@@ -485,14 +485,17 @@
             </div>
             <form method="POST" :action="'{{ url('/perusahaan/employee/sessions') }}/' + rescheduleId + '/reschedule'" class="mt-4">
                 @csrf
-                <label for="reschedule-slot" class="block text-sm">Slot baru sesuai jenis konsultan (WIB)</label>
+                <label for="reschedule-slot" class="block text-sm">Slot baru dengan konsultan yang sama (WIB)</label>
                 <select id="reschedule-slot" name="schedule_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
                     <option value="">— pilih slot —</option>
-                    @foreach(\App\Services\BookingService::available('perusahaan', $perusahaan->id) as $slot)
-                    <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H.i') }} · {{ $slot->consultant->user->firstname }}</option>
-                    @endforeach
+                    <template x-for="slot in (rescheduleSlots[rescheduleId] || [])" :key="slot.id">
+                        <option :value="slot.id" x-text="slot.label"></option>
+                    </template>
                 </select>
                 @error('schedule_id')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                <template x-if="rescheduleId && !(rescheduleSlots[rescheduleId] || []).length">
+                    <p class="mt-2 text-xs text-gray-400">Belum ada slot baru untuk konsultan sesi ini. Hubungi HR.</p>
+                </template>
                 <button class="mt-4 w-full rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Simpan jadwal baru</button>
             </form>
         </div>
