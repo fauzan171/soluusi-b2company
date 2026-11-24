@@ -34,7 +34,7 @@
         <input name="hr_email" type="email" required maxlength="150" class="w-full border rounded p-2 mt-1" placeholder="hr@contoh.co.id">
     </label>
     <label class="text-sm md:col-span-2">Password awal HR (min 8)
-        <input name="hr_password" type="text" required minlength="8" class="w-full border rounded p-2 mt-1" autocomplete="off">
+        <input name="hr_password" type="password" required minlength="8" class="w-full border rounded p-2 mt-1" autocomplete="new-password">
     </label>
     @if($errors->any())
         <p class="md:col-span-2 text-sm text-red-600">{{ $errors->first() }}</p>
@@ -56,7 +56,11 @@
     <tbody>
         @forelse($perusahaans as $p)
             <tr class="border-b">
-                <td class="p-3 font-semibold">{{ $p->brand }}<div class="text-xs text-gray-400">{{ $p->name }}</div></td>
+                <td class="p-3 font-semibold">
+                    <a href="{{ route('admin.tenants.perusahaans.show', $p) }}"
+                       class="text-emerald-700 hover:underline">{{ $p->brand }}</a>
+                    <div class="text-xs text-gray-400">{{ $p->name }}</div>
+                </td>
                 <td class="p-3">
                     @foreach($p->admins->pluck('user') as $hr)
                         <div>{{ trim(($hr?->firstname ?? '') . ' ' . ($hr?->lastname ?? '')) }}</div>
