@@ -115,6 +115,9 @@ class BookingService
                 // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
                 // senyap ditimpa mode slot baru.
                 'mode' => $mode,
+                // Audit UX: tipe konsultasi juga dipertahankan saat reschedule
+                // — tanpa ini one_on_one senyap jatuh ke 'chat' + room hilang.
+                'consultation_type' => $session->consultation_type,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
             ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
         });

@@ -146,8 +146,8 @@
             </div>
             @endforeach
         </div>
+        @endif
     </section>
-    @endif
 
     {{-- Modal: minta konsultasi --}}
     <div x-show="requestConsult" x-cloak x-transition.opacity class="fixed inset-0 z-50 grid place-items-center bg-pine-950/50 p-4">
