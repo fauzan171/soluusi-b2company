@@ -54,7 +54,7 @@ class AuthController extends Controller
         return match ($role) {
             'klinik_admin' => ($user->klinik?->status ?? null) === 'suspended',
             // Konsultan tidak punya home-klinik — cek via schedules.klinik_id (klinik yang dia layani).
-            'konsultan' => \App\Models\Schedule::whereIn('consultant_id', \App\Models\Consultant::where('user_id', $user->id)->pluck('id'))
+            'consultant' => \App\Models\Schedule::whereIn('consultant_id', \App\Models\Consultant::where('user_id', $user->id)->pluck('id'))
                 ->whereNotNull('klinik_id')
                 ->join('kliniks', 'kliniks.id', '=', 'schedules.klinik_id')
                 ->where('kliniks.status', 'suspended')->exists(),

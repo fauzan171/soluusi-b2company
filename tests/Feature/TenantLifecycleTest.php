@@ -201,7 +201,7 @@ class TenantLifecycleTest extends TestCase
     public function test_konsultan_dari_klinik_suspended_tidak_bisa_login()
     {
         $k = Klinik::create(['name' => 'Klinik Uji', 'brand' => 'KU', 'is_active' => true]);
-        $roleKon = Role::firstOrCreate(['name' => 'konsultan']);
+        $roleKon = Role::firstOrCreate(['name' => 'consultant']);
         $konUser = User::factory()->create(['role_id' => $roleKon->id, 'password' => Hash::make('SI_SECRET_PASSWORD_Q72NFRH5')]);
         $consultant = \App\Models\Consultant::create([
             'user_id' => $konUser->id,
@@ -233,7 +233,7 @@ class TenantLifecycleTest extends TestCase
     public function test_konsultan_tanpa_klinik_tetap_bisa_login()
     {
         // Konsultan independen (tidak melayani klinik manapun) tidak kena block
-        $roleKon = Role::firstOrCreate(['name' => 'konsultan']);
+        $roleKon = Role::firstOrCreate(['name' => 'consultant']);
         $konUser = User::factory()->create(['role_id' => $roleKon->id, 'password' => Hash::make('SI_SECRET_PASSWORD_Q72NFRH5')]);
         \App\Models\Consultant::create([
             'user_id' => $konUser->id,
