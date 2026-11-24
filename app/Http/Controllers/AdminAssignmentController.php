@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminAction;
 use App\Models\Consultant;
 use App\Models\ConsultantAvailabilityException;
 use App\Models\ConsultantPool;
@@ -52,12 +53,18 @@ class AdminAssignmentController extends Controller
         abort_if(ConsultantPool::where('perusahaan_id', $data['perusahaan_id'])
             ->where('consultant_id', $data['consultant_id'])->exists(), 422, 'Konsultan sudah di-assign.');
 
-        ConsultantPool::create([
+        $pool = ConsultantPool::create([
             'perusahaan_id' => $data['perusahaan_id'],
             'consultant_id' => $data['consultant_id'],
             'contract_start' => $data['contract_start'] ?? null,
             'contract_end' => $data['contract_end'] ?? null,
             'status' => 'active',
+        ]);
+
+        // Audit F15: assign/end/activate tercatat untuk audit log viewer.
+        AdminAction::record(auth()->id(), 'consultant_pool.assign', $pool, [
+            'perusahaan_id' => (int) $data['perusahaan_id'],
+            'consultant_id' => (int) $data['consultant_id'],
         ]);
 
         return back()->with('success', 'Konsultan di-assign ke perusahaan.');
@@ -68,6 +75,10 @@ class AdminAssignmentController extends Controller
     {
         abort_if($assignment->status === 'ended', 422, 'Assignment sudah berakhir.');
         $assignment->update(['status' => 'ended']);
+        AdminAction::record(auth()->id(), 'consultant_pool.end', $assignment, [
+            'perusahaan_id' => $assignment->perusahaan_id,
+            'consultant_id' => $assignment->consultant_id,
+        ]);
         return back()->with('success', 'Assignment diakhiri.');
     }
 
@@ -75,6 +86,10 @@ class AdminAssignmentController extends Controller
     public function activate(ConsultantPool $assignment)
     {
         $assignment->update(['status' => 'active']);
+        AdminAction::record(auth()->id(), 'consultant_pool.activate', $assignment, [
+            'perusahaan_id' => $assignment->perusahaan_id,
+            'consultant_id' => $assignment->consultant_id,
+        ]);
         return back()->with('success', 'Assignment diaktifkan.');
     }
 
