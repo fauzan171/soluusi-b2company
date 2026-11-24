@@ -37,13 +37,28 @@ class SekolahSessionPolicy
         return $this->cancel($user, $session);
     }
 
-    /** Siswa pemilik atau konsultan assigned, sesi harus scheduled. */
+    /** Siswa pemilik atau konsultan assigned, sesi harus scheduled (kirim pesan / start / end). */
     public function chat(User $user, SekolahSession $session): bool
     {
         if ($session->status !== 'scheduled') {
             return false;
         }
 
+        return $this->participates($user, $session);
+    }
+
+    /** Buka room: sesi aktif, atau read-only setelah done (ringkasan + rating). BK tetap tidak. */
+    public function viewRoom(User $user, SekolahSession $session): bool
+    {
+        if (! in_array($session->status, ['scheduled', 'done'], true)) {
+            return false;
+        }
+
+        return $this->participates($user, $session);
+    }
+
+    private function participates(User $user, SekolahSession $session): bool
+    {
         return $this->isOwnerStudent($user, $session)
             || $this->isAssignedConsultant($user, $session);
     }
