@@ -119,6 +119,7 @@ class TenantManagementTest extends TestCase
         $this->actingAs($this->admin())->put("/admin/tenants/perusahaans/{$perusahaan->id}", [
             'name' => 'PT Baru',
             'brand' => 'BaruCorp',
+            'employee_count' => 120,
             'pepm_rate' => 20000,
             'sessions_per_employee_month' => 3,
             'ai_enabled' => true,
@@ -126,6 +127,7 @@ class TenantManagementTest extends TestCase
 
         $perusahaan->refresh();
         $this->assertSame('PT Baru', $perusahaan->name);
+        $this->assertSame(120, (int) $perusahaan->employee_count);
         $this->assertSame(20000, (int) $perusahaan->pepm_rate);
         $this->assertSame(3, (int) $perusahaan->sessions_per_employee_month);
         $this->assertTrue((bool) $perusahaan->ai_enabled);

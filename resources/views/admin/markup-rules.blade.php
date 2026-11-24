@@ -6,7 +6,7 @@
         <h1 class="text-xl font-bold">Markup Paket — {{ $klinik->brand_name }}</h1>
         <p class="text-sm text-gray-500 mt-1">Harga dikunci saat checkout link dibuat. Nilai di atas cap otomatis ditolak.</p>
     </div>
-    <a href="{{ route('klinik.dashboard', ['klinik_id' => $klinik->id]) }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Dashboard klinik</a>
+    <a href="{{ route('admin.tenants.kliniks.show', $klinik) }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Detail Klinik</a>
 </div>
 
 <form method="GET" class="mb-4 flex gap-2 max-w-xl">

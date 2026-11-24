@@ -13,6 +13,7 @@
         <div class="flex justify-between"><dt class="text-gray-500">Nama legal</dt><dd class="font-semibold">{{ $perusahaan->name }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">Rate PEPM</dt><dd class="font-semibold">Rp{{ number_format($perusahaan->pepm_rate, 0, ',', '.') }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">Kuota sesi/karyawan/bln</dt><dd class="font-semibold">{{ $perusahaan->sessions_per_employee_month }}</dd></div>
+        <div class="flex justify-between"><dt class="text-gray-500">Jumlah karyawan terdaftar</dt><dd class="font-semibold">{{ $perusahaan->employee_count }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">MoU</dt><dd class="font-semibold">{{ optional($perusahaan->mou_at)->format('d M Y') ?? '—' }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">Associate</dt><dd class="font-semibold">{{ $perusahaan->associate?->fullname ?? '—' }}</dd></div>
         <div class="flex justify-between"><dt class="text-gray-500">AI insight</dt><dd class="font-semibold">{{ $perusahaan->ai_enabled ? 'aktif' : 'nonaktif' }}</dd></div>
@@ -44,6 +45,15 @@
 
 <a href="{{ route('admin.tenants.perusahaans.edit', $perusahaan) }}"
    class="inline-block bg-emerald-600 text-white font-semibold rounded px-4 py-2 text-sm hover:bg-emerald-700">Edit tenant</a>
+
+@if(!$perusahaan->is_active)
+    <form action="{{ route('admin.perusahaans.activate', $perusahaan) }}" method="POST" class="inline-block ml-2"
+          onsubmit="return confirm('Aktifkan program perusahaan ini?')">
+        @csrf
+        <button class="bg-emerald-600 text-white font-semibold rounded px-4 py-2 text-sm hover:bg-emerald-700">Aktifkan program</button>
+    </form>
+@endif
+<a href="{{ route('admin.wellbeing-programs.index') }}" class="inline-block ml-2 text-sm text-emerald-700 font-semibold hover:underline">Program Wellbeing →</a>
 
 @php($v = 'perusahaans')
 @include('admin.tenants._lifecycle-actions', ['tenant' => $perusahaan, 'vertical' => $v])

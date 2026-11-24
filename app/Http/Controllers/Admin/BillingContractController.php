@@ -23,7 +23,7 @@ class BillingContractController extends Controller
             $c->renewal_due = $c->status === 'active'
                 && $c->ends_at
                 && $c->ends_at->isFuture()
-                && $c->ends_at->diffInDays(now()) < 30;
+                && now()->diffInDays($c->ends_at) < 30;
 
             return $c;
         });

@@ -55,6 +55,25 @@ $instrument = null;
                 @csrf
                 <button class="text-xs {{ $a->status === 'active' ? 'text-red-600' : 'text-emerald-700' }} font-semibold hover:underline">{{ $a->status === 'active' ? 'Tutup' : 'Buka' }}</button>
             </form>
+            {{-- Audit F8: edit inline putaran & periode tanpa bikin assignment baru. --}}
+            <details class="ml-2">
+                <summary class="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer">Edit</summary>
+                <form method="POST" action="{{ route('admin.tenants.sekolahs.assignments.update', [$sekolah, $a]) }}"
+                      class="mt-2 flex flex-wrap items-end gap-2 bg-gray-50 border rounded p-2">
+                    @csrf
+                    @method('PUT')
+                    <label class="text-xs text-gray-600">Putaran
+                        <input type="number" name="round" required min="1" max="99" value="{{ old('round', $a->round) }}" class="w-16 border rounded px-2 py-1">
+                    </label>
+                    <label class="text-xs text-gray-600">Buka
+                        <input type="date" name="opens_at" required value="{{ old('opens_at', $a->opens_at->toDateString()) }}" class="border rounded px-2 py-1">
+                    </label>
+                    <label class="text-xs text-gray-600">Tutup
+                        <input type="date" name="closes_at" value="{{ old('closes_at', $a->closes_at?->toDateString()) }}" class="border rounded px-2 py-1">
+                    </label>
+                    <button class="bg-emerald-600 text-white text-xs font-semibold rounded px-3 py-1 hover:bg-emerald-700">Simpan</button>
+                </form>
+            </details>
         </div>
         @endforeach
     </div>

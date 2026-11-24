@@ -85,7 +85,7 @@ class ProvisioningController extends Controller
         });
 
         return redirect()
-            ->route('admin.provision')
+            ->route('admin.tenants.' . ($data['vertical'] === 'klinik' ? 'kliniks' : ($data['vertical'] === 'sekolah' ? 'sekolahs' : 'perusahaans')) . '.show', $tenant)
             ->with('success', "Tenant \"{$tenant->brand}\" + akun admin {$adminUser->email} dibuat dalam 1 transaksi.");
     }
 
