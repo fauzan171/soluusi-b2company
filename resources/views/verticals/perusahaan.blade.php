@@ -37,7 +37,7 @@
       <a href="{{ route('landing.sekolah') }}" class="hover:text-[#1d2d50]">Sekolah</a>
       <a href="{{ route('landing.perusahaan') }}" class="text-[#1d2d50]">Perusahaan</a>
     </div>
-    <a href="{{ route('partner.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#152040] transition-colors">Jadi Mitra</a>
+    <a href="{{ route('perusahaan.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#152040] transition-colors">Jadi Mitra</a>
   </div>
 </nav>
 
@@ -54,7 +54,7 @@
           EAP, skrining mental, workshop wellbeing — kurangi turnover, absen, burnout dengan data agregat yang aman untuk HR.
         </p>
         <div class="reveal mt-10 flex flex-wrap gap-4">
-          <a href="{{ route('partner.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#152040] transition-colors">Diskusi Kemitraan →</a>
+          <a href="{{ route('perusahaan.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#152040] transition-colors">Diskusi Kemitraan →</a>
           <a href="#skema" class="border border-[#1d2d50]/25 text-[#1d2d50] font-semibold px-8 py-4 rounded-full hover:border-[#1d2d50] transition-colors">Lihat Skema</a>
         </div>
       </div>
@@ -206,7 +206,7 @@
     <h2 class="reveal font-display text-4xl md:text-5xl font-medium tracking-tight">Siap mendukung wellbeing karyawan?</h2>
     <p class="reveal mt-6 text-[#1a2420]/70 text-lg leading-relaxed">Diskusi 30 menit tanpa komitmen. Tim CAP kami akan siapkan proposal 1-pager sesuai skala perusahaan.</p>
     <div class="reveal mt-10 flex flex-wrap justify-center gap-4">
-      <a href="{{ route('partner.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#152040] transition-colors">Diskusi Kemitraan →</a>
+      <a href="{{ route('perusahaan.register') }}" class="bg-[#1d2d50] text-[#f7f4ee] font-semibold px-8 py-4 rounded-full hover:bg-[#152040] transition-colors">Diskusi Kemitraan →</a>
       <a href="{{ route('landing.klinik') }}" class="border border-[#1d2d50]/25 text-[#1d2d50] font-semibold px-8 py-4 rounded-full hover:border-[#1d2d50] transition-colors">Lihat vertikal lain</a>
     </div>
   </div>

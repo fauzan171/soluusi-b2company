@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', $title ?? config('whitelabel.internal_brand', 'Soluusi'))</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- Alpine global: banyak halaman portal pakai x-data/x-cloak; bundle Vite tidak memuatnya. --}}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 @php
     $user = auth()->user();
@@ -21,7 +23,10 @@
     $navItems = match (true) {
         $isSekolahRoute && in_array($role, ['bk', 'admin']) => [
             ['route' => 'sekolah.dashboard', 'pattern' => 'sekolah.dashboard', 'label' => 'Dashboard', 'icon' => 'chart'],
-            ['route' => 'sekolah.students', 'pattern' => 'sekolah.students*', 'label' => 'Siswa', 'icon' => 'users'],
+            ['route' => 'sekolah.students', 'pattern' => 'sekolah.students', 'label' => 'Siswa', 'icon' => 'users'],
+            ['route' => 'sekolah.review', 'pattern' => 'sekolah.review*', 'label' => 'Review Permintaan', 'icon' => 'check'],
+            ['route' => 'sekolah.consultants.pool', 'pattern' => 'sekolah.consultants.pool*', 'label' => 'Pool Konsultan', 'icon' => 'star'],
+            ['route' => 'sekolah.students.import', 'pattern' => 'sekolah.students.import*', 'label' => 'Import Siswa', 'icon' => 'document-arrow-down'],
             ['route' => 'sekolah.report', 'pattern' => 'sekolah.report', 'label' => 'Laporan', 'icon' => 'document-arrow-down'],
         ],
         request()->routeIs('consultant.*') => [
@@ -49,15 +54,16 @@
             ['route' => 'perusahaan.program-progress', 'pattern' => 'perusahaan.program-progress*', 'label' => 'Progres Program', 'icon' => 'arrow-trending-up'],
             ['route' => 'perusahaan.report', 'pattern' => 'perusahaan.report*', 'label' => 'Laporan', 'icon' => 'document-arrow-down'],
             ['route' => 'perusahaan.program-subscription', 'pattern' => 'perusahaan.program-subscription*', 'label' => 'Program & Subscription', 'icon' => 'receipt'],
-            ['route' => 'perusahaan.profile', 'pattern' => 'perusahaan.profile*', 'label' => 'Profil Perusahaan', 'icon' => 'building'],
+            ['route' => 'perusahaan.review', 'pattern' => 'perusahaan.review*', 'label' => 'Antrian Review', 'icon' => 'check'],
+            ['route' => 'perusahaan.employees', 'pattern' => 'perusahaan.employees*', 'label' => 'Karyawan', 'icon' => 'users'],
+            ['route' => 'perusahaan.consultants.pool', 'pattern' => 'perusahaan.consultants.*', 'label' => 'Konsultan', 'icon' => 'star'],
         ],
         $isPerusahaanRoute => [
             // wv4: employee nav 8 menu.
             ['route' => 'perusahaan.employee', 'pattern' => 'perusahaan.employee', 'label' => 'Kesejahteraanku', 'icon' => 'heart'],
             ['route' => 'perusahaan.assessment.instruments', 'pattern' => 'perusahaan.assessment.instruments*', 'label' => 'Asesmenku', 'icon' => 'sparkles'],
             ['route' => 'perusahaan.employee.results', 'pattern' => 'perusahaan.employee.results*', 'label' => 'Hasilku', 'icon' => 'document-arrow-down'],
-            ['route' => 'perusahaan.employee.results', 'pattern' => 'perusahaan.assessment.result*', 'label' => 'Rekomendasi', 'icon' => 'hand-heart'],
-            ['route' => 'perusahaan.consultants', 'pattern' => 'perusahaan.chat*', 'label' => 'Expert Chat', 'icon' => 'chat'],
+            ['route' => 'perusahaan.consultants', 'pattern' => 'perusahaan.consultants*', 'label' => 'Expert Chat', 'icon' => 'chat'],
             ['route' => 'perusahaan.booking', 'pattern' => 'perusahaan.booking*', 'label' => 'Konsultasiku', 'icon' => 'calendar'],
             ['route' => 'perusahaan.employee.activities', 'pattern' => 'perusahaan.employee.activities*', 'label' => 'Aktivitasku', 'icon' => 'bolt'],
             ['route' => 'perusahaan.employee.privacy', 'pattern' => 'perusahaan.employee.privacy*', 'label' => 'Privasi & Consent', 'icon' => 'shield'],
@@ -78,13 +84,14 @@
             ['route' => 'admin.employees.index', 'pattern' => 'admin.employees*', 'label' => 'Karyawan', 'icon' => 'users'],
             ['route' => 'admin.assessment-instruments.index', 'pattern' => 'admin.assessment-instruments*', 'label' => 'Asesmen', 'icon' => 'sparkles'],
             ['route' => 'admin.consultant-assignment.index', 'pattern' => 'admin.consultant-assignment*', 'label' => 'Expert & Konsultasi', 'icon' => 'star'],
-            ['route' => 'admin.ops-queue.index', 'pattern' => 'admin.ops-queue*', 'label' => 'Laporan & Insight', 'icon' => 'document-arrow-down'],
+            ['route' => 'admin.ops-queue.index', 'pattern' => 'admin.ops-queue*', 'label' => 'Ops Queue', 'icon' => 'document-arrow-down'],
             ['route' => 'admin.billing.index', 'pattern' => 'admin.billing*', 'label' => 'Billing & Kontrak', 'icon' => 'receipt'],
         ],
         request()->routeIs('associate.*') => [
+            // ponytail: #komisi = anchor di halaman yang sama, jadi hanya Dashboard yang active (hindari double-active).
             ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard', 'label' => 'Dashboard HPA', 'icon' => 'chart'],
             // F4: deep-link payout (anchor #komisi) — nav associate bukan dead-end.
-            ['route' => 'associate.dashboard', 'pattern' => 'associate.dashboard.komisi', 'label' => 'Komisi & Payout', 'icon' => 'receipt', 'hash' => '#komisi'],
+            ['route' => 'associate.dashboard', 'pattern' => '', 'label' => 'Komisi & Payout', 'icon' => 'receipt', 'hash' => '#komisi'],
         ],
         default => [],
     };
@@ -112,7 +119,8 @@
                 @endforeach
             </nav>
             @auth
-            <form method="POST" action="{{ route('logout') }}" class="border-t border-white/10 pt-3 px-2">@csrf
+            <a href="{{ route('password.change') }}" class="block border-t border-white/10 pt-3 px-2 text-sm text-white/60 hover:text-white">Ubah password</a>
+            <form method="POST" action="{{ route('logout') }}" class="pt-2 px-2">@csrf
                 <button class="text-sm text-white/60 hover:text-white w-full text-left">Keluar</button>
             </form>
             @endauth
@@ -131,7 +139,7 @@
                     {{-- Super admin bisa buka portal klinik/perusahaan mana saja — pilih di sini. --}}
                     @if($role === 'admin')
                         @if(request()->routeIs('perusahaan.*'))
-                            <select onchange="if(this.value) location.search = '?perusahaan_id=' + this.value"
+                            <select onchange="if(this.value){ const u = new URL(location); u.searchParams.set('perusahaan_id', this.value); location = u; }"
                                     class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
                                 <option value="">— pilih perusahaan —</option>
                                 @foreach(\App\Models\Perusahaan\Perusahaan::orderBy('brand')->get() as $p)
@@ -139,7 +147,7 @@
                                 @endforeach
                             </select>
                         @elseif(request()->routeIs('sekolah.*'))
-                            <select onchange="if(this.value) location.search = '?sekolah_id=' + this.value"
+                            <select onchange="if(this.value){ const u = new URL(location); u.searchParams.set('sekolah_id', this.value); location = u; }"
                                     class="text-sm border border-[#e7e2d9] rounded-lg px-2 py-1 bg-white">
                                 <option value="">— pilih sekolah —</option>
                                 @foreach(\App\Models\Sekolah\Sekolah::orderBy('brand')->get() as $s)
@@ -194,9 +202,10 @@
                 </summary>
                 <nav aria-label="Menu portal" class="flex flex-col gap-2 px-4 sm:px-6 pb-3">
                     @foreach($navItems as $item)
-                        <a href="{{ route($item['route']) }}" class="text-sm py-1 {{ request()->routeIs($item['pattern']) ? 'font-bold' : '' }}" @if(request()->routeIs($item['pattern'])) aria-current="page" @endif>{{ $item['label'] }}</a>
+                        <a href="{{ route($item['route']) }}{{ $item['hash'] ?? '' }}" class="text-sm py-1 {{ request()->routeIs($item['pattern']) ? 'font-bold' : '' }}" @if(request()->routeIs($item['pattern'])) aria-current="page" @endif>{{ $item['label'] }}</a>
                     @endforeach
                     @auth
+                        <a href="{{ route('password.change') }}" class="text-sm py-1 text-gray-500">Ubah password</a>
                         <form method="POST" action="{{ route('logout') }}">@csrf
                             <button class="text-left text-sm py-1 text-gray-500">Keluar</button>
                         </form>
