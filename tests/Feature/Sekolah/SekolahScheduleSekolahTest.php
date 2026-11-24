@@ -54,8 +54,7 @@ class SekolahScheduleSekolahTest extends TestCase
             'status' => Consultant::ACCEPT, 'is_active' => true,
         ]);
         ConsultantPool::create([
-            'vertical' => 'sekolah', 'tenant_id' => $sekolah->id,
-            'consultant_id' => $consultant->id, 'type' => 'psikolog',
+            'sekolah_id' => $sekolah->id, 'consultant_id' => $consultant->id,
         ]);
 
         // Request yang sudah di-ACC BK: consultant assigned, jadwal belum di-set.
@@ -132,5 +131,35 @@ class SekolahScheduleSekolahTest extends TestCase
             ->assertSee('Sesi sekolah (SAP)', false);
 
         $this->assertNull($session->scheduled_at);
+    }
+
+    public function test_set_schedule_select_only_lists_own_slots(): void
+    {
+        [$session, $docUser, $slot] = $this->fixture();
+        $otherUser = $this->user('other@jadwal.test', 'consultant');
+        $other = Consultant::create([
+            'user_id' => $otherUser->id, 'uuid' => (string) Str::uuid(),
+            'about' => 'Test', 'profit_sharing' => 0,
+            'status' => Consultant::ACCEPT, 'is_active' => true,
+        ]);
+        ConsultantPool::create([
+            'sekolah_id' => $session->sekolah_id,
+            'consultant_id' => $other->id,
+        ]);
+        $foreign = Schedule::create([
+            'sekolah_id' => $session->sekolah_id, 'consultant_id' => $other->id,
+            'started_at' => now()->addDays(3), 'ended_at' => now()->addDays(3)->addHour(),
+            'status' => Schedule::STATUS_CONFIRMED, 'mode' => 'online',
+        ]);
+
+        $this->actingAs($docUser)->get(route('consultant.sessions'))
+            ->assertOk()
+            ->assertSee('value="'.$slot->id.'"', false)
+            ->assertDontSee('value="'.$foreign->id.'"', false);
+
+        $slot->delete();
+        $this->actingAs($docUser)->get(route('consultant.sessions'))
+            ->assertOk()
+            ->assertSee('Belum ada slot kosong kamu');
     }
 }

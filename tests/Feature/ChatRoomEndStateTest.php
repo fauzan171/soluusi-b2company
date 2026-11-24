@@ -160,4 +160,39 @@ class ChatRoomEndStateTest extends TestCase
             ->assertOk()
             ->assertDontSee('Akhiri sesi');
     }
+
+    public function test_done_cap_room_renders_single_rating_form_feeding_both_aggregates(): void
+    {
+        [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        $html = $this->actingAs($empUser)->get(route('perusahaan.chat', $session))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'name="rating"'));
+        $this->assertStringContainsString(route('perusahaan.chat.rate', $session), $html);
+        $this->assertStringNotContainsString(route('perusahaan.reviews.store', $session), $html);
+
+        $this->actingAs($empUser)->post(route('perusahaan.chat.rate', $session), ['rating' => 4, 'comment' => 'ok'])
+            ->assertRedirect();
+        $this->assertSame(4, (int) $session->fresh()->rating);
+        $this->assertSame(['avg' => 4.0, 'count' => 1],
+            PerusahaanSession::ratingAggregate($consultant->id, $session->perusahaan_id));
+
+        $this->actingAs($empUser)->get(route('perusahaan.chat', $session))->assertOk()->assertDontSee('name="rating"', false);
+    }
+
+    public function test_consultant_room_has_meeting_link_form(): void
+    {
+        [$empUser, $emp, $docUser, $consultant, $session] = $this->fixture();
+
+        $this->actingAs($docUser)->get(route('consultant.chat', $session))
+            ->assertOk()
+            ->assertSee(route('consultant.sessions.meeting-link', $session), false);
+        $this->actingAs($empUser)->get(route('perusahaan.chat', $session))
+            ->assertOk()
+            ->assertDontSee(route('consultant.sessions.meeting-link', $session), false);
+
+        $this->actingAs($docUser)->post(route('consultant.sessions.meeting-link', $session), ['meeting_url' => 'https://meet.google.com/abc-defg-hij'])
+            ->assertRedirect();
+        $this->assertSame('https://meet.google.com/abc-defg-hij', $session->fresh()->meeting_url);
+    }
 }

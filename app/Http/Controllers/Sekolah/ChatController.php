@@ -20,7 +20,7 @@ class ChatController extends Controller
     /** Siswa/staf: buka room chat sesinya. $prefix memilih route group (sekolah.* vs sekolah.staff.*). */
     public function student(SekolahSession $session, string $prefix = 'sekolah')
     {
-        $this->authorize('chat', $session);
+        $this->authorize('viewRoom', $session);
 
         return $this->room(
             $session,
@@ -42,7 +42,7 @@ class ChatController extends Controller
     /** Konsultan: buka room chat sesi sekolah. */
     public function consultant(SekolahSession $session)
     {
-        $this->authorize('chat', $session);
+        $this->authorize('viewRoom', $session);
 
         return $this->room($session, 'Siswa', route('consultant.sekolah.chat.store', $session), route('consultant.sessions'));
     }
@@ -80,8 +80,7 @@ class ChatController extends Controller
         PervormaService::evaluate('sap', $session->sekolah);
         GenerateSessionSummary::dispatch($session->id, 'sekolah');
 
-        // Redirect ke daftar sesi, bukan room: policy chat() menolak sesi done.
-        return redirect()->route('consultant.sessions')->with('success', 'Sesi diakhiri.');
+        return redirect()->route('consultant.sekolah.chat', $session)->with('success', 'Sesi diakhiri.');
     }
 
     /** Siswa: akhiri sesi (mark done) — mirror employeeEnd CAP. */
@@ -97,8 +96,8 @@ class ChatController extends Controller
         PervormaService::evaluate('sap', $session->sekolah);
         GenerateSessionSummary::dispatch($session->id, 'sekolah');
 
-        // Redirect ke portal, bukan room: policy chat() menolak sesi done.
-        return redirect()->route($prefix === 'sekolah' ? 'sekolah.student' : 'sekolah.staff')
+        // Room done tetap bisa dibuka (read-only) → form rating ada di sana.
+        return redirect()->route($prefix.'.chat', $session)
             ->with('success', 'Sesi diakhiri. Silakan beri rating.');
     }
 

@@ -115,11 +115,24 @@ class ChatController extends Controller
     {
         $this->authorize('rate', $session);
 
-        abort_if($session->rating, 422, 'Sudah dirating.');
+        abort_if($session->rating || $session->review()->exists(), 422, 'Sudah dirating.');
 
-        $r->validate(['rating' => ['required', 'integer', 'min:1', 'max:5']]);
+        $data = $r->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
 
-        $session->update(['rating' => $r->rating]);
+        // Satu form di room: rating sesi (dashboard HR/utilisasi) + ulasan
+        // (agregat konsultan, ratingAggregate) ditulis sekaligus.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($session, $data) {
+            $session->update(['rating' => $data['rating']]);
+            \App\Models\Perusahaan\ConsultationReview::create([
+                'perusahaan_session_id' => $session->id,
+                'perusahaan_employee_id' => $session->employee_id,
+                'rating' => $data['rating'],
+                'comment' => $data['comment'] ?? null,
+            ]);
+        });
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Terima kasih atas ratingnya.');

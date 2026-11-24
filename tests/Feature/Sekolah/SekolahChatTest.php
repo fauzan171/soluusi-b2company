@@ -154,4 +154,63 @@ class SekolahChatTest extends TestCase
         $this->actingAs($bk)->get(route('sekolah.chat', $session))
             ->assertStatus(403);
     }
+
+    public function test_sap_room_has_no_cap_only_forms(): void
+    {
+        [, , $docUser, $session] = $this->fixture();
+
+        $this->actingAs($docUser)->get(route('consultant.sekolah.chat', $session))
+            ->assertOk()
+            ->assertDontSee('Catatan sesi')
+            ->assertDontSee('/note"', false)
+            ->assertDontSee('/result"', false)
+            ->assertDontSee('Ulasan karyawan')
+            ->assertDontSee('meeting-link', false);
+    }
+
+    public function test_done_room_is_read_only_for_participants(): void
+    {
+        [, $siswa, $docUser, $session] = $this->fixture();
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        $this->actingAs($siswa)->get(route('sekolah.chat', $session))
+            ->assertOk()
+            ->assertSee(route('sekolah.chat.rate', $session), false)
+            ->assertSee('Kirim ulasan');
+        $this->actingAs($docUser)->get(route('consultant.sekolah.chat', $session))->assertOk();
+
+        // Posting/start/end tetap butuh sesi aktif.
+        $this->actingAs($siswa)->postJson(route('sekolah.chat.store', $session), ['body' => 'x'])->assertForbidden();
+        $this->actingAs($docUser)->post(route('consultant.sekolah.chat.start', $session))->assertForbidden();
+        $this->actingAs($docUser)->post(route('consultant.sekolah.chat.end', $session))->assertForbidden();
+        $this->assertSame(0, ChatMessage::where('sekolah_session_id', $session->id)->count());
+
+        $intruder = $this->user('intruder2@chat.test', 'student');
+        $this->actingAs($intruder)->get(route('sekolah.chat', $session))->assertForbidden();
+    }
+
+    public function test_student_rates_done_session_once(): void
+    {
+        [, $siswa, , $session] = $this->fixture();
+        $session->update(['status' => 'done', 'completed_at' => now()]);
+
+        $this->actingAs($siswa)->post(route('sekolah.chat.rate', $session), ['rating' => 4])->assertRedirect();
+        $this->actingAs($siswa)->post(route('sekolah.chat.rate', $session), ['rating' => 1])->assertStatus(422);
+        $this->assertSame(4, (int) $session->fresh()->rating);
+
+        $this->actingAs($siswa)->get(route('sekolah.chat', $session))
+            ->assertOk()
+            ->assertDontSee('Kirim ulasan')
+            ->assertSee('Rating:');
+    }
+
+    public function test_end_redirects_to_room_with_rating_form(): void
+    {
+        Bus::fake();
+        config()->set('pervorma.stages', []);
+        [, $siswa, , $session] = $this->fixture();
+
+        $this->actingAs($siswa)->post(route('sekolah.chat.end', $session))
+            ->assertRedirect(route('sekolah.chat', $session));
+    }
 }
