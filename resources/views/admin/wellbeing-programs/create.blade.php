@@ -5,48 +5,73 @@
 @section('content')
 <div class="flex items-baseline justify-between mb-2">
     <h1 class="text-xl font-bold">Assign Program ({{ $step }}/3)</h1>
-    <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Dashboard</a>
+    <a href="{{ route('admin.wellbeing-programs.index') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Program Wellbeing</a>
 </div>
 <p class="text-sm text-gray-500 mb-6">
     Aktifkan paket untuk perusahaan: pilih paket, band, opsi Deep Support, dan tanggal mulai.
 </p>
 
+@if($step === 1)
+{{-- STEP 1 — GET form: server memproses pilihan → step 2 dengan konteks lengkap --}}
+<form method="GET" action="{{ route('admin.wellbeing-programs.create') }}"
+      class="bg-white border rounded-lg p-6 mb-8 max-w-3xl">
+    <input type="hidden" name="step" value="2">
+    <h2 class="font-semibold text-gray-700 mb-3">Perusahaan &amp; Paket</h2>
+    <label class="text-sm block mb-4">Perusahaan
+        <select name="perusahaan_id" required class="w-full border rounded p-2 mt-1 bg-white">
+            <option value="">— pilih perusahaan aktif —</option>
+            @foreach($perusahaans as $p)
+                <option value="{{ $p->id }}" @selected(old('perusahaan_id') == $p->id)>
+                    {{ $p->brand }} — {{ $p->name }} ({{ $p->employee_count }} karyawan)
+                </option>
+            @endforeach
+        </select>
+    </label>
+    <fieldset class="mb-4">
+        <legend class="text-sm font-semibold mb-1">Paket</legend>
+        <div class="flex flex-wrap gap-3 text-sm">
+            @foreach($packages as $pkg)
+                <label class="flex items-center gap-1.5 border rounded px-3 py-1.5 cursor-pointer">
+                    <input type="radio" name="package_code" value="{{ $pkg->code }}" @checked(old('package_code') === $pkg->code)>
+                    {{ $pkg->name }}{{ $pkg->is_free ? ' (Gratis)' : '' }}
+                </label>
+            @endforeach
+        </div>
+    </fieldset>
+    <button type="submit" class="bg-emerald-600 text-white font-semibold rounded py-2 px-4 text-sm hover:bg-emerald-700">Lanjut →</button>
+</form>
+@endif
+
+@if($step > 1)
+@php
+    $bandMap = $bands->mapWithKeys(fn ($b) => [
+        $b->band_min => [
+            'label' => number_format($b->band_min, 0, ',', '.') . '–' . number_format($b->band_max, 0, ',', '.') . ' karyawan',
+            'price' => 'Rp' . number_format($b->monthly_price, 0, ',', '.') . '/bulan',
+        ],
+    ])->all();
+@endphp
 <form method="POST" action="{{ route('admin.wellbeing-programs.store') }}"
       class="bg-white border rounded-lg p-6 mb-8 max-w-3xl"
-      x-data="{
+      x-data='{
           step: {{ $step }},
-          packageCode: '{{ old('package_code', $package?->code ?? 'discovery') }}',
-          bandMin: '{{ old('band_min', $selectedBand?->band_min ?? $suggestedBandMin ?? '') }}',
-          mode: '{{ old('deep_support_mode', $package?->deep_support_mode ?? 'mhcu') }}'
-      }">
+          bandMin: "{{ old('band_min', (string) ($selectedBand?->band_min ?? $suggestedBandMin ?? '')) }}",
+          mode: "{{ old('deep_support_mode', $package?->deep_support_mode ?? 'mhcu') }}",
+          startsAt: "{{ old('starts_at', now()->addDay()->toDateString()) }}",
+          durationDays: {{ (int) ($package?->duration_days ?? 0) }},
+          bands: @js($bandMap),
+          endsAt() {
+              if (!this.startsAt || this.durationDays < 1) return "—";
+              const p = this.startsAt.split("-");
+              const d = new Date(+p[0], +p[1] - 1, +p[2]);
+              d.setDate(d.getDate() + this.durationDays - 1);
+              const m = String(d.getMonth() + 1).padStart(2, "0");
+              return d.getFullYear() + "-" + m + "-" + String(d.getDate()).padStart(2, "0");
+          }
+      }'>
     @csrf
-
-    {{-- STEP 1 — Perusahaan & Paket --}}
-    <div x-show="step === 1" x-cloak>
-        <h2 class="font-semibold text-gray-700 mb-3">Perusahaan &amp; Paket</h2>
-        <label class="text-sm block mb-4">Perusahaan
-            <select name="perusahaan_id" required class="w-full border rounded p-2 mt-1 bg-white">
-                <option value="">— pilih perusahaan aktif —</option>
-                @foreach($perusahaans as $p)
-                    <option value="{{ $p->id }}" @selected(old('perusahaan_id') == $p->id)>
-                        {{ $p->brand }} — {{ $p->name }} ({{ $p->employee_count }} karyawan)
-                    </option>
-                @endforeach
-            </select>
-        </label>
-        <fieldset class="mb-4">
-            <legend class="text-sm font-semibold mb-1">Paket</legend>
-            <div class="flex flex-wrap gap-3 text-sm">
-                @foreach($packages as $pkg)
-                    <label class="flex items-center gap-1.5 border rounded px-3 py-1.5 cursor-pointer"
-                           :class="packageCode === '{{ $pkg->code }}' ? 'border-emerald-600 bg-emerald-50' : ''">
-                        <input type="radio" name="package_code" value="{{ $pkg->code }}" x-model="packageCode" @checked(old('package_code') === $pkg->code)>
-                        {{ $pkg->name }}{{ $pkg->is_free ? ' (Gratis)' : '' }}
-                    </label>
-                @endforeach
-            </div>
-        </fieldset>
-    </div>
+    <input type="hidden" name="perusahaan_id" value="{{ $perusahaan?->id }}">
+    <input type="hidden" name="package_code" value="{{ $package?->code }}">
 
     {{-- STEP 2 — Detail Paket --}}
     <div x-show="step === 2" x-cloak>
@@ -110,11 +135,18 @@
         @endif
 
         @if($package && $package->code === 'discovery')
-            <label class="text-sm block mb-4">Karyawan terpilih Deep Support (maks 8, kosong = semua)
-                <input type="text" name="selected_employee_ids" placeholder="ID karyawan, pisahkan koma (mis. 12,15,19)"
-                       value="{{ old('selected_employee_ids') ? implode(',', old('selected_employee_ids')) : '' }}"
-                       class="w-full border rounded p-2 mt-1">
-            </label>
+            <fieldset class="mb-4">
+                <legend class="text-sm font-semibold mb-1">Karyawan terpilih Deep Support (maks 8, kosong = semua)</legend>
+                <div class="grid gap-1.5 text-sm max-h-48 overflow-y-auto">
+                    @foreach($employees as $emp)
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="selected_employee_ids[]" value="{{ $emp->id }}"
+                                   @checked(in_array($emp->id, (array) old('selected_employee_ids', [])))>
+                            {{ $emp->name }}{{ $emp->departement?->name ? ' — ' . $emp->departement->name : '' }}
+                        </label>
+                    @endforeach
+                </div>
+            </fieldset>
         @endif
 
         {{-- B2/D3: instrumen core per paket --}}
@@ -182,7 +214,7 @@
                                 {{ $label }}
                             </label>
                             <input type="number" name="addons[{{ $code }}][price]" min="0" max="999999999" placeholder="Rp"
-                                   data-price="{{ $code }}" disabled
+                                   data-price="{{ $code }}" @disabled(old("addons.{$code}.code") !== (string) $code)
                                    value="{{ old("addons.{$code}.price") }}"
                                    class="border rounded p-1 w-32 text-xs">
                         </div>
@@ -194,7 +226,7 @@
 
         <div class="grid sm:grid-cols-2 gap-4 mb-4">
             <label class="text-sm">Tanggal Mulai
-                <input type="date" name="starts_at" required value="{{ old('starts_at', now()->addDay()->toDateString()) }}" class="w-full border rounded p-2 mt-1">
+                <input type="date" name="starts_at" required x-model="startsAt" value="{{ old('starts_at', now()->addDay()->toDateString()) }}" class="w-full border rounded p-2 mt-1">
             </label>
             <label class="text-sm">Durasi Program
                 <input type="text" readonly value="{{ $package ? $package->duration_days . ' hari' : '—' }}"
@@ -203,22 +235,29 @@
         </div>
     </div>
 
-    {{-- STEP 3 — Konfirmasi & Aktivasi --}}
+    {{-- STEP 3 — Konfirmasi (ringkasan live dari pilihan step 2) --}}
     <div x-show="step === 3" x-cloak>
         <h2 class="font-semibold text-gray-700 mb-3">Konfirmasi</h2>
         <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 mb-4 max-w-md">
             <dt class="text-gray-500">Perusahaan</dt><dd class="font-semibold">{{ $perusahaan?->brand }}</dd>
             <dt class="text-gray-500">Paket</dt><dd class="font-semibold">{{ $package?->name }}</dd>
-            <dt class="text-gray-500">Band</dt>
-            <dd class="font-semibold">{{ $selectedBand ? number_format($selectedBand->band_min, 0, ',', '.') . '–' . number_format($selectedBand->band_max, 0, ',', '.') . ' karyawan' : ($package?->is_free ? '—' : '—') }}</dd>
-            <dt class="text-gray-500">Harga</dt>
-            <dd class="font-semibold">{{ $selectedBand ? 'Rp' . number_format($selectedBand->monthly_price, 0, ',', '.') . '/bulan + pajak' : ($package?->is_free ? 'Gratis' : '—') }}</dd>
-            <dt class="text-gray-500">Opsi DS</dt>
-            <dd class="font-semibold">{{ old('deep_support_mode') === 'one_on_one' ? 'B: sesi 1-on-1' : (in_array($package?->code, ['growth', 'impact']) ? 'A: sesi MHCU' : '—') }}</dd>
+            @if($package && !$package->is_free)
+                <dt class="text-gray-500">Band</dt>
+                <dd class="font-semibold" x-text="bands[bandMin]?.label || '—'">{{ $selectedBand ? $bandMap[$selectedBand->band_min]['label'] : '—' }}</dd>
+                <dt class="text-gray-500">Harga</dt>
+                <dd class="font-semibold" x-text="bands[bandMin]?.price ? bands[bandMin].price + ' + pajak' : '—'">{{ $selectedBand ? $bandMap[$selectedBand->band_min]['price'] . ' + pajak' : '—' }}</dd>
+            @else
+                <dt class="text-gray-500">Band</dt><dd class="font-semibold">—</dd>
+                <dt class="text-gray-500">Harga</dt><dd class="font-semibold">{{ $package?->is_free ? 'Gratis' : '—' }}</dd>
+            @endif
+            @if($package && in_array($package->code, ['growth', 'impact']))
+                <dt class="text-gray-500">Opsi DS</dt>
+                <dd class="font-semibold" x-text="mode === 'one_on_one' ? 'B: sesi 1-on-1' : 'A: sesi MHCU'">{{ old('deep_support_mode') === 'one_on_one' ? 'B: sesi 1-on-1' : 'A: sesi MHCU' }}</dd>
+            @endif
             <dt class="text-gray-500">Periode</dt>
             <dd class="font-semibold">
-                {{ old('starts_at', now()->addDay()->toDateString()) }} s.d.
-                {{ \Illuminate\Support\Carbon::parse(old('starts_at', now()->addDay()))->addDays((int) $package?->duration_days)->subDay()->toDateString() }}
+                <span x-text="startsAt">{{ old('starts_at', now()->addDay()->toDateString()) }}</span>
+                s.d. <span x-text="endsAt()">{{ \Illuminate\Support\Carbon::parse(old('starts_at', now()->addDay()))->addDays((int) $package?->duration_days)->subDay()->toDateString() }}</span>
                 ({{ $package?->duration_days }} hari)
             </dd>
             @if($package?->code === 'foundation')
@@ -236,21 +275,22 @@
         <p class="text-sm text-red-600 mb-4">{{ $errors->first() }}</p>
     @endif
 
-    {{-- Navigasi step: lanjut via JS; submit final saat step 3 --}}
+    {{-- Navigasi step: step 2→3 via JS; submit final saat step 3 --}}
     <div class="flex gap-3">
-        <button type="button" x-show="step > 1" x-cloak @click="step--"
-                class="border rounded py-2 px-4 text-sm font-semibold hover:bg-gray-50">← Kembali</button>
-        <button type="button" x-show="step < 3" @click="step++"
+        @if($step === 2)
+            <a href="{{ route('admin.wellbeing-programs.create', ['perusahaan_id' => $perusahaan?->id, 'package_code' => $package?->code]) }}"
+               class="border rounded py-2 px-4 text-sm font-semibold hover:bg-gray-50">← Kembali</a>
+        @else
+            <button type="button" @click="step = 2"
+                    class="border rounded py-2 px-4 text-sm font-semibold hover:bg-gray-50">← Kembali</button>
+        @endif
+        <button type="button" x-show="step === 2" @click="step++"
                 class="bg-emerald-600 text-white font-semibold rounded py-2 px-4 text-sm hover:bg-emerald-700">Lanjut →</button>
         <button type="submit" x-show="step === 3" x-cloak
                 class="bg-emerald-600 text-white font-semibold rounded py-2 px-4 text-sm hover:bg-emerald-700">Aktifkan Program</button>
     </div>
-
-    {{-- hidden fields supaya state step 2 terbawa saat submit --}}
-    @if($step > 1)
-        <input type="hidden" name="package_code" value="{{ $package?->code }}">
-    @endif
 </form>
+@endif
 
 {{-- §3d: tabel Program Berjalan (form-atas-tabel-bawah ala perusahaans.blade.php) --}}
 <div class="flex items-baseline justify-between mb-2">
@@ -289,15 +329,24 @@
                         <div class="flex items-center gap-2">
                             <a href="{{ route('admin.wellbeing-webinars.index', $pr) }}"
                                class="text-xs text-emerald-700 font-semibold hover:underline">Webinar</a>
-                            <form method="POST" action="{{ route('admin.wellbeing-programs.request-termination', $pr) }}" class="flex items-center gap-2">
-                                @csrf
-                                <input type="date" name="effective_date" required min="{{ now()->addDays(30)->toDateString() }}"
-                                       value="{{ now()->addDays(30)->toDateString() }}" class="border rounded p-1 text-xs">
-                                <button type="submit" class="text-xs text-terra-700 font-semibold hover:underline"
-                                        onclick="return confirm('Ajukan terminasi 30-day notice?')">
-                                    Terminasi
-                                </button>
-                            </form>
+                            @if($pr->notice_requested_at)
+                                <span class="text-xs text-terra-700 font-semibold">Terminasi efektif {{ \Illuminate\Support\Carbon::parse($pr->terminated_at)->format('d M Y') }}</span>
+                                <form method="POST" action="{{ route('admin.wellbeing-programs.cancel-termination', $pr) }}">
+                                    @csrf
+                                    <button type="submit" class="text-xs text-emerald-700 font-semibold hover:underline"
+                                            onclick="return confirm('Batalkan pengajuan terminasi?')">Batalkan</button>
+                                </form>
+                            @else
+                                <form method="POST" action="{{ route('admin.wellbeing-programs.request-termination', $pr) }}" class="flex items-center gap-2">
+                                    @csrf
+                                    <input type="date" name="effective_date" required min="{{ now()->addDays(30)->toDateString() }}"
+                                           value="{{ now()->addDays(30)->toDateString() }}" class="border rounded p-1 text-xs">
+                                    <button type="submit" class="text-xs text-terra-700 font-semibold hover:underline"
+                                            onclick="return confirm('Ajukan terminasi 30-day notice?')">
+                                        Terminasi
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     @endif
                 </td>

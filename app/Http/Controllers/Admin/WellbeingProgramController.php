@@ -53,6 +53,12 @@ class WellbeingProgramController extends Controller
             $selectedBand = $bands->firstWhere('band_min', (int) ($request->query('band_min', $suggestedBandMin ?? 0)));
         }
 
+        // R4: discovery — pilih karyawan dari daftar (nama + divisi, tanpa email).
+        $employees = $step > 1 && $package?->code === 'discovery'
+            ? $perusahaan->employees()->withoutGlobalScope(\App\Models\Scopes\TenantScope::class)
+                ->with('departement:id,name')->orderBy('name')->get(['id', 'name', 'departement_id'])
+            : collect();
+
         return view('admin.wellbeing-programs.create', [
             'packages' => $packages,
             'perusahaans' => $perusahaans,
@@ -62,6 +68,7 @@ class WellbeingProgramController extends Controller
             'bands' => $bands,
             'selectedBand' => $selectedBand,
             'suggestedBandMin' => $suggestedBandMin,
+            'employees' => $employees,
             'programs' => CompanyWellbeingProgram::with(['perusahaan', 'wellbeingPackage', 'pricingBand'])
                 ->orderByDesc('id')->limit(20)->get(),
         ]);
@@ -69,15 +76,6 @@ class WellbeingProgramController extends Controller
 
     public function store(Request $request)
     {
-        // Fix REV#1: UI kirim string "12,15,19" — normalisasi ke array sebelum validasi.
-        if (is_string($request->input('selected_employee_ids'))) {
-            $ids = array_values(array_filter(
-                explode(',', (string) $request->input('selected_employee_ids')),
-                fn ($v) => $v !== '' && is_numeric(trim($v))
-            ));
-            $request->merge(['selected_employee_ids' => array_map('intval', $ids)]);
-        }
-
         // B2/D3-D4: step instrumen wizard — core paket + extras MH + add-on.
         // required_if sesuai paket (B2 spec; direct POST tanpa field → 422, bukan default diam-diam).
         $instrumentRules = [
@@ -273,6 +271,27 @@ class WellbeingProgramController extends Controller
         $efektif = \Illuminate\Support\Carbon::parse($data['effective_date'])->format('d M Y');
 
         return back()->with('success', "Terminasi program {$program->perusahaan->brand} diajukan, efektif {$efektif} (program tetap aktif sampai tanggal efektif).");
+    }
+
+    /** Audit F11: batalkan 30-day notice yang masih pending (superadmin saja). */
+    public function cancelTermination(CompanyWellbeingProgram $program)
+    {
+        abort_unless(auth()->user()?->role?->name === 'admin', 403,
+            'Hanya superadmin yang dapat membatalkan terminasi.');
+
+        abort_if(!$program->notice_requested_at || $program->status !== 'active', 422,
+            'Tidak ada pengajuan terminasi yang pending.');
+
+        $program->update([
+            'notice_requested_at' => null,
+            'terminated_at' => null,
+        ]);
+
+        AdminAction::record(auth()->id(), 'wellbeing_program.termination_cancelled', $program, [
+            'perusahaan' => $program->perusahaan->brand,
+        ]);
+
+        return back()->with('success', "Pengajuan terminasi program {$program->perusahaan->brand} dibatalkan.");
     }
 
     private function resolveBand(WellbeingPackage $package, int $bandMin): ?WellbeingPricingBand
