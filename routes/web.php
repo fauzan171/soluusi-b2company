@@ -371,6 +371,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
     Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
     Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+    Route::post('/wellbeing-programs/{program}/cancel-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'cancelTermination'])->name('wellbeing-programs.cancel-termination');
 
 // wv1: instruments
     Route::get('/instruments', [\App\Http\Controllers\Admin\InstrumentController::class, 'index'])->name('instruments.index');

@@ -28,7 +28,7 @@
                             <th class="py-2 pr-4 font-medium">Periode</th>
                             <th class="py-2 pr-4 font-medium">Karyawan</th>
                             <th class="py-2 pr-4 font-medium">Ringkasan kuota</th>
-                            <th class="py-2 font-medium">Status</th>
+                            <th class="py-2 pr-4 font-medium">Status</th>
                             <th class="py-2 font-medium">Aksi</th>
                         </tr>
                     </thead>
@@ -45,6 +45,22 @@
                             </td>
                             <td class="py-2.5">
                                 <a href="{{ route('admin.programs.assessments', $p) }}" class="text-xs text-emerald-700 font-semibold hover:underline">Assignment</a>
+                                @if($p->status === 'active' && $p->notice_requested_at)
+                                    <div class="mt-1 text-xs text-red-600 font-semibold">Terminasi efektif {{ optional($p->terminated_at)->format('d M Y') }}</div>
+                                    <form method="POST" action="{{ route('admin.wellbeing-programs.cancel-termination', $p) }}" class="mt-1">
+                                        @csrf
+                                        <button type="submit" class="text-xs text-emerald-700 font-semibold hover:underline"
+                                                onclick="return confirm('Batalkan pengajuan terminasi?')">Batalkan terminasi</button>
+                                    </form>
+                                @elseif($p->status === 'active')
+                                    <form method="POST" action="{{ route('admin.wellbeing-programs.request-termination', $p) }}" class="mt-1 flex items-center gap-1">
+                                        @csrf
+                                        <input type="date" name="effective_date" required min="{{ now()->addDays(30)->toDateString() }}"
+                                               value="{{ now()->addDays(30)->toDateString() }}" class="border rounded p-0.5 text-xs" aria-label="Tanggal efektif">
+                                        <button type="submit" class="text-xs text-red-600 font-semibold hover:underline"
+                                                onclick="return confirm('Ajukan terminasi 30-day notice?')">Terminasi</button>
+                                    </form>
+                                @endif
                             </td>
                         </tr>
                         @endforeach
