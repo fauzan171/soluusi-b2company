@@ -5,7 +5,7 @@
 @section('content')
 <div class="flex items-baseline justify-between mb-2">
     <h1 class="text-xl font-bold">Webinar — {{ $program->wellbeingPackage->name }} / {{ $program->perusahaan->brand }}</h1>
-    <a href="{{ route('admin.wellbeing-programs.create') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Assign Program</a>
+    <a href="{{ route('admin.wellbeing-programs.index') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Program Wellbeing</a>
 </div>
 <p class="text-sm text-gray-500 mb-4">
     Kontrak {{ $program->starts_at->format('d M y') }}–{{ $program->ends_at->format('d M y') }} —
@@ -13,12 +13,6 @@
     Mark done = 1 kuota terpakai (no-show dicatat sebagai forfeited).
 </p>
 
-@if(session('success'))
-<div class="mb-4 rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">{{ session('success') }}</div>
-@endif
-@if(session('error'))
-<div class="mb-4 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">{{ session('error') }}</div>
-@endif
 @if($errors->any())
 <div class="mb-4 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
     @foreach($errors->all() as $err)<div>{{ $err }}</div>@endforeach
@@ -112,4 +106,28 @@
         @endforelse
     </tbody>
 </table></div>
+
+{{-- wv2 §3: review kuartalan Impact — admin menandai selesai + ringkasan. --}}
+<div class="flex items-baseline justify-between mb-2">
+    <h2 class="font-semibold">Review Kuartalan Impact</h2>
+</div>
+<div class="bg-white border rounded-lg mb-8 max-w-3xl p-5">
+    @forelse($program->reviews->where('status', \App\Models\WellbeingProgramReview::STATUS_UPCOMING) as $review)
+        <form method="POST" action="{{ route('admin.wellbeing-reviews.complete', $review) }}" class="mb-4 last:mb-0">
+            @csrf
+            <p class="text-sm mb-2">
+                Periode {{ $review->period_no }} — tenggat {{ optional($review->due_at)->format('d M Y') }}
+            </p>
+            <label class="text-sm block mb-2">Ringkasan
+                <textarea name="summary" required rows="2" class="w-full border rounded p-2 mt-1"
+                          placeholder="Ringkasan hasil review periode ini">{{ old('summary') }}</textarea>
+            </label>
+            <button type="submit" class="bg-emerald-600 text-white font-semibold rounded py-1.5 px-4 text-sm hover:bg-emerald-700">
+                Tandai selesai
+            </button>
+        </form>
+    @empty
+        <p class="text-sm text-gray-400">Tidak ada review pending. Periode berikutnya muncul saat waktunya.</p>
+    @endforelse
+</div>
 @endsection

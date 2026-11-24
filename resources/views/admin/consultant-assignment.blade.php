@@ -4,9 +4,6 @@
 <h1 class="text-xl font-bold mb-1">Consultant Assignment — <a href="{{ route('admin.dashboard') }}" class="text-sm text-emerald-700 font-normal hover:underline">← Dashboard</a></h1>
 <p class="text-sm text-gray-500 mb-6">Assign/remove konsultan ke pool tenant (perusahaan / sekolah). Konsultan yang ter-assign muncul di picker booking tenant.</p>
 
-@if(session('success'))
-<div class="mb-4 rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">{{ session('success') }}</div>
-@endif
 @if($errors->any())
 <div class="mb-4 rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
     @foreach($errors->all() as $err)<div>{{ $err }}</div>@endforeach
