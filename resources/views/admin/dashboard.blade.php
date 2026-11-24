@@ -13,7 +13,7 @@
                 + \App\Models\Sekolah\Sekolah::where('is_active', false)->count();
         @endphp
         <a href="{{ route('admin.ops-queue.index') }}" class="text-emerald-700 font-semibold hover:underline">
-            Ops antrean: {{ $opsQueueCount }}{{ $opsQueueCount === 0 ? ' <span class="ops-queue-badge-zero"></span>' : '' }}
+            Ops antrean: {{ $opsQueueCount }}{!! $opsQueueCount === 0 ? ' <span class="ops-queue-badge-zero"></span>' : '' !!}
         </a>
         <a href="{{ route('admin.referral-overview') }}" class="text-emerald-700 font-semibold hover:underline">Referral HPA → klinik →</a>
         <a href="{{ route('admin.consultant-per-klinik') }}" class="text-emerald-700 font-semibold hover:underline">Konsultan per klinik →</a>
