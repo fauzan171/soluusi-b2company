@@ -65,15 +65,21 @@
                             @endif
                             @if(!$cs->scheduled_at && $cs->status === 'scheduled')
                             <a href="{{ route('consultant.sessions.propose-slots.form', $cs) }}" class="inline-flex items-center rounded-lg border border-pine-300 text-pine-700 px-3 py-1.5 text-xs font-semibold hover:bg-pine-50 transition-colors">Usulkan opsi jadwal</a>
+                            {{-- Hanya slot milik konsultan ini — slot konsultan lain ditolak schedulePerusahaan (404). --}}
+                            @php($mySlots = \App\Services\BookingService::available('perusahaan', $cs->perusahaan_id)->where('consultant_id', $consultant->id))
+                            @if($mySlots->isNotEmpty())
                             <form method="POST" action="{{ route('consultant.sessions.schedule', $cs) }}">
                                 @csrf
                                 <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
                                     <option value="">Set jadwal…</option>
-                                    @foreach(\App\Services\BookingService::available('perusahaan', $cs->perusahaan_id) as $slot)
+                                    @foreach($mySlots as $slot)
                                     <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M H.i') }}</option>
                                     @endforeach
                                 </select>
                             </form>
+                            @else
+                            <span class="text-[11px] text-gray-500">Belum ada slot kosong kamu di perusahaan ini — usulkan opsi jadwal.</span>
+                            @endif
                             @endif
                         </div>
                     </td>
@@ -123,15 +129,20 @@
                             @if($ss->scheduled_at)
                             <a href="{{ route('consultant.sekolah.chat', $ss) }}" class="inline-flex items-center rounded-lg bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition-colors">Chat</a>
                             @elseif($ss->status === 'scheduled')
+                            @php($mySlots = \App\Services\BookingService::available('sekolah', $ss->sekolah_id)->where('consultant_id', $consultant->id))
+                            @if($mySlots->isNotEmpty())
                             <form method="POST" action="{{ route('consultant.sekolah.schedule', $ss) }}">
                                 @csrf
                                 <select name="schedule_id" required class="text-xs border border-[#e7e2d9] rounded-lg px-2 py-1.5 focus:outline-none focus:border-pine-400" onchange="this.form.submit()">
                                     <option value="">Set jadwal…</option>
-                                    @foreach(\App\Services\BookingService::available('sekolah', $ss->sekolah_id) as $slot)
+                                    @foreach($mySlots as $slot)
                                     <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M H.i') }}</option>
                                     @endforeach
                                 </select>
                             </form>
+                            @else
+                            <span class="text-[11px] text-gray-500">Belum ada slot kosong kamu di sekolah ini. Minta admin sekolah menambah slot jadwal kamu.</span>
+                            @endif
                             @endif
                         </div>
                     </td>
@@ -153,7 +164,7 @@
         <div id="session-filter" class="flex flex-wrap gap-1.5">
             <button data-filter="all" class="filter-btn rounded-full px-3 py-1 text-xs font-medium bg-pine-700 text-white">Semua</button>
             <button data-filter="scheduled" class="filter-btn rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 hover:bg-pine-100">Terjadwal</button>
-            <button data-filter="completed" class="filter-btn rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 hover:bg-pine-100">Selesai</button>
+            <button data-filter="done" class="filter-btn rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 hover:bg-pine-100">Selesai</button>
             <button data-filter="cancelled" class="filter-btn rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 hover:bg-pine-100">Batal</button>
         </div>
     </header>
@@ -196,14 +207,14 @@
                             </form>
                             @endif
                             @if(!$s->konsultan_done_at)
-                            <form method="POST" action="{{ route('consultant.sessions.markDone', $s) }}" class="space-y-1.5">@csrf
+                            <form method="POST" action="{{ route('consultant.sessions.markDone', $s) }}" class="space-y-1.5" onsubmit="return confirm('Tandai sesi ini selesai? Customer akan diminta konfirmasi.');">@csrf
                                 <textarea name="note" rows="2" placeholder="Catatan sesi (rahasia)" class="w-full border border-[#e7e2d9] rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-pine-400"></textarea>
                                 <textarea name="solution" rows="2" placeholder="Ringkasan untuk customer" class="w-full border border-[#e7e2d9] rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-pine-400"></textarea>
                                 <button class="rounded-lg bg-pine-700 text-white px-3 py-1.5 text-xs font-semibold hover:bg-pine-800 transition-colors">Tandai Selesai</button>
                             </form>
                             @endif
                             @if($s->link_meeting)
-                                <a href="{{ $s->link_meeting }}" class="text-xs font-medium text-pine-700 hover:text-pine-900">Link Meet →</a>
+                                <a href="{{ $s->link_meeting }}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-pine-700 hover:text-pine-900">Link Meet →</a>
                             @endif
                         </div>
                         @endif
