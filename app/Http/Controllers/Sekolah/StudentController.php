@@ -124,7 +124,13 @@ class StudentController extends Controller
         }
 
         $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
-        SekolahAssessmentService::submit($student, $assignment, $instrument, $r);
+        $row = SekolahAssessmentService::submit($student, $assignment, $instrument, $r);
+
+        // Jawaban tanda kesulitan serius (P9 dsb) → pesan krisis, bukan flash sukses biasa.
+        if ($row->escalated) {
+            return redirect()->route('sekolah.student')
+                ->with('crisis', 'Salah satu jawaban kamu menandakan kesulitan serius. Segera bicara dengan guru BK atau orang dewasa yang kamu percaya, atau hubungi hotline krisis 119 ext. 8 (24 jam). Kamu tidak sendirian.');
+        }
 
         return redirect()->route('sekolah.student')
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');

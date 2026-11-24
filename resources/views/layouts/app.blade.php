@@ -226,6 +226,9 @@
                 @if(session('info'))
                     <div class="mb-4 p-3 rounded-xl bg-blue-100 text-blue-800 text-sm">{{ session('info') }}</div>
                 @endif
+                @if(session('crisis'))
+                    <div class="mb-4 p-4 rounded-xl bg-red-600 text-white text-sm font-semibold" role="alert">{{ session('crisis') }}</div>
+                @endif
                 @if(isset($errors) && $errors->any())
                     <div class="mb-4 p-3 rounded-xl bg-red-100 text-red-800 text-sm">
                         @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach

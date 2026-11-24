@@ -126,7 +126,13 @@ class StaffController extends Controller
         }
 
         $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
-        SekolahAssessmentService::submit($staff, $assignment, $instrument, $r);
+        $row = SekolahAssessmentService::submit($staff, $assignment, $instrument, $r);
+
+        // Paritas siswa: jawaban tanda kesulitan serius → pesan krisis.
+        if ($row->escalated) {
+            return redirect()->route('sekolah.staff')
+                ->with('crisis', 'Salah satu jawaban kamu menandakan kesulitan serius. Segera bicara dengan profesional yang kamu percaya, atau hubungi hotline krisis 119 ext. 8 (24 jam). Kamu tidak sendirian.');
+        }
 
         return redirect()->route('sekolah.staff')
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');

@@ -226,7 +226,7 @@ class WellbeingProgramAssignmentTest extends TestCase
 
         $this->actingAs($this->admin())
             ->post(route('admin.wellbeing-programs.store'), $this->payload($p, [
-                'package_code' => 'discovery', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
+                'package_code' => 'discovery', 'discovery_instrument' => 'who5', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
             ]))
             ->assertRedirect();
 
@@ -262,7 +262,7 @@ class WellbeingProgramAssignmentTest extends TestCase
         // 9 karyawan → 422
         $this->actingAs($this->admin())
             ->postJson(route('admin.wellbeing-programs.store'), $this->payload($p, [
-                'package_code' => 'discovery', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
+                'package_code' => 'discovery', 'discovery_instrument' => 'who5', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
                 'selected_employee_ids' => $ids,
             ]))
             ->assertStatus(422);
@@ -270,7 +270,7 @@ class WellbeingProgramAssignmentTest extends TestCase
         // 8 karyawan → sukses, snapshot ids
         $this->actingAs($this->admin())
             ->post(route('admin.wellbeing-programs.store'), $this->payload($p, [
-                'package_code' => 'discovery', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
+                'package_code' => 'discovery', 'discovery_instrument' => 'who5', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
                 'selected_employee_ids' => array_slice($ids, 0, 8),
             ]))
             ->assertRedirect();
@@ -414,6 +414,31 @@ class WellbeingProgramAssignmentTest extends TestCase
         $response->assertSee('20.499.999');
         $response->assertSee('pajak');
         $response->assertSee('readonly', false);
+    }
+
+    // B2 spec — direct POST tanpa field instrumen → 422, bukan default diam-diam.
+    public function test_discovery_tanpa_discovery_instrument_422()
+    {
+        $this->seedCatalog();
+        $p = $this->perusahaan(30);
+
+        $payload = $this->payload($p, [
+            'package_code' => 'discovery', 'discovery_instrument' => 'who5', 'band_min' => null, 'deep_support_mode' => 'one_on_one',
+        ]);
+        unset($payload['discovery_instrument']);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('admin.wellbeing-programs.store'), $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('discovery_instrument');
+
+        $foundation = $this->foundationPayload($p);
+        unset($foundation['foundation_domain']);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('admin.wellbeing-programs.store'), $foundation)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('foundation_domain');
     }
 
     public function test_view_create_hijau_untuk_admin()

@@ -79,9 +79,10 @@ class WellbeingProgramController extends Controller
         }
 
         // B2/D3-D4: step instrumen wizard — core paket + extras MH + add-on.
+        // required_if sesuai paket (B2 spec; direct POST tanpa field → 422, bukan default diam-diam).
         $instrumentRules = [
-            'discovery_instrument' => ['nullable', 'string', 'in:who5,dass21'],
-            'foundation_domain' => ['nullable', 'string', 'in:mh,nutrition'],
+            'discovery_instrument' => ['required_if:package_code,discovery', 'string', 'in:who5,dass21'],
+            'foundation_domain' => ['required_if:package_code,foundation', 'string', 'in:mh,nutrition'],
             'mh_extras' => ['nullable', 'array'],
             'mh_extras.*' => ['string', 'in:who5,pss10'],
             'addons' => ['nullable', 'array'],

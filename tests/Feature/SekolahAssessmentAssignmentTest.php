@@ -350,6 +350,57 @@ class SekolahAssessmentAssignmentTest extends TestCase
         $row = SekolahAssessment::where('student_id', $person->id)
             ->where('instrument_code', 'phq9')->sole();
         $this->assertTrue((bool) $row->escalated);
+
+        // Crisis flash dirender di halaman tujuan staf (B3 paritas siswa).
+        $this->followingRedirects()->get(route('sekolah.staff'))
+            ->assertOk()
+            ->assertSee('hotline krisis 119 ext. 8')
+            ->assertSee('Kamu tidak sendirian', false);
+    }
+
+    public function test_student_pss10_success_flash_no_crisis_flash()
+    {
+        $sekolah = $this->sekolah();
+        [$user] = $this->student($sekolah);
+        $assignment = $this->assign($sekolah, 'pss10', 'student');
+
+        $answers = [];
+        foreach (InstrumentScoring::items(AssessmentInstrument::where('code', 'pss10')->firstOrFail()) as $item) {
+            $answers[$item->code] = 2;
+        }
+
+        // Normal submit → sukses, bukan crisis.
+        $this->actingAs($user)->post(route('sekolah.assessment.store', 'pss10'), [
+            'answers' => $answers,
+        ])->assertRedirect(route('sekolah.student'));
+
+        $this->followingRedirects()->get(route('sekolah.student'))
+            ->assertOk()
+            ->assertSee('Hasil asesmen kamu sudah tersimpan')
+            ->assertDontSee('hotline krisis');
+    }
+
+    /** B3 paritas: staf P9>0 → redirect + crisis flash terender (siswa diblokir D9). */
+    public function test_staff_pss_crisis_flash_rendered_on_redirect()
+    {
+        $sekolah = $this->sekolah();
+        [$user, $person] = $this->staff($sekolah);
+        $this->assign($sekolah, 'phq9', 'staff');
+
+        $answers = [];
+        foreach (InstrumentScoring::items(AssessmentInstrument::where('code', 'phq9')->firstOrFail()) as $item) {
+            $answers[$item->code] = 0;
+        }
+        $answers['P9'] = 1; // escalate_items PHQ-9
+
+        $this->actingAs($user)->post(route('sekolah.staff.assessment.store', 'phq9'), [
+            'answers' => $answers,
+        ])->assertRedirect(route('sekolah.staff'));
+
+        $this->followingRedirects()->get(route('sekolah.staff'))
+            ->assertOk()
+            ->assertSee('hotline krisis 119 ext. 8')
+            ->assertSee('Kamu tidak sendirian', false);
     }
 
     public function test_one_submission_per_assignment_per_student()

@@ -148,6 +148,7 @@ class AdminAssessmentAssignmentTest extends TestCase
 
         $this->assign($p, [
             'package_code' => 'discovery',
+            'discovery_instrument' => 'who5',
             'band_min' => null,
             'deep_support_mode' => 'one_on_one',
         ])->assertRedirect();
