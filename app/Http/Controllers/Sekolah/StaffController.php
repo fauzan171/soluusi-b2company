@@ -40,7 +40,8 @@ class StaffController extends Controller
             abort_if($staff->sekolah?->status === 'suspended', 403, 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.');
             if (!request()->isMethod('GET')
                 && !request()->routeIs('sekolah.staff.booking.cancel')
-                && !request()->routeIs('sekolah.staff.request.cancel')) {
+                && !request()->routeIs('sekolah.staff.request.cancel')
+                && !request()->routeIs('sekolah.staff.consent')) {
                 abort_unless($staff->sekolah?->is_active && $staff->consent_at, 403, 'Program belum aktif untuk akun Anda. Hubungi BK.');
             }
 
@@ -169,6 +170,23 @@ class StaffController extends Controller
             'backUrl' => route('sekolah.staff'),
             'formRoute' => fn ($code) => route('sekolah.staff.assessment.form', $code),
         ]);
+    }
+
+    /**
+     * Self-consent staf dewasa (paritas W6 perusahaan): staf mencatat
+     * persetujuan programnya sendiri saat GET pertama. Staf dewasa tidak
+     * boleh pakai jejak provenance "external evidence" milik consent ortu
+     * karena tidak ada ortu — cukup satu klik dengan penjelasan.
+     */
+    public function consentSelf(): \Illuminate\Http\RedirectResponse
+    {
+        $staff = $this->resolveStaff();
+
+        if (! $staff->consent_at) {
+            $staff->forceFill(['consent_at' => now()])->save();
+        }
+
+        return redirect()->route('sekolah.staff')->with('success', 'Persetujuan program tercatat. Portal kesejahteraan aktif.');
     }
 
     public function bookingForm()
