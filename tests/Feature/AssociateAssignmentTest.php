@@ -46,7 +46,7 @@ class AssociateAssignmentTest extends TestCase
         ];
     }
 
-    /** @dataProvider verticalProvider */
+    #[\PHPUnit\Framework\Attributes\DataProvider('verticalProvider')]
     public function test_assign_associate_sukses_dan_teraudit(string $slug, callable $make)
     {
         $tenant = $make();
@@ -66,7 +66,7 @@ class AssociateAssignmentTest extends TestCase
         $this->assertNull($action->payload_json['previous_associate_id']);
     }
 
-    /** @dataProvider verticalProvider */
+    #[\PHPUnit\Framework\Attributes\DataProvider('verticalProvider')]
     public function test_user_non_associate_ditolak_422(string $slug, callable $make)
     {
         $tenant = $make();

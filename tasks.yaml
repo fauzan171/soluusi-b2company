@@ -188,8 +188,7 @@ tasks:
   - id: T2.4
     title: Tenant global scope di model tenant-scoped
     phase: E
-    status: deferred
-    reason: "Risky untuk dikerjakan bareng flow baru F1.x. Kerjakan setelah F1.x stabil + test tenancy komprehensif hijau."
+    status: done  # 819b9bc TenantScope + TenantScopeTest
     depends: [T2.3, F1.3]
     spec: docs/tasks/open/T2.4-tenant-data-enforcement.md
     verify: "query tanpa scope tidak return data tenant lain; superadmin bypass via withoutGlobalScope; semua test hijau"
@@ -405,10 +404,9 @@ tasks:
   - id: ONB.6
     title: Paritas perusahaan↔sekolah + fix redirect role sekolah_staff
     phase: batch7
-    status: deferred
+    status: done  # f31a9ba + 352b3e9
     spec: docs/tasks/open/ONB.6-parity-and-role-redirect.md
     verify: "php artisan test --filter=OnboardingParityTest hijau; login sekolah_staff mendarat di /sekolah-portal/staff"
-    blocked_by: "role sekolah_staff belum ada di main; branch goal/sekolah-flow-parity belum merge ke main"
 
 notes:
   - "BATCH 7 ONBOARDING (18 Nov 2026): 6 task ONB.* di atas, spec lengkap di docs/tasks/open/. Urutan eksekusi — ONB.3 + ONB.1 dulu (fondasi kolom & tenant scope), lalu ONB.4, lalu ONB.2 (butuh keduanya), lalu ONB.5 & ONB.6. Migrasi baru = ASK FIRST sebelum jalan di DB non-lokal. Temuan laten yang ikut diperbaiki — RosterController.php:42 query kolom `perusahaan_id` yang tidak ada di `departements` (ONB.1), dan role `sekolah_staff` belum ada di main (ONB.6)."
@@ -432,7 +430,7 @@ tasks_gapfill_2026_11_23:
     - id: GAP.1
       title: Quotation — Total Biaya Kontrak di Program Order
       phase: gapfill
-      status: pending
+      status: done
       files: [resources/views/admin/wellbeing-programs/order.blade.php, tests/Feature/Wv3PerusahaanRegisterTest.php]
       spec: >
         Tambah baris "Total Biaya Kontrak" (monthly_price × jumlah bulan durasi, dari
@@ -444,7 +442,7 @@ tasks_gapfill_2026_11_23:
     - id: GAP.2
       title: Add-on flag instrumen (Ergonomic/DISC/BigFive = berbayar terpisah)
       phase: gapfill
-      status: pending
+      status: done
       files: [database/migrations/2026_11_23_000200_add_is_addon_to_assessment_instruments_table.php, database/seeders/AssessmentInstrumentSeeder.php, app/Http/Controllers/Perusahaan/AssessmentInstrumentController.php, resources/views/perusahaan/assessment-instruments.blade.php]
       spec: >
         Migration: add nullable boolean is_addon default false ke assessment_instruments
@@ -458,7 +456,7 @@ tasks_gapfill_2026_11_23:
     - id: GAP.3
       title: Campaign kind 'reminder' (pengingat assessment, doc §5D)
       phase: gapfill
-      status: pending
+      status: done
       files: [database/migrations/2026_11_23_000201_add_kind_to_engagement_campaigns_table.php, app/Models/EngagementCampaign.php, app/Http/Controllers/Perusahaan/CampaignController.php, app/Console/Commands/SendEngagementCampaigns.php, resources/views/perusahaan/campaigns.blade.php]
       spec: >
         Migration: add string kind default 'announcement' (announcement|edukasi|pengumuman|reminder).
@@ -471,7 +469,7 @@ tasks_gapfill_2026_11_23:
     - id: GAP.4
       title: Klinik revenue-share calculator (S&K klinik §5, 4 tier)
       phase: gapfill
-      status: pending
+      status: done
       files: [app/Support/RevenueShare.php, resources/views/admin/klinik-checkpoints.blade.php, app/Http/Controllers/Admin/KlinikCheckpointController.php, tests/Feature/KlinikRevenueShareTest.php]
       spec: >
         Service class statis RevenueShare::rate(int $price): ?float — 250000-299999→0.10,

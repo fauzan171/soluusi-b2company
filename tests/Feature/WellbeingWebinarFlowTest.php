@@ -274,7 +274,7 @@ class WellbeingWebinarFlowTest extends TestCase
     // Kuota snapshot 1/3/6 decrement per package
     // ------------------------------------------------------------------
 
-    /** @dataProvider webinarQuotaProvider */
+    #[\PHPUnit\Framework\Attributes\DataProvider('webinarQuotaProvider')]
     public function test_webinar_quota_snapshot_decrements_per_package(string $code, int $quota)
     {
         $this->seed(WellbeingPackageSeeder::class);
