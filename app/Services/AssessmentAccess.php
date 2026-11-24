@@ -53,14 +53,18 @@ class AssessmentAccess
 
     public static function resolveForEmployee(PerusahaanEmployee $e, string $code): ?AssessmentAssignment
     {
-        return self::forEmployee($e)->where('instrument_code', $code)
-            ->sortBy('round')->first();
+        $open = self::forEmployee($e)->where('instrument_code', $code)->sortBy('round');
+
+        // Round terbuka terendah yang belum dikerjakan; fallback round terendah
+        // (controller render "sudah dikerjakan").
+        return $open->first(fn ($a) => !self::hasSubmitted($a, $e->id, 'perusahaan')) ?? $open->first();
     }
 
     public static function resolveForSekolahMember(SekolahStudent $s, string $code): ?AssessmentAssignment
     {
-        return self::forSekolahMember($s)->where('instrument_code', $code)
-            ->sortBy('round')->first();
+        $open = self::forSekolahMember($s)->where('instrument_code', $code)->sortBy('round');
+
+        return $open->first(fn ($a) => !self::hasSubmitted($a, $s->id, 'sekolah')) ?? $open->first();
     }
 
     /** Apakah orang ini sudah submit utk assignment tsb (satu submission per window, D6). */

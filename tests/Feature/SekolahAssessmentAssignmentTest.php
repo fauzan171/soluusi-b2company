@@ -169,6 +169,22 @@ class SekolahAssessmentAssignmentTest extends TestCase
 
     // --- D9: minor safety ----------------------------------------------------
 
+    public function test_multi_round_student_reaches_round_two_after_round_one()
+    {
+        $sekolah = $this->sekolah();
+        [$user, $student] = $this->student($sekolah);
+        $r1 = $this->assign($sekolah, 'pss10', 'student');
+        $r2 = $this->assign($sekolah, 'pss10', 'student', ['round' => 2]);
+        $answers = array_fill(0, 10, 1);
+
+        $this->actingAs($user)->post(route('sekolah.assessment.store', 'pss10'), ['answers' => $answers]);
+        $this->actingAs($user)->post(route('sekolah.assessment.store', 'pss10'), ['answers' => $answers]);
+
+        $ids = \App\Models\Sekolah\SekolahAssessment::where('student_id', $student->id)
+            ->pluck('assessment_assignment_id')->sort()->values()->all();
+        $this->assertSame([$r1->id, $r2->id], $ids);
+    }
+
     public function test_student_sees_only_assigned_allowed_instruments()
     {
         $sekolah = $this->sekolah();
