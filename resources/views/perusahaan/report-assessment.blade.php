@@ -45,7 +45,7 @@
             </div>
 
             @if(count($section['rounds']) > 1)
-                <p class="mt-3 text-xs text-gray-400">{{ count($section['rounds']) }} round · window {{ optional($assignment->opens_at)->format('d M Y') ?? '-' }} — {{ optional($assignment->closes_at)->format('d M Y') ?? 'berjalan' }}</p>
+                <p class="mt-3 text-xs text-gray-400">{{ count($section['rounds']) }} putaran · periode {{ optional($assignment->opens_at)->translatedFormat('d M Y') ?? '-' }} — {{ optional($assignment->closes_at)->translatedFormat('d M Y') ?? 'berjalan' }}</p>
             @endif
 
             <div class="mt-4 space-y-3">

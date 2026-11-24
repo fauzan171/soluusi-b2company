@@ -154,6 +154,21 @@ class SekolahReportInstrumentTest extends TestCase
         $this->assertNotNull($pss10['bands']);
     }
 
+    public function test_small_escalation_count_hidden_parity_with_hr()
+    {
+        // 1-9 eskalasi bisa re-identifikasi staf → sembunyikan (HR: 0 atau >= 10).
+        $a = $this->assign('phq9', 'staff');
+        $staff = $this->staff(6);
+        $this->submit($staff, $a, 3);
+        SekolahAssessment::whereIn('student_id', [$staff[0]->id, $staff[1]->id])->update(['escalated' => true]);
+
+        $res = $this->actingAs($this->bk)->get(route('sekolah.report'));
+        $phq9 = collect($res->viewData('instrumentSections'))->firstWhere('code', 'phq9');
+
+        $this->assertNotNull($phq9['bands']);
+        $this->assertNull($phq9['escalatedCount']);
+    }
+
     public function test_staff_audience_section_separate_from_students()
     {
         $studentA = $this->assign('who5', 'student', ['source' => 'legacy']);

@@ -67,7 +67,7 @@
     </section>
 
     <div class="space-y-4">
-        @foreach($instrumentSections as $section)
+        @forelse($instrumentSections as $section)
             <section class="dash-card p-5">
                 <div class="flex items-center justify-between">
                     <div>
@@ -109,7 +109,9 @@
                     </div>
                 @endif
             </section>
-        @endforeach
+        @empty
+            <p class="dash-card p-5 text-sm text-gray-400">Belum ada instrumen yang di-assign.</p>
+        @endforelse
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">

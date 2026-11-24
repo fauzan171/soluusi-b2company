@@ -27,6 +27,14 @@ class SendEngagementCampaigns extends Command
 
         $sent = 0;
         foreach ($due as $campaign) {
+            // Window belum buka (opens_at digeser maju) → jangan klaim; dicoba lagi run berikutnya.
+            // Sudah tutup/dihapus → klaim tetap jalan lalu di-skip (reminder tidak relevan).
+            if ($campaign->assessment_assignment_id) {
+                $assignment = \App\Models\AssessmentAssignment::find($campaign->assessment_assignment_id);
+                if ($assignment && $assignment->status === 'active' && $assignment->opens_at->isAfter(today())) {
+                    continue;
+                }
+            }
             // QA7-F1: claim atomic — conditional update sent_at WHERE NULL;
             // invoker kedua (timer + daemon) tidak bisa double-send.
             $claimed = EngagementCampaign::whereKey($campaign->id)

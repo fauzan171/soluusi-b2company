@@ -98,7 +98,7 @@ class AssessmentController extends Controller
         // grant klinis (MCMI-style) di luar assignment (D5).
         $grants = collect(AssessmentAccess::grantedCodes($employee))
             ->map(fn (string $code) => AssessmentInstrument::where('code', $code)->first())
-            ->filter(fn ($i) => $i && ($i->is_active || true))
+            ->filter()
             ->values();
 
         $history = $employee->assessments()

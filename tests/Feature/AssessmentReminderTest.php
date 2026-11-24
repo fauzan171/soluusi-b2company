@@ -182,6 +182,26 @@ class AssessmentReminderTest extends TestCase
         $this->assertCount(0, $this->sentMessages());
     }
 
+    public function test_sender_does_not_claim_campaign_before_window_opens()
+    {
+        // Admin menggeser opens_at maju setelah campaign dijadwalkan → jangan
+        // klaim/buang invite; kirim saat window akhirnya buka.
+        $assignment = $this->assignment(['opens_at' => today()->subDay(), 'closes_at' => today()->addDays(10)]);
+        $this->employee('todo@b5.local');
+        $assignment->update(['opens_at' => today()->addDays(2)]);
+        $campaign = EngagementCampaign::where('assessment_assignment_id', $assignment->id)->firstOrFail();
+        $campaign->update(['scheduled_at' => now()->subHour()]);
+
+        $this->artisan('wellbeing:send-campaigns')->assertSuccessful();
+        $this->assertNull($campaign->fresh()->sent_at);
+        $this->assertCount(0, $this->sentMessages());
+
+        $this->travel(2)->days();
+        $this->artisan('wellbeing:send-campaigns')->assertSuccessful();
+        $this->assertNotNull($campaign->fresh()->sent_at);
+        $this->assertCount(1, $this->sentMessages());
+    }
+
     /** Mail::raw via array mailer — ambil pesan dari transport (Wv4CampaignTest). */
     private function sentMessages(): array
     {

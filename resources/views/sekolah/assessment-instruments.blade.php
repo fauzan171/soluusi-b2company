@@ -13,7 +13,7 @@
     </div>
 
     <div class="space-y-3">
-        @foreach($instruments as $instrument)
+        @forelse($instruments as $instrument)
         <a href="{{ $formRoute($instrument->code) }}" class="portal-card p-4 flex items-center justify-between transition hover:shadow-md hover:border-pine-300 {{ $instrument->done ? 'opacity-60' : '' }}">
             <div>
                 <p class="text-sm font-semibold text-gray-900">{{ $instrument->name }}</p>
@@ -27,7 +27,9 @@
             </div>
             <span class="text-xs text-pine-700 font-semibold whitespace-nowrap">{{ $instrument->done ? 'Selesai ✓' : 'Kerjakan →' }}</span>
         </a>
-        @endforeach
+        @empty
+        <div class="portal-card p-6 text-center text-sm text-gray-500">Belum ada asesmen yang dibuka untuk kamu saat ini.</div>
+        @endforelse
     </div>
 
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 mt-4">

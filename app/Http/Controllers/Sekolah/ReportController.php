@@ -86,8 +86,9 @@ class ReportController extends Controller
                     'registered' => $registered,
                     'pct' => $registered > 0 ? round($assessed / $registered * 100) : 0,
                     'bands' => \App\Support\AggregatePrivacy::safe(array_values($bandCounts), 5) ? $bandCounts : null,
+                    // Paritas HR: jumlah eskalasi hanya tampil saat 0 atau >= 10 (cegah re-identifikasi).
                     'escalatedCount' => \App\Support\AggregatePrivacy::safe(array_values($bandCounts), 5)
-                        ? (int) $latest->where('escalated', true)->count() : null,
+                        && (($esc = $latest->where('escalated', true)->count()) === 0 || $esc >= 10) ? $esc : null,
                 ];
                 // Key kelas hanya utk who5: non-who5 tanpa key, who5 selalu
                 // ada (null saat tersupresi threshold).

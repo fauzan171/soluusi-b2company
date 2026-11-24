@@ -44,7 +44,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                     <p class="text-sm text-gray-500 mt-1">Belum ada</p>
                     @endif
                 </div>
-                <a href="{{ route('sekolah.staff.assessment.form', 'who5') }}" class="text-xs bg-pine-700 text-white px-3 py-1.5 rounded-lg">{{ $assessment ? 'Ulangi' : 'Isi' }}</a>
+                <a href="{{ route('sekolah.staff.assessment.list') }}" class="text-xs bg-pine-700 text-white px-3 py-1.5 rounded-lg">Lihat asesmen →</a>
             </div>
             @if($needsAssessment)
             <p class="text-[11px] text-terra-700 mt-2">Asesmen terakhir &gt; 30 hari lalu — isi ulang ya.</p>

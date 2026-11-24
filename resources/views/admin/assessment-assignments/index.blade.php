@@ -15,9 +15,6 @@
         <a href="{{ route('admin.wellbeing-programs.index') }}" class="text-sm text-emerald-700 font-semibold hover:underline">← Daftar Program</a>
     </div>
 
-    @if (session('success'))
-        <p class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-2">{{ session('success') }}</p>
-    @endif
 
     {{-- Tabel assignment --}}
     <div class="dash-card p-5 mb-6">
@@ -77,9 +74,6 @@
         <div class="dash-card p-5">
             <h2 class="font-semibold mb-3">Tambah Assignment</h2>
             <p class="text-xs text-gray-400 mb-3">Add-on berbayar atau round tambahan instrumen yang sudah ada. MCMI-III tidak bisa di-assign massal.</p>
-            @if($errors->any())
-                <p class="text-sm text-red-600 mb-3">{{ $errors->first() }}</p>
-            @endif
             <form method="POST" action="{{ route('admin.programs.assessments.store', $program) }}" class="space-y-3">
                 @csrf
                 <label class="text-sm block">Instrumen

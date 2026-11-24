@@ -8,7 +8,7 @@
 <div class="max-w-4xl">
     <div class="mb-4">
         <h1 class="text-xl font-bold">Progres Program</h1>
-        <p class="text-sm text-gray-500">Pemanfaatan program aktif — {{ $program?->wellbeingPackage?->name ?? '-' }}, berakhir {{ optional($program?->ends_at)->format('d M Y') ?? '-' }}.</p>
+        <p class="text-sm text-gray-500">Pemanfaatan program aktif — {{ $program?->wellbeingPackage?->name ?? '-' }}, berakhir {{ optional($program?->ends_at)->translatedFormat('d M Y') ?? '-' }}.</p>
     </div>
 
     @if(!$program)

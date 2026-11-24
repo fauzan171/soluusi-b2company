@@ -100,17 +100,10 @@ class WellbeingProgramController extends Controller
             'confirm' => ['required', 'accepted'],
             'selected_employee_ids' => ['nullable', 'array'],
             'selected_employee_ids.*' => ['integer'],
-        ], $instrumentRules));
-
-        // D3: pilihan instrumen wajib sesuai paket.
-        if ($data['package_code'] === 'discovery') {
-            $data['discovery_instrument'] = $data['discovery_instrument'] ?? 'who5';
-        }
-        if ($data['package_code'] === 'foundation' && !in_array($data['foundation_domain'] ?? null, ['mh', 'nutrition'], true)) {
-            throw ValidationException::withMessages([
-                'foundation_domain' => 'Pilih domain assessment (Mental Health atau Nutrition) untuk paket Foundation.',
-            ]);
-        }
+        ], $instrumentRules), [
+            'discovery_instrument.required_if' => 'Pilih instrumen assessment (WHO-5 atau DASS-21) untuk paket Discovery.',
+            'foundation_domain.required_if' => 'Pilih domain assessment (Mental Health atau Nutrition) untuk paket Foundation.',
+        ]);
 
         $perusahaan = Perusahaan::findOrFail($data['perusahaan_id']);
         $package = WellbeingPackage::where('code', $data['package_code'])->firstOrFail();
@@ -312,7 +305,7 @@ class WellbeingProgramController extends Controller
 
         // D3: core instruments per package.
         $core = match ($packageCode) {
-            'discovery' => [$data['discovery_instrument'] ?? 'who5'],
+            'discovery' => [$data['discovery_instrument']],
             'foundation' => [$data['foundation_domain'] === 'nutrition' ? 'nutrition' : 'dass21'],
             default => ['dass21', 'nutrition'], // growth/impact
         };

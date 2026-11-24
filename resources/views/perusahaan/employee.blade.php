@@ -519,7 +519,7 @@
             <div class="mt-5 space-y-3">
                 @foreach($who5Items as $i => $item)
                 @php
-                $ans = $assessment->answers[$i] ?? 0;
+                $ans = (int) (array_values((array) $assessment->answers)[$i] ?? 0);
                 @endphp
                 <div>
                     <div class="flex justify-between text-xs mb-1">

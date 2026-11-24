@@ -107,8 +107,8 @@ class EmployeeController extends Controller
             ->filter(fn ($s) => $s->scheduled_at->isFuture() || ($s->ended_at && $s->ended_at->isFuture()))
             ->values();
 
-        $latest = $employee->assessments()->latest('taken_at')->first();
-        $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
+        $latest = $employee->assessments()->where('instrument_code', 'who5')->latest('taken_at')->first();
+        $trend = $employee->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
 
         // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.

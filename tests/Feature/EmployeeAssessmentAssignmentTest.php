@@ -78,6 +78,22 @@ class EmployeeAssessmentAssignmentTest extends TestCase
         ])->assertNotFound();
     }
 
+    public function test_dashboard_wellbeing_card_uses_latest_who5_not_other_instrument()
+    {
+        $base = ['perusahaan_id' => $this->emp->perusahaan_id, 'employee_id' => $this->emp->id];
+        PerusahaanAssessment::create($base + [
+            'instrument_code' => 'who5', 'answers' => $this->who5Answers(), 'score' => 60, 'taken_at' => now()->subDay(),
+        ]);
+        // Baris non-WHO-5 lebih baru tidak boleh tampil sebagai skor wellbeing.
+        PerusahaanAssessment::create($base + [
+            'instrument_code' => 'dass21', 'answers' => ['D1' => 3], 'score' => 7, 'taken_at' => now(),
+        ]);
+
+        $res = $this->actingAs($this->user)->get(route('perusahaan.employee'))->assertOk();
+        $this->assertSame('who5', $res->viewData('assessment')->instrument_code);
+        $this->assertSame(60, (int) $res->viewData('assessment')->score);
+    }
+
     public function test_assigned_addon_visible_unassigned_disc_hidden()
     {
         $this->assign('bigfive', ['source' => 'addon']);
