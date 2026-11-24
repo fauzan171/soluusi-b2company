@@ -231,7 +231,18 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // ponytail: notifikasi ke konsultan belum ada — tambah saat notification channel diputuskan.
+        // Audit UX item 6: konsultan harus tahu slotnya terkonfirmasi — cukup
+        // waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
+        if ($session->consultant?->user?->email) {
+            \Illuminate\Support\Facades\Mail::to($session->consultant->user->email)->send(
+                new \App\Mail\Perusahaan\SlotConfirmedMail(
+                    $employee->name,
+                    $session->perusahaan->brand,
+                    \Illuminate\Support\Carbon::parse($slot['start'])->translatedFormat('l, d M Y H.i'),
+                    \Illuminate\Support\Carbon::parse($slot['end'])->translatedFormat('H.i'),
+                )
+            );
+        }
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');

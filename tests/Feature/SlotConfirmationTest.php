@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\Perusahaan\SlotConfirmedMail;
 use App\Models\Consultant;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
@@ -10,6 +11,7 @@ use App\Models\SessionSlotProposal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -139,6 +141,21 @@ class SlotConfirmationTest extends TestCase
         ])->assertSessionHasErrors('slot_index');
 
         $this->assertNull($session->fresh()->scheduled_at);
+    }
+
+    // Audit UX item 6: konsultan menerima email konfirmasi (waktu sesi saja,
+    // tanpa data assessment/klinis) saat karyawan mengonfirmasi slot proposal.
+    public function test_confirming_slot_notifies_consultant_by_mail()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, 1);
+        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('doc@test.local'));
     }
 
     public function test_confirm_rejects_past_slot()
