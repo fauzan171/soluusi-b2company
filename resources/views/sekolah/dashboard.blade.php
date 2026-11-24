@@ -263,7 +263,9 @@
                         </p>
                     @else
                     @foreach($riskPalette as $label => $color)
-                        @php $value = $riskDist[$label] ?? 0; @endphp
+                        @php
+                        $value = $riskDist[$label] ?? 0;
+                        @endphp
                         <div>
                             <div class="mb-1.5 flex items-center justify-between text-xs">
                                 <span class="font-medium text-gray-600">{{ $label }}</span>

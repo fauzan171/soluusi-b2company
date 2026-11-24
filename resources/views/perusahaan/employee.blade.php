@@ -518,7 +518,9 @@
             </div>
             <div class="mt-5 space-y-3">
                 @foreach($who5Items as $i => $item)
-                @php $ans = $assessment->answers[$i] ?? 0; @endphp
+                @php
+                $ans = $assessment->answers[$i] ?? 0;
+                @endphp
                 <div>
                     <div class="flex justify-between text-xs mb-1">
                         <span class="text-gray-600">{{ $item }}</span>
