@@ -131,6 +131,15 @@ class EmployeeController extends Controller
             ->get(['perusahaan_session_id', 'client_advice'])
             ->keyBy('perusahaan_session_id');
 
+        // Audit UX: modal "Ubah jadwal" hanya menawarkan slot milik konsultan
+        // sesi masing-masing (keyed by session id) — bukan semua slot tenant.
+        // Server-side: lebih murah daripada render semua slot + filter Alpine,
+        // sekaligus menghapus pemanggilan BookingService::available di view (N+1 render).
+        $rescheduleSlots = $mySessions
+            ->mapWithKeys(fn ($s) => [$s->id => \App\Services\BookingService::available('perusahaan', $perusahaan->id)
+                ->where('consultant_id', $s->consultant_id)->values()])
+            ->filter(fn ($slots) => $slots->isNotEmpty());
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -148,6 +157,7 @@ class EmployeeController extends Controller
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
+            'rescheduleSlots' => $rescheduleSlots,
         ]);
     }
 
@@ -221,7 +231,18 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // ponytail: notifikasi ke konsultan belum ada — tambah saat notification channel diputuskan.
+        // Audit UX item 6: konsultan harus tahu slotnya terkonfirmasi — cukup
+        // waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
+        if ($session->consultant?->user?->email) {
+            \Illuminate\Support\Facades\Mail::to($session->consultant->user->email)->send(
+                new \App\Mail\Perusahaan\SlotConfirmedMail(
+                    $employee->name,
+                    $session->perusahaan->brand,
+                    \Illuminate\Support\Carbon::parse($slot['start'])->translatedFormat('l, d M Y H.i'),
+                    \Illuminate\Support\Carbon::parse($slot['end'])->translatedFormat('H.i'),
+                )
+            );
+        }
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
@@ -258,6 +279,11 @@ class EmployeeController extends Controller
             ->values();
 
         $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
+
+        // Audit UX item 10: halaman booking memakai saldo ledger-aware —
+        // konsisten dengan dashboard; monthQuotaUsed lama mengabaikan
+        // event released/refunded di ledger.
+        $quotaLeft = max(0, \App\Services\QuotaService::balanceFor($employee));
         $visibleSlots = $selectedConsultant
             ? $slots->where('consultant_id', $selectedConsultant['id'])->values()
             : $slots;
@@ -274,7 +300,7 @@ class EmployeeController extends Controller
             'activeCategory' => $category,
             'selectedConsultant' => $selectedConsultant,
             'slots' => $visibleSlots,
-            'quotaLeft' => max(0, $quota - $usedMonth),
+            'quotaLeft' => $quotaLeft,
         ]);
     }
 
@@ -289,8 +315,8 @@ class EmployeeController extends Controller
             return $this->cancelPendingRequest($session);
         }
 
-        request()->validate(['reason' => ['required', 'string', 'max:1000']]);
-        $restored = \App\Services\BookingService::cancel('perusahaan', $session, request('reason'));
+        request()->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+        $restored = \App\Services\BookingService::cancel('perusahaan', $session, (string) request('reason'));
 
         return back()->with('success', $restored ? 'Sesi dibatalkan. Kuota kamu kembali.' : 'Sesi dibatalkan. Kuota tetap terpakai karena melewati batas pembatalan.');
     }
@@ -323,8 +349,8 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
             'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
-            'consultant_id' => ['nullable', 'integer'],
-            'scheduled_at' => ['nullable', 'date', 'after:now'],
+            // Audit UX item 15: consultant_id/scheduled_at tidak pernah dipakai —
+            // konsultan & jam slot diputuskan via schedule_id di BookingService::book().
         ]);
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
