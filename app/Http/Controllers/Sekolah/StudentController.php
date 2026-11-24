@@ -63,7 +63,11 @@ class StudentController extends Controller
         $latest = $student->assessments()->where('instrument_code', 'who5')->latest('taken_at')->first();
         $trend = $student->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
-        $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
+        // Nag WHO-5 hanya bila WHO-5 beneran di-assign utk siswa ini (kalau tidak,
+        // tampilan netral tanpa nag "lebih dari 30 hari").
+        $who5Assigned = \App\Services\AssessmentAccess::forSekolahMember($student)
+            ->contains(fn ($a) => $a->instrument_code === 'who5');
+        $needsAssessment = $who5Assigned && (!$latest || $latest->taken_at->lt(now()->subDays(30)));
 
         // Saran AI per sesi (siswa lihat miliknya sendiri saja — C.3).
         $advices = \App\Models\SessionSummary::whereIn('sekolah_session_id', $history->pluck('id'))
