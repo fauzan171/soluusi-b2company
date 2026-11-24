@@ -24,27 +24,36 @@
 
     {{-- Refer konseling (form tersembunyi, dibuka dari baris) --}}
     <div x-show="refer" x-cloak class="portal-card p-5 mb-4" x-data="{
-        form: { student_id: '', konsultan_type: 'psikolog', mode: 'online', scheduled_at: '' },
-        init() { this.$watch('refer', v => { if (v) this.form.student_id = v.id }) }
+        form: { konsultan_type: 'psikolog' }
     }">
         <h3 class="font-semibold text-pine-900">Refer konseling — <span x-text="refer ? refer.name : ''"></span></h3>
         <form method="POST" action="{{ route('sekolah.students.refer') }}" class="grid md:grid-cols-4 gap-3 mt-3">
             @csrf
-            <input type="hidden" name="student_id" :value="form.student_id">
+            <input type="hidden" name="student_id" :value="refer?.id">
             <select name="konsultan_type" class="w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200" x-model="form.konsultan_type">
                 <option value="psikolog">Psikolog Anak & Remaja</option>
                 <option value="karir">Konselor Karir</option>
             </select>
-            <label class="text-sm md:col-span-2">Slot konsultan (WIB)
-                <select name="schedule_id" required class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">
-                    <option value="">— Pilih slot sesuai jenis konsultan —</option>
+            <label class="text-sm md:col-span-2">Slot konsultan (WIB) — opsional
+                <select name="schedule_id" class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">
+                    <option value="">— Tanpa slot (masuk antrean review BK) —</option>
                     @foreach($slots as $slot)
                     <option value="{{ $slot->id }}">{{ $slot->started_at->translatedFormat('d M Y H.i') }} · {{ $slot->consultant->user->firstname }} · {{ $slot->mode === 'offline' ? 'Tatap muka' : 'Online' }}</option>
                     @endforeach
                 </select>
                 @error('schedule_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </label>
-            <button class="self-end rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition">Jadwalkan</button>
+            <label class="text-sm md:col-span-2">Alasan/topik rujukan
+                <textarea name="request_notes" rows="2" maxlength="2000" required placeholder="Ringkasan kebutuhan siswa (tanpa detail sensitif)" class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">{{ old('request_notes') }}</textarea>
+                @error('request_notes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+            </label>
+            <label class="text-sm">Kategori topik
+                <input name="topic_category" maxlength="100" placeholder="Mis. Cemas, Karir" class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">
+            </label>
+            <label class="text-sm md:col-span-2">Email orang tua (opsional — kirim pemberitahuan)
+                <input type="email" name="parent_email" placeholder="ortu@email.com" class="mt-1 w-full rounded-xl border border-[#e7e2d9] bg-white px-3 py-2 text-sm focus:border-pine-400 focus:ring-1 focus:ring-pine-200">
+            </label>
+            <button class="self-end rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition">Kirim rujukan</button>
         </form>
     </div>
 
