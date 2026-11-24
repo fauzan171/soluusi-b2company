@@ -121,6 +121,7 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
     });
     Route::middleware('role:sekolah_staff,admin')->group(function () {
         Route::get('/staff', [\App\Http\Controllers\Sekolah\StaffController::class, 'index'])->name('staff');
+        Route::post('/staff/consent', [\App\Http\Controllers\Sekolah\StaffController::class, 'consentSelf'])->name('staff.consent');
         Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentList'])->name('staff.assessment.list');
         Route::get('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
         Route::post('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');

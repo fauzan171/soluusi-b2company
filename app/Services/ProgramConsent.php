@@ -23,7 +23,12 @@ class ProgramConsent
                 'actor_id' => auth()->id(), 'granted' => $data['granted'],
                 'evidence' => $data['evidence'], 'agreed_at' => $data['agreed_at'], 'recorded_at' => now(),
             ]);
-            $row->update([$type === 'karyawan' ? 'consent_at' : 'parent_consent_at' => $data['granted'] ? $data['agreed_at'] : null]);
+            $row->update([
+                match ($type) {
+                    'karyawan', 'staff' => 'consent_at',
+                    default => 'parent_consent_at',
+                } => $data['granted'] ? $data['agreed_at'] : null,
+            ]);
         });
     }
 }

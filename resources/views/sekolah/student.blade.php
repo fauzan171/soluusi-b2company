@@ -261,9 +261,13 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                     <p class="text-xs text-gray-500">{{ $h->scheduled_at?->translatedFormat('d M Y, H.i') }}@if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif</p>
                 </div>
                 @if($h->status === 'scheduled')
-                <form method="POST" action="{{ route('sekolah.booking.cancel', $h) }}">@csrf
-                    <button class="text-xs text-red-600 hover:underline">Batalkan</button>
-                </form>
+                <details class="shrink-0">
+                    <summary class="text-xs text-red-600 hover:underline cursor-pointer list-none">Batalkan</summary>
+                    <form method="POST" action="{{ route('sekolah.booking.cancel', $h) }}" class="mt-1.5 w-56 rounded-lg border border-[#e7e2d9] bg-gray-50 p-2 space-y-1.5">@csrf
+                        <textarea name="reason" rows="2" maxlength="1000" required placeholder="Alasan pembatalan" class="w-full rounded-md border border-[#e7e2d9] bg-white px-2 py-1 text-xs"></textarea>
+                        <button class="w-full rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700">Batalkan sesi</button>
+                    </form>
+                </details>
                 @else
                 <span class="text-xs font-semibold px-2 py-1 rounded-lg {{ $h->status === 'done' ? 'bg-pine-50 text-pine-700' : 'bg-gray-100 text-gray-500' }}">{{ ucfirst($h->status) }}</span>
                 @endif
