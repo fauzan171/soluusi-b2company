@@ -135,6 +135,9 @@ class AuthController extends Controller
             'bk' => redirect()->route('sekolah.dashboard'),
             'sekolah_staff' => redirect()->route('sekolah.staff'),
             'student' => redirect()->route('sekolah.student'),
+            'operations' => redirect()->route('admin.wellbeing-programs.index'),
+            // ponytail: internal roles tanpa portal — logout dulu; tambah route saat portalnya ada.
+            'finance', 'account_manager', 'expert_coordinator' => $this->logout()->with('error', 'Akun internal ini belum punya portal — hubungi admin.'),
             default => redirect()->route('loginIndex')->with('error', 'Role tidak dikenal.'),
         };
     }

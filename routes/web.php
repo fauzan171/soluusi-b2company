@@ -387,7 +387,6 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::post('/wellbeing-reviews/{review}/complete', [\App\Http\Controllers\Admin\WellbeingProgramReviewController::class, 'complete'])->name('wellbeing-reviews.complete');
 
     // wv4: admin pages — daftar program + browser karyawan + billing/kontrak.
-    Route::get('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramListController::class, 'index'])->name('wellbeing-programs.index');
     Route::get('/employees', [\App\Http\Controllers\Admin\EmployeeBrowseController::class, 'index'])->name('employees.index');
     Route::get('/billing', [\App\Http\Controllers\Admin\BillingContractController::class, 'index'])->name('billing.index');
     Route::get('/assessment-instruments', [\App\Http\Controllers\Admin\AssessmentInstrumentsController::class, 'index'])->name('assessment-instruments.index');
@@ -402,6 +401,8 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
 // B2 (D1): manajemen assignment instrumen per program — admin + operations
 // (group terpisah: role admin-only parent akan memblokir operations).
 Route::prefix('admin')->as('admin.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    // Audit: landing page role operations setelah login.
+    Route::get('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramListController::class, 'index'])->name('wellbeing-programs.index');
     Route::get('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'index'])->name('programs.assessments');
     Route::post('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'store'])->name('programs.assessments.store');
     Route::put('/wellbeing-programs/{program}/assessments/{assignment}', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'update'])->name('programs.assessments.update');
