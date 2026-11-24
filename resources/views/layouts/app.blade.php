@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', $title ?? config('whitelabel.internal_brand', 'Soluusi'))</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- Alpine global: banyak halaman portal pakai x-data/x-cloak; bundle Vite tidak memuatnya. --}}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 @php
     $user = auth()->user();
