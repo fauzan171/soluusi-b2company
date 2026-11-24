@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Perusahaan;
 
 use App\Http\Controllers\Controller;
+use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Support\PerusahaanContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -68,12 +68,18 @@ class RosterController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($perusahaan, $data) {
+        DB::transaction(function () use ($perusahaan, $data, &$employee) {
             $employee = $perusahaan->employees()->create($data);
             \App\Services\Perusahaan\EmployeeProvisioner::ensure($employee);
         });
 
-        return back()->with('success', 'Karyawan ditambahkan. Catat consent lalu kirim undangan.');
+        // Audit UX: provisioning + undangan email dalam SATU langkah — karyawan
+        // tidak menunggu aksi HR kedua tanpa tahu.
+        if ($employee?->email) {
+            $this->sendInvitation($perusahaan, $employee->fresh());
+        }
+
+        return back()->with('success', "Karyawan ditambahkan. Undangan terkirim ke {$data['email']}.");
     }
 
     public function consent(Request $r, PerusahaanEmployee $employee)
@@ -95,20 +101,24 @@ class RosterController extends Controller
         abort_unless($emp->perusahaan_id === $perusahaan->id, 403);
         abort_unless($emp->email, 422, 'Karyawan belum punya email.');
 
-        // ponytail: email undangan via Mail::raw (MAIL_MAILER=log di dev).
-        // Upgrade: templated mailable saat dibutuhkan.
-        $registerUrl = \App\Services\RosterInvitation::issue('karyawan', $emp);
-        Mail::raw(
-            "Halo {$emp->name},\n\n"
-            . "Perusahaan {$perusahaan->brand} mengundang kamu mengikuti program wellbeing karyawan. "
-            . "Belum punya akun? Daftar di {$registerUrl} menggunakan email ini.\n"
-            . "Sudah punya akun? Login ke portal untuk melihat kuota, mengisi asesmen, dan booking sesi konsultasi.\n\n"
-            . "Semua sesi bersifat rahasia — HR hanya melihat data agregat.\n\n"
-            . "Salam,\n{$perusahaan->brand}",
-            fn ($m) => $m->to($emp->email)
-                ->subject("Undangan program wellbeing {$perusahaan->brand}")
-        );
+        // Audit UX: "Kirim ulang undangan" sah sampai karyawan mengganti password
+        // (provisioning memakai password acak + must_change_password). Cek SEBELUM
+        // mengirim agar karyawan aktif tidak menerima email undangan lagi.
+        if ($emp->user && ! $emp->user->must_change_password) {
+            return back()->with('error', "Karyawan {$emp->name} sudah aktif (password sementara pernah dikirim). Undangan tidak dikirim ulang.");
+        }
+
+        $this->sendInvitation($perusahaan, $emp);
 
         return back()->with('success', "Undangan terkirim ke {$emp->email}.");
+    }
+
+    /** Undangan email — dipakai store (auto) dan invite (kirim ulang). */
+    private function sendInvitation(Perusahaan $perusahaan, PerusahaanEmployee $emp): void
+    {
+        $registerUrl = \App\Services\RosterInvitation::issue('karyawan', $emp);
+        \Illuminate\Support\Facades\Mail::to($emp->email)->send(
+            new \App\Mail\Perusahaan\RosterInvitationMail($perusahaan, $emp, $registerUrl)
+        );
     }
 }

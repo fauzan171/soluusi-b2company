@@ -52,6 +52,9 @@ class EmployeeProvisioner
                 'username' => 'karyawan-' . Str::random(8),
                 'email' => $locked->email,
                 'password' => bcrypt(Str::random(32)), // di-reset via undangan
+                // Audit UX: password acak wajib diganti saat login pertama —
+                // sekaligus jadi sinyal "undangan belum dikonsumsi" di roster HR.
+                'must_change_password' => true,
                 'is_active' => true,
                 'role_id' => DB::table('roles')->where('name', 'employee')->value('id'),
             ]);
