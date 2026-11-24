@@ -69,6 +69,37 @@ class AssessmentController extends Controller
                 ->with('info', 'Asesmen putaran ini sudah Anda kerjakan.');
     }
 
+    /**
+     * Grant klinis (tanpa assignment): satu hasil per grant. Retake = admin
+     * revoke lalu grant ulang (created_at baru).
+     */
+    private function grantSubmittedRedirect(PerusahaanEmployee $employee, string $code): ?\Illuminate\Http\RedirectResponse
+    {
+        $grantedAt = \App\Models\InstrumentGrant::where('employee_id', $employee->id)
+            ->where('instrument_code', $code)->value('created_at');
+        if (! $grantedAt) {
+            return null;
+        }
+
+        $row = PerusahaanAssessment::where('employee_id', $employee->id)
+            ->where('instrument_code', $code)
+            ->where('taken_at', '>=', $grantedAt)
+            ->latest('taken_at')->first();
+
+        return $row
+            ? redirect()->route('perusahaan.assessment.result', $row)
+                ->with('info', 'Asesmen ini sudah Anda kerjakan. Hubungi admin bila perlu mengulang.')
+            : null;
+    }
+
+    /** Sudah submit (assignment window, legacy 30 hari, atau grant) → redirect. */
+    private function alreadySubmitted(PerusahaanEmployee $employee, ?AssessmentAssignment $assignment, string $code): ?\Illuminate\Http\RedirectResponse
+    {
+        return $assignment
+            ? $this->submittedRedirect($employee, $assignment)
+            : $this->grantSubmittedRedirect($employee, $code);
+    }
+
     /** Daftar instrumen dari assignment terbuka + grant; riwayat milik sendiri. */
     public function index()
     {
@@ -133,8 +164,8 @@ class AssessmentController extends Controller
         $employee = app(EmployeeController::class)->resolveEmployeePublic();
         [$instrument, $assignment] = $this->resolveInstrument($employee, $code);
 
-        // sudah submit utk putaran ini → langsung ke hasil (D6, no retake).
-        if ($assignment && $redirect = $this->submittedRedirect($employee, $assignment)) {
+        // sudah submit utk putaran/grant ini → langsung ke hasil (D6, no retake).
+        if ($redirect = $this->alreadySubmitted($employee, $assignment, $code)) {
             return $redirect;
         }
 
@@ -152,6 +183,9 @@ class AssessmentController extends Controller
     {
         $employee = app(EmployeeController::class)->resolveEmployeePublic();
         [$instrument, $assignment] = $this->resolveInstrument($employee, $code);
+        if ($redirect = $this->alreadySubmitted($employee, $assignment, $code)) {
+            return $redirect;
+        }
         $items = InstrumentScoring::items($instrument);
 
         $rules = ['answers' => ['required', 'array', 'size:'.$items->count()]];
@@ -160,62 +194,76 @@ class AssessmentController extends Controller
         }
         $r->validate($rules);
 
-        // sudah submit utk putaran ini → tanpa row baru (D6).
-        if ($assignment && $redirect = $this->submittedRedirect($employee, $assignment)) {
-            return $redirect;
-        }
-
         $answers = collect($r->input('answers'))->only($items->pluck('code'))->all();
         $result = InstrumentScoring::score($instrument, $answers);
 
+        // Serialisasi submit per orang+instrumen: legacy/grant tidak punya unique
+        // index, dan lockForUpdate no-op di SQLite → cek ulang di dalam lock.
+        $lock = \Illuminate\Support\Facades\Cache::lock("assessment-submit:perusahaan:{$employee->id}:{$code}", 15);
         try {
-            // QA8-F1: lock + create dalam satu transaksi — cap Discovery
-            // ter-serialisasi, unique (assignment, employee) ditangkap.
-            $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result) {
-                // WB: R3 cap — program wellbeing aktif membatasi peserta assessment
-                // distinct employee (retake employee sama tidak menambah count).
-                // Scope ke window program (taken_at >= starts_at).
-                if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
-                    and $program->assessment_max_participants !== null) {
-                    \App\Models\CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
-                    $scoped = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
-                        ->where('taken_at', '>=', $program->starts_at);
-                    $distinct = (clone $scoped)->distinct('employee_id')->count('employee_id');
-                    $already = (clone $scoped)->where('employee_id', $employee->id)->exists();
-                    abort_if($distinct >= $program->assessment_max_participants && ! $already,
-                        403, 'Kuota peserta assessment penuh. Hubungi HR untuk info program.');
-                }
-
-                $row = PerusahaanAssessment::create([
-                    'perusahaan_id' => $employee->perusahaan_id,
-                    'employee_id' => $employee->id,
-                    'departement_id' => $employee->departement_id,
-                    'instrument_code' => $instrument->code,
-                    'answers' => $answers,
-                    'score' => $result['score'],
-                    'escalated' => $result['escalated'],
-                    'section' => 'mental_health',
-                    'status' => 'completed',
-                    'taken_at' => now(),
-                    'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
-                ]);
-
-                foreach ($answers as $qCode => $value) {
-                    \App\Models\ScreeningAnswer::create([
-                        'assessable_type' => PerusahaanAssessment::class,
-                        'assessable_id' => $row->id,
-                        'question_code' => $qCode,
-                        'value' => (string) $value,
-                        'answered_at' => now(),
-                    ]);
-                }
-
-                return $row;
-            });
-        } catch (UniqueConstraintViolationException) {
-            // double-submit race: unique (assignment, employee) — sudah dikerjakan.
+            $lock->block(5);
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
             return redirect()->route('perusahaan.assessment.instruments')
-                ->with('info', 'Asesmen putaran ini sudah Anda kerjakan.');
+                ->with('info', 'Jawaban Anda sedang diproses. Silakan cek kembali sebentar lagi.');
+        }
+
+        try {
+            // sudah submit utk putaran/grant ini → tanpa row baru (D6).
+            if ($redirect = $this->alreadySubmitted($employee, $assignment, $code)) {
+                return $redirect;
+            }
+
+            try {
+                // QA8-F1: lock + create dalam satu transaksi — cap Discovery
+                // ter-serialisasi, unique (assignment, employee) ditangkap.
+                $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result) {
+                    // WB: R3 cap — program wellbeing aktif membatasi peserta assessment
+                    // distinct employee (retake employee sama tidak menambah count).
+                    // Scope ke window program (taken_at >= starts_at).
+                    if ($program = \App\Services\WellbeingQuotaService::activeProgram($employee->perusahaan)
+                        and $program->assessment_max_participants !== null) {
+                        \App\Models\CompanyWellbeingProgram::whereKey($program->id)->lockForUpdate()->first();
+                        $scoped = PerusahaanAssessment::where('perusahaan_id', $employee->perusahaan_id)
+                            ->where('taken_at', '>=', $program->starts_at);
+                        $distinct = (clone $scoped)->distinct('employee_id')->count('employee_id');
+                        $already = (clone $scoped)->where('employee_id', $employee->id)->exists();
+                        abort_if($distinct >= $program->assessment_max_participants && ! $already,
+                            403, 'Kuota peserta assessment penuh. Hubungi HR untuk info program.');
+                    }
+
+                    $row = PerusahaanAssessment::create([
+                        'perusahaan_id' => $employee->perusahaan_id,
+                        'employee_id' => $employee->id,
+                        'departement_id' => $employee->departement_id,
+                        'instrument_code' => $instrument->code,
+                        'answers' => $answers,
+                        'score' => $result['score'],
+                        'escalated' => $result['escalated'],
+                        'section' => 'mental_health',
+                        'status' => 'completed',
+                        'taken_at' => now(),
+                        'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
+                    ]);
+
+                    foreach ($answers as $qCode => $value) {
+                        \App\Models\ScreeningAnswer::create([
+                            'assessable_type' => PerusahaanAssessment::class,
+                            'assessable_id' => $row->id,
+                            'question_code' => $qCode,
+                            'value' => (string) $value,
+                            'answered_at' => now(),
+                        ]);
+                    }
+
+                    return $row;
+                });
+            } catch (UniqueConstraintViolationException) {
+                // double-submit race: unique (assignment, employee) — sudah dikerjakan.
+                return redirect()->route('perusahaan.assessment.instruments')
+                    ->with('info', 'Asesmen putaran ini sudah Anda kerjakan.');
+            }
+        } finally {
+            $lock->release();
         }
 
         return redirect()->route('perusahaan.assessment.result', $row)

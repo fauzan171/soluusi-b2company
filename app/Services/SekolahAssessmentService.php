@@ -31,13 +31,25 @@ class SekolahAssessmentService
 
         $result = InstrumentScoring::score($instrument, $answers);
 
-        try {
-            return \Illuminate\Support\Facades\DB::transaction(fn () => self::persist($person, $assignment, $instrument, $answers, $result));
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
-            // double-submit race: unique (assignment, student) — sudah tersimpan.
-            return SekolahAssessment::where('assessment_assignment_id', $assignment->id)
-                ->where('student_id', $person->id)->firstOrFail();
-        }
+        // Serialisasi submit per orang+instrumen: legacy who5 tanpa unique index
+        // dan lockForUpdate no-op di SQLite → cek ulang di dalam lock.
+        return \Illuminate\Support\Facades\Cache::lock("assessment-submit:sekolah:{$person->id}:{$instrument->code}", 15)
+            ->block(5, function () use ($person, $assignment, $instrument, $answers, $result) {
+                if (AssessmentAccess::hasSubmitted($assignment, $person->id, 'sekolah')) {
+                    return SekolahAssessment::where('student_id', $person->id)
+                        ->where('instrument_code', $instrument->code)
+                        ->where('assessment_assignment_id', AssessmentAccess::storedAssignmentId($assignment))
+                        ->latest('taken_at')->firstOrFail();
+                }
+
+                try {
+                    return \Illuminate\Support\Facades\DB::transaction(fn () => self::persist($person, $assignment, $instrument, $answers, $result));
+                } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+                    // double-submit race: unique (assignment, student) — sudah tersimpan.
+                    return SekolahAssessment::where('assessment_assignment_id', $assignment->id)
+                        ->where('student_id', $person->id)->firstOrFail();
+                }
+            });
     }
 
     private static function persist(SekolahStudent $person, AssessmentAssignment $assignment, AssessmentInstrument $instrument, array $answers, array $result): SekolahAssessment

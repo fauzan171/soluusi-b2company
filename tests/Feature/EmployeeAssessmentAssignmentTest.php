@@ -189,6 +189,49 @@ class EmployeeAssessmentAssignmentTest extends TestCase
         ])->assertRedirect();
     }
 
+    public function test_grant_allows_one_result_until_regranted()
+    {
+        $grant = InstrumentGrant::create([
+            'employee_id' => $this->emp->id, 'instrument_code' => 'who5',
+            'reason' => 'indikasi klinis (fake data)',
+        ]);
+        $store = route('perusahaan.assessment.instrument.store', 'who5');
+
+        $this->actingAs($this->user)->post($store, ['answers' => $this->who5Answers()])->assertRedirect();
+        $row = PerusahaanAssessment::where('employee_id', $this->emp->id)->sole();
+
+        // grant sudah terpakai → form + POST redirect ke hasil, tanpa row baru.
+        $this->actingAs($this->user)->get(route('perusahaan.assessment.instrument.form', 'who5'))
+            ->assertRedirect(route('perusahaan.assessment.result', $row));
+        $this->actingAs($this->user)->post($store, ['answers' => $this->who5Answers()])
+            ->assertRedirect(route('perusahaan.assessment.result', $row))->assertSessionHas('info');
+        $this->assertSame(1, PerusahaanAssessment::where('employee_id', $this->emp->id)->count());
+
+        // admin revoke + grant ulang → boleh isi lagi.
+        $this->travel(1)->minutes();
+        $grant->delete();
+        InstrumentGrant::create([
+            'employee_id' => $this->emp->id, 'instrument_code' => 'who5', 'reason' => 'retest (fake data)',
+        ]);
+        $this->actingAs($this->user)->post($store, ['answers' => $this->who5Answers()])->assertRedirect();
+        $this->assertSame(2, PerusahaanAssessment::where('employee_id', $this->emp->id)->count());
+    }
+
+    public function test_concurrent_submit_blocked_by_lock_no_row()
+    {
+        $this->assign('who5');
+        // simulasi request paralel memegang lock submit.
+        $held = \Illuminate\Support\Facades\Cache::lock("assessment-submit:perusahaan:{$this->emp->id}:who5", 15);
+        $this->assertTrue($held->get());
+
+        $this->actingAs($this->user)->post(route('perusahaan.assessment.instrument.store', 'who5'), [
+            'answers' => $this->who5Answers(),
+        ])->assertRedirect(route('perusahaan.assessment.instruments'))->assertSessionHas('info');
+
+        $this->assertSame(0, PerusahaanAssessment::where('employee_id', $this->emp->id)->count());
+        $held->release();
+    }
+
     // --- legacy WHO-5 path → 301 ke index (D8) ------------------------------
 
     public function test_legacy_employee_assessment_routes_redirect_301()

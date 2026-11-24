@@ -152,6 +152,22 @@ class SekolahAssessmentAssignmentTest extends TestCase
         $this->assertSame(2, $student->assessments()->count());
     }
 
+    public function test_legacy_who5_recheck_inside_service_returns_existing_row()
+    {
+        $sekolah = $this->sekolah();
+        [, $student] = $this->student($sekolah);
+        $assignment = $this->assign($sekolah, 'who5', 'student', ['source' => 'legacy', 'opens_at' => '1970-01-01']);
+        $instrument = AssessmentInstrument::where('code', 'who5')->firstOrFail();
+        $req = fn () => \Illuminate\Http\Request::create('/', 'POST', ['answers' => [1, 2, 3, 2, 2]]);
+
+        // request kedua lolos pre-check controller (race) → service re-check di dalam lock.
+        $first = \App\Services\SekolahAssessmentService::submit($student, $assignment, $instrument, $req());
+        $second = \App\Services\SekolahAssessmentService::submit($student, $assignment, $instrument, $req());
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, $student->assessments()->count());
+    }
+
     public function test_staff_report_section_excludes_student_rows()
     {
         $sekolah = $this->sekolah();
