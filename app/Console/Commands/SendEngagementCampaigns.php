@@ -68,7 +68,8 @@ class SendEngagementCampaigns extends Command
                     );
                 } catch (\Throwable $e) {
                     $failed++;
-                    report($e);
+                    // Exception SMTP bisa memuat email penerima — log generik tanpa PII.
+                    report(new \RuntimeException("Campaign {$campaign->id}: gagal kirim ke penerima #{$employee->id}"));
                 }
             }
             // Tandai terkirim hanya bila semua penerima berhasil (atau tidak ada
