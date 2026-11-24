@@ -287,14 +287,17 @@ class WellbeingScenarioGapTest extends TestCase
         $this->actingAs($this->hrAdmin($p1, 20))->get(route('perusahaan.program-subscription'))
             ->assertOk()
             ->assertSee('Paket aktif: Foundation')
-            ->assertSee('1 expert')
-            ->assertDontSee('2 expert');
+            // Persempit ke baris dd katalog: partial S&K (item 9 audit UX) memuat
+            // "2 expert" di deskripsi paket Growth/Impact — angka dd-lah yang
+            // wajib menampilkan expert_chat_experts Foundation = 1.
+            ->assertSee('<dd class="font-semibold text-pine-900">1 expert</dd>', false)
+            ->assertDontSee('<dd class="font-semibold text-pine-900">2 expert</dd>', false);
 
         // HR page: Growth → 2 expert
         $p2 = $this->company('GapE2b');
         $this->program($p2, 'growth', ['monthly_price' => 20499999]);
         $this->actingAs($this->hrAdmin($p2, 21))->get(route('perusahaan.program-subscription'))
             ->assertOk()
-            ->assertSee('2 expert');
+            ->assertSee('<dd class="font-semibold text-pine-900">2 expert</dd>', false);
     }
 }
