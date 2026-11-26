@@ -74,7 +74,10 @@ class WorkHourController extends Controller
             }
         }
 
-        DB::transaction(function () use ($pool, $hours) {
+        // Pertahankan konfigurasi admin (durasi slot & tipe konsultasi) yang tak ada di form ini.
+        $keep = $pool->workHours()->get(['slot_minutes', 'consultation_types'])->first();
+
+        DB::transaction(function () use ($pool, $hours, $keep) {
             $pool->workHours()->delete();
             foreach ($hours as $h) {
                 ConsultantWorkHour::create([
@@ -82,6 +85,8 @@ class WorkHourController extends Controller
                     'weekday' => $h['weekday'],
                     'start_time' => $h['start_time'],
                     'end_time' => $h['end_time'],
+                    'slot_minutes' => $keep?->slot_minutes,
+                    'consultation_types' => $keep?->consultation_types,
                 ]);
             }
         });

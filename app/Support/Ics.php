@@ -98,7 +98,7 @@ class Ics
             return null;
         }
 
-        return str_replace(["\\", "\r\n", "\n", "\n", ';', ','], ['\\\\', '\n', '\n', '\n', '\;', '\,'], $s);
+        return str_replace(["\\", "\r\n", "\n", "\r", ';', ','], ['\\\\', '\n', '\n', '\n', '\;', '\,'], $s);
     }
 
     /** Line folding ≤75 oktet; continuation diawali spasi. */

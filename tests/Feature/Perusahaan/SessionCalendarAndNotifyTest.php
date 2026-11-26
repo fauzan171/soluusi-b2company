@@ -242,7 +242,8 @@ class SessionCalendarAndNotifyTest extends TestCase
         // Satu mail scheduled per pihak (SEQUENCE:2) — cancel di-suppress.
         // NB: ADR 001 — reschedule = cancel + book sesi BARU (id baru, UID baru).
         Mail::assertSent(SessionScheduledMail::class, 2);
-        Mail::assertNotSent(SessionCancelledMail::class);
+        // Reschedule = cancel+book (ADR 001, UID baru): CANCEL untuk UID lama agar event lama hilang dari kalender.
+        Mail::assertSent(SessionCancelledMail::class, 2);
         Mail::assertSent(SessionScheduledMail::class, fn ($m) => str_contains($m->ics, "UID:session-{$newSession->id}@wellbeing.soluusi.com")
             && str_contains($m->ics, 'SEQUENCE:2'));
     }

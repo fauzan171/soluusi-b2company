@@ -31,4 +31,4 @@ Schedule::command('consultants:sync-b2c')->dailyAt('02:00')->withoutOverlapping(
 // Email notifikasi real konsultan (B2C) — refresh right after nightly sync.
 Schedule::command('consultants:refresh-notify-emails')->dailyAt('02:10')->withoutOverlapping();
 // B2B-notify: reminder sesi H-1 hari & H-1 jam (idempotent per flag sesi).
-Schedule::command('sessions:send-reminders')->hourly()->withoutOverlapping();
+Schedule::command('sessions:send-reminders')->everyFiveMinutes()->withoutOverlapping();

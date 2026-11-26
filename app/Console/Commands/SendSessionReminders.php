@@ -24,7 +24,7 @@ class SendSessionReminders extends Command
         $now = now();
 
         $dueDay = $this->due('reminded_day_at', 1440, 1505, $now); // H-1 hari: 24-25 jam sebelum sesi
-        $dueHour = $this->due('reminded_hour_at', 55, 60, $now);   // H-1 jam: 55-60 menit sebelum sesi
+        $dueHour = $this->due('reminded_hour_at', 5, 60, $now);   // H-1 jam: 55-60 menit sebelum sesi
 
         $sent = 0;
         foreach ([$dueDay, $dueHour] as $sessions) {
@@ -55,7 +55,10 @@ class SendSessionReminders extends Command
         $flag = $s->scheduled_at->isAfter(now()->copy()->addMinutes(90)) ? 'reminded_day_at' : 'reminded_hour_at';
         // Mark FIRST (dalam transaction bersama read di caller) — double scheduler
         // race kalah flag, bukan kirim email dua kali.
-        $s->forceFill([$flag => now()])->save();
+        // Klaim atomik: hanya 1 proses yang menang (cegah double-send antar host).
+        if (PerusahaanSession::whereKey($s->id)->whereNull($flag)->update([$flag => now()]) !== 1) {
+            return 0;
+        }
 
         $ics = Ics::event($s->id, $s->scheduled_at, $s->ended_at ?: $s->scheduled_at->copy()->addHour(),
             summary: 'Sesi konsultasi Soluusi',

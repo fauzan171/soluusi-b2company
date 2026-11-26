@@ -7,6 +7,7 @@ use App\Mail\Perusahaan\SessionCancelledMail;
 use App\Models\Perusahaan\PerusahaanSession;
 use App\Support\Ics;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -35,17 +36,34 @@ class SessionNotify
     /** Sesi terjadwal (booking/schedule/confirm) → kedua pihak + ICS. */
     public static function scheduled(PerusahaanSession $s, ?int $sequence = null): void
     {
-        self::send($s, sequence: $sequence);
+        self::deferred(fn () => self::send($s, sequence: $sequence));
+    }
+
+    /** Kirim setelah commit (tanpa SMTP di dalam transaksi/lock) dan jangan pernah gagalkan aksi bisnis. */
+    private static function deferred(\Closure $fn): void
+    {
+        DB::afterCommit(function () use ($fn) {
+            try {
+                $fn();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
     }
 
     /** Reschedule → kedua pihak, UID sama + SEQUENCE naik. */
     public static function rescheduled(PerusahaanSession $s): void
     {
-        self::send($s, sequence: max(1, (int) ($s->schedule_version ?? 1)));
+        self::deferred(fn () => self::send($s, sequence: max(1, (int) ($s->schedule_version ?? 1))));
     }
 
     /** Cancel → kedua pihak, METHOD:CANCEL ICS. */
     public static function cancelled(PerusahaanSession $s): void
+    {
+        self::deferred(fn () => self::sendCancelled($s));
+    }
+
+    private static function sendCancelled(PerusahaanSession $s): void
     {
         // Sesi belum pernah terjadwal (cancel request pending) → tidak ada
         // event kalender untuk dibatalkan; cukup email employee.

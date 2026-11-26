@@ -113,7 +113,9 @@ class EmployeeController extends Controller
 
         // A4: kartu rekomendasi dari hasil asesmen TERBARU (instrumen apapun),
         // deskriptif — bukan diagnosis.
-        $latestAny = $employee->assessments()->whereNotNull('instrument_code')->latest('taken_at')->first();
+        $latestAny = $employee->assessments()->whereNotNull('instrument_code')
+            ->whereIn('instrument_code', \App\Models\AssessmentInstrument::whereNotNull('domain')->select('code')) // DISC/BigFive (tanpa domain) tak menurunkan saran
+            ->latest('taken_at')->first();
         $suggestion = $latestAny
             ? \App\Support\AssessmentConsultationSuggestion::from($latestAny)
             : null;

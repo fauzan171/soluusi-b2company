@@ -17,7 +17,7 @@ use App\Models\Perusahaan\PerusahaanAssessment;
 class AssessmentConsultationSuggestion
 {
     /** Band labels yang menandakan kebutuhan pendampingan intensif. */
-    private const HIGH_BANDS = ['Berisiko Tinggi', 'Berat', 'Sangat Berat', 'Tinggi'];
+    private const HIGH_BANDS = ['Berisiko Tinggi', 'Agak Berat', 'Berat', 'Sangat Berat', 'Tinggi'];
 
     /** Band labels menengah. */
     private const MODERATE_BANDS = ['Perlu Perhatian', 'Sedang', 'Perlu Intervensi'];

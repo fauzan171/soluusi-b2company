@@ -121,13 +121,22 @@ class WorkHourSlotBookingTest extends TestCase
         $this->assertDatabaseHas('booking_claims', ['schedule_id' => $s->schedule_id]);
     }
 
+    // regresi review B2: slot terakhir window (11:00-12:00) harus bisa di-book
+    public function test_last_slot_of_window_can_be_booked()
+    {
+        [$p, $emp, $empUser] = $this->fixture();
+
+        $this->book($emp, $empUser, $this->monday(120))->assertRedirect(route('perusahaan.employee'));
+        $this->assertSame(1, PerusahaanSession::count());
+    }
+
     // (c) double-submit slot sama → kedua ditolak
     public function test_double_booking_same_slot_second_rejected()
     {
         [$p, $emp, $empUser, , $consultant] = $this->fixture();
 
         $this->book($emp, $empUser, $this->monday())->assertRedirect(route('perusahaan.employee'));
-        $this->book($emp, $empUser, $this->monday())->assertStatus(422);
+        $this->book($emp, $empUser, $this->monday())->assertSessionHasErrors("starts_at");
 
         $this->assertSame(1, PerusahaanSession::count());
     }
@@ -144,7 +153,7 @@ class WorkHourSlotBookingTest extends TestCase
         ]);
 
         // Slot jam ini hanya milik konsultan pool — konsultan lain ditolak
-        $this->book($emp, $empUser, $this->monday(), 'psikolog', null, $other->id)->assertStatus(422);
+        $this->book($emp, $empUser, $this->monday(), 'psikolog', null, $other->id)->assertSessionHasErrors("starts_at");
 
         // Tanpa jam kerja sama sekali → form tidak menawarkan slot apa pun
         $p2 = Perusahaan::create([
@@ -234,7 +243,7 @@ class WorkHourSlotBookingTest extends TestCase
         $res->assertDontSee('value="' . $this->monday() . '"', false);
 
         // Pool B tidak punya hours konsultan ini → booking ditolak
-        $this->book($eB, $uB, $this->monday(), 'psikolog', null, $consultant->id)->assertStatus(422);
+        $this->book($eB, $uB, $this->monday(), 'psikolog', null, $consultant->id)->assertSessionHasErrors("starts_at");
     }
 
     // day boundary: slot menjelang tengah malam tidak bocor ke hari berikut

@@ -47,7 +47,7 @@
                 <td class="p-3">
                     @if ($allocated)
                         <form method="POST" action="{{ route('admin.tenants.perusahaans.assessments.close', [$perusahaan, $allocated]) }}" class="inline"
-                              onsubmit="return confirm('Tutup alokasi {{ $instrument->code }}?')">
+                              onsubmit="return confirm(@js('Tutup alokasi '.$instrument->code.'?'))">
                             @csrf
                             <button type="submit" class="text-xs font-semibold rounded px-3 py-1.5 bg-gray-200 text-gray-700">Hapus alokasi</button>
                         </form>
@@ -83,7 +83,7 @@
                 <td class="p-3">
                     @if ($grant)
                         <form method="POST" action="{{ route('admin.instruments.grants.destroy', $grant) }}" class="inline"
-                              onsubmit="return confirm('Cabut grant MCMI-III dari {{ $employee->name }}?')">
+                              onsubmit="return confirm(@js('Cabut grant MCMI-III dari '.$employee->name.'?'))">
                             @csrf @method('DELETE')
                             <input type="hidden" name="from_allocation" value="1">
                             <button type="submit" class="text-xs font-semibold rounded px-3 py-1.5 bg-red-100 text-red-700">Cabut grant</button>
