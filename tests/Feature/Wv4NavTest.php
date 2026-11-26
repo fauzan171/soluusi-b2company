@@ -39,6 +39,17 @@ class Wv4NavTest extends TestCase
         ]);
     }
 
+    // Regression: sidebar (h-screen sticky) meluber tanpa scroll bila menu > tinggi viewport.
+    public function test_sidebar_nav_is_scrollable_and_footer_pinned(): void
+    {
+        $admin = $this->makeUser('admin', 'scroll');
+
+        $html = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression('/<aside class="portal-sidebar[^"]*overflow-hidden/', $html);
+        $this->assertMatchesRegularExpression('/<nav class="portal-nav[^"]*min-h-0[^"]*overflow-y-auto/', $html);
+    }
+
     public function test_admin_nav_has_eight_internal_menus(): void
     {
         $admin = $this->makeUser('admin', 'admin');
