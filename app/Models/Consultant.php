@@ -40,6 +40,9 @@ class Consultant extends Model
         'interview_link',
         'b2c_consultant_id',
         'is_active',
+        'photo_url',
+        'headline',
+        'profile',
     ];
 
     protected $dates = [
@@ -49,6 +52,7 @@ class Consultant extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'b2c_consultant_id' => 'integer',
+        'profile' => 'array',
     ];
 
     public function getBlogPackageLabelAttribute(): string
