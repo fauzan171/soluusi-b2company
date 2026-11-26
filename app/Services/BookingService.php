@@ -73,9 +73,9 @@ class BookingService
                 ->orWhere(fn ($q) => $q->whereIn('status', ['cancelled', 'no_show'])->where('quota_consumed', true)))->count();
     }
 
-    public static function cancel(string $vertical, $session, string $reason): bool
+    public static function cancel(string $vertical, $session, string $reason, bool $notify = true): bool
     {
-        return DB::transaction(function () use ($vertical, $session, $reason) {
+        $restored = DB::transaction(function () use ($vertical, $session, $reason) {
             if ($session->consultant_id) {
                 Consultant::whereKey($session->consultant_id)->lockForUpdate()->firstOrFail();
             }
@@ -96,6 +96,14 @@ class BookingService
             }
             return !$late;
         });
+        // B2B-notify: raw update() di atas — jalan lewat state machine — hook mail
+        // di sini (single place untuk cancel lintas vertical). reschedule suppress.
+        if ($restored !== null && $notify && $vertical === 'perusahaan'
+            && $session instanceof \App\Models\Perusahaan\PerusahaanSession) {
+            \App\Services\SessionNotify::cancelled($session->withoutRelations());
+        }
+
+        return $restored ?? false;
     }
 
     public static function reschedule(string $vertical, $row, $session, int $scheduleId)
@@ -109,7 +117,9 @@ class BookingService
             // ADR 001: version jadwal lanjut ke sesi pengganti (cancel+book = reschedule).
             $nextVersion = (int) ($session->schedule_version ?? 0) + 1;
             $mode = $session->mode;
-            self::cancel($vertical, $session, 'Perubahan jadwal');
+            // B2B-notify: suppress mail cancel — hook book() di bawah kirim satu
+            // mail reschedule (UID sama, SEQUENCE = $nextVersion) ke kedua pihak.
+            self::cancel($vertical, $session, 'Perubahan jadwal', notify: $vertical !== 'perusahaan');
             return self::book($vertical, $row, [
                 'schedule_id' => $scheduleId, 'konsultan_type' => $session->konsultan_type,
                 // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
@@ -215,6 +225,12 @@ class BookingService
                 }
             }
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
+            if ($vertical === 'perusahaan') {
+                // B2B-notify: booking baru / hasil reschedule (version > 1) →
+                // kedua pihak, ICS UID stabil + SEQUENCE.
+                \App\Services\SessionNotify::scheduled($session->withoutRelations(),
+                    sequence: (int) ($data['schedule_version'] ?? 1));
+            }
             return $session;
         });
     }

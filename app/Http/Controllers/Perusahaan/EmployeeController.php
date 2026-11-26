@@ -231,21 +231,8 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // Audit UX item 6 + calendar invite: karyawan & konsultan dapat email + .ics.
-        // Cukup waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
-        // Konsultan hasil sync B2C pakai email placeholder *@b2b.local → di-skip.
-        $recipients = array_filter([$employee->email, $session->consultant?->user?->email],
-            fn ($e) => $e && !str_ends_with($e, '@b2b.local'));
-        foreach (array_unique($recipients) as $to) {
-            \Illuminate\Support\Facades\Mail::to($to)->send(new \App\Mail\Perusahaan\SlotConfirmedMail(
-                $employee->name,
-                $session->perusahaan->brand,
-                \Illuminate\Support\Carbon::parse($slot['start']),
-                \Illuminate\Support\Carbon::parse($slot['end']),
-                $session->id,
-                $to,
-            ));
-        }
+        // B2B-notify: konfirmasi + invite.ics via SessionStateMachine::schedule hook
+        // (kedua pihak, no health detail — konsultan @b2b.local di-skip).
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
@@ -539,6 +526,8 @@ class EmployeeController extends Controller
             }
             return $session;
         });
+        // B2B-notify: konfirmasi email ke karyawan (waktu+mode+link, no health detail).
+        \App\Services\SessionNotify::requested($session->withoutRelations());
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Permintaan terkirim. Menunggu review HR — kamu dapat kabar setelah disetujui.');
