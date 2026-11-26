@@ -96,6 +96,7 @@
         default => [],
     };
 @endphp
+@php($bare = $bare ?? false)
 <body class="bg-paper text-ink min-h-screen">
     <div class="flex min-h-screen">
         @if(count($navItems))
@@ -128,6 +129,7 @@
         @endif
 
         <div class="flex-1 min-w-0">
+            @unless($bare)
             <header class="bg-white/80 backdrop-blur border-b border-[#e7e2d9] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
                 <div class="flex items-center gap-4">
                     @if(!count($navItems))
@@ -212,8 +214,9 @@
                     @endauth
                 </nav>
             </details>
-            <main class="w-full px-4 py-6 sm:px-6 lg:px-8">
-                <div class="mx-auto w-full max-w-7xl">
+            @endunless
+            <main @class(['w-full', 'px-4 py-6 sm:px-6 lg:px-8' => ! $bare])>
+                <div @class(['w-full', 'mx-auto max-w-7xl' => ! $bare, 'px-4 pt-4 sm:px-6' => $bare && (session('success') || session('error') || session('info') || session('crisis') || (isset($errors) && $errors->any()))])>
                 @if(!empty($viewAs))
                     <div class="mb-4 p-3 rounded-xl bg-amber-100 text-amber-900 text-sm flex items-center justify-between gap-3" role="status">
                         <span>Anda sedang melihat sebagai <strong>{{ $viewAs['name'] }}</strong> <span class="text-amber-700">({{ $viewAs['target_role'] ?? '?' }})</span> — mode view-as superadmin, read-only.

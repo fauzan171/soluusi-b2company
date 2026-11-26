@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+@php($bare = true)
 @php($title = 'Masuk — ' . config('whitelabel.internal_brand', 'Soluusi'))
 
 @section('content')
@@ -25,8 +26,8 @@
     @media (prefers-reduced-motion: reduce) { .login-rise { animation: none; } .login-field, .login-submit { transition: none; } }
 </style>
 
-<div class="login-shell overflow-hidden border border-[#dcd7cd] bg-white lg:grid lg:grid-cols-[.78fr_1.22fr]">
-    <aside class="login-aside relative overflow-hidden px-7 py-9 text-white sm:px-10 lg:min-h-[calc(100vh-9rem)] lg:px-12 lg:py-12">
+<div class="login-shell min-h-screen overflow-hidden bg-white lg:grid lg:grid-cols-[.78fr_1.22fr]">
+    <aside class="login-aside relative overflow-hidden px-7 py-9 text-white sm:px-10 lg:min-h-screen lg:px-12 lg:py-12">
         <div aria-hidden="true" class="absolute -right-16 top-24 h-48 w-48 rounded-full border border-white/10"></div>
         <div aria-hidden="true" class="absolute -right-4 top-36 h-28 w-28 rounded-full border border-terra-400/40"></div>
         <div class="relative lg:sticky lg:top-24">
@@ -47,8 +48,8 @@
         </div>
     </aside>
 
-    <section class="bg-[#fcfbf8] px-6 py-9 sm:px-10 lg:px-14 lg:py-12">
-        <div class="mx-auto max-w-md">
+    <section class="bg-[#fcfbf8] px-6 py-9 sm:px-10 lg:flex lg:items-center lg:px-14 lg:py-12">
+        <div class="mx-auto w-full max-w-md">
             <div class="login-rise border-b border-[#ded9cf] pb-8">
                 <p class="text-xs font-semibold uppercase tracking-[.18em] text-pine-700">Masuk ke Portal</p>
                 <h2 class="mt-2 text-3xl font-semibold tracking-[-.035em] text-pine-950">Akun Anda.</h2>
