@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
  */
 class AssessmentAssignmentController extends Controller
 {
-    private const ADDON_CODES = ['bigfive', 'disc', 'ergonomic', 'phq9', 'gad7', 'cbi'];
+    private const ADDON_CODES = ['bigfive', 'disc', 'ergonomic', 'phq9', 'gad7', 'cbi', 'bfitrader', 'disc24'];
 
     public function index(CompanyWellbeingProgram $program)
     {
@@ -61,7 +61,7 @@ class AssessmentAssignmentController extends Controller
 
         if ($data['source'] === 'addon' && !in_array($data['instrument_code'], self::ADDON_CODES, true)) {
             throw ValidationException::withMessages([
-                'instrument_code' => 'Add-on hanya untuk instrumen berbayar: bigfive, disc, ergonomic, phq9, gad7, cbi.',
+                'instrument_code' => 'Add-on hanya untuk instrumen berbayar: bigfive, disc, ergonomic, phq9, gad7, cbi, bfitrader, disc24.',
             ]);
         }
 

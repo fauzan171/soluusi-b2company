@@ -16,6 +16,11 @@ use Illuminate\Support\Collection;
  * - sum      : PHQ-9 / GAD-7 — total mentah (0-27 / 0-21).
  * - sum_x4   : WHO-5 — sum 0-25 × 4 → 0-100 (parity formula path lama).
  * - mean_x25 : CBI — mean item (0-4) × 25 → 0-100.
+ * - disc_forced : DISC 24 (ac1) — forced-choice ipsatif: jawaban {DSnp, DSnk}
+ *   per item; letter P/K dari config/assessment-disc.php key, count→line via
+ *   conv p/k, diff=P−K→conv diff; combo line-positif dicocokkan ke 40 profil
+ *   types. score = key profil (1-40), band = archetype/desc (dari bands
+ *   instrumen), dimensions = line D/I/S/C.
  */
 class InstrumentScoring
 {
@@ -25,6 +30,10 @@ class InstrumentScoring
      */
     public static function score(AssessmentInstrument $instrument, array $answers): array
     {
+        if ($instrument->scoring_type === 'disc_forced') {
+            return self::scoreDiscForced($instrument, $answers);
+        }
+
         $items = self::items($instrument);
         $raw = 0;
         $count = 0;
@@ -57,6 +66,110 @@ class InstrumentScoring
             'escalated' => $escalated,
             'dimensions' => self::dimensionScores($instrument, $items, $answers),
         ];
+    }
+
+    /**
+     * ac1: DISC 24 forced-choice (ipsatif). Tabel dari config/assessment-disc.php.
+     * Per item n: letterP = key[n].P[answers["DSnp"]], letterK = key[n].K[answers["DSnk"]]
+     * ("*" netral di-skip). P-count/K-count per huruf → line via conv p/k
+     * (count clamp 0-20); diff = P−K per huruf → conv diff[diff+22].
+     * Combo = SET huruf line-positif (>0) — dicocokkan exact ke types.combo
+     * (strip spasi); fallback: profil dengan huruf positif terbanyak.
+     */
+    private static function scoreDiscForced(AssessmentInstrument $instrument, array $answers): array
+    {
+        $cfg = config('assessment-disc');
+        $letters = ['D', 'I', 'S', 'C'];
+
+        $pCount = array_fill_keys($letters, 0);
+        $kCount = array_fill_keys($letters, 0);
+
+        $items = self::items($instrument);
+        $ord = 0;
+        foreach ($items as $item) {
+            $n = (string) $item->ord;
+            $key = $cfg['key'][$n] ?? null;
+            if (!$key) {
+                continue;
+            }
+            $ord++;
+            $pIdx = (int) ($answers[$item->code.'p'] ?? 0);
+            $kIdx = (int) ($answers[$item->code.'k'] ?? 0);
+            $letterP = $key['P'][$pIdx] ?? '*';
+            $letterK = $key['K'][$kIdx] ?? '*';
+            if ($letterP !== '*' && isset($pCount[$letterP])) {
+                $pCount[$letterP]++;
+            }
+            if ($letterK !== '*' && isset($kCount[$letterK])) {
+                $kCount[$letterK]++;
+            }
+        }
+
+        // Line per huruf: p/k count→line, diff=P−K (clamp -22..22) → line.
+        $line = [];
+        foreach ($letters as $i => $letter) {
+            $pLine = $cfg['conv']['p'][min(20, max(0, $pCount[$letter]))][$i];
+            $kLine = $cfg['conv']['k'][min(20, max(0, $kCount[$letter]))][$i];
+            $diff = (int) round($pLine - $kLine);
+            $diffIdx = min(44, max(0, $diff + 22));
+            $line[$letter] = (float) $cfg['conv']['diff'][$diffIdx][$i];
+        }
+
+        // Combo = huruf dengan line positif.
+        $positive = array_keys(array_filter($line, fn ($v) => $v > 0));
+        $combo = implode('', $positive);
+
+        $type = self::matchDiscType($cfg['types'], $combo);
+        $score = (int) $type['key'];
+
+        $dimensions = [];
+        foreach ($letters as $letter) {
+            $dimensions[] = [
+                'key' => $letter,
+                'label' => $instrument->dimensions[$letter]['label'] ?? $letter,
+                'score' => (int) round($line[$letter]),
+                'band' => ['label' => ($line[$letter] > 0 ? 'Tinggi' : ($line[$letter] < 0 ? 'Rendah' : 'Sedang')), 'note' => ''],
+            ];
+        }
+
+        return [
+            'score' => $score,
+            'band' => [
+                'label' => $instrument->bandLabelFor($score),
+                'note' => $instrument->bandNoteFor($score),
+            ],
+            'escalated' => false,
+            'dimensions' => $dimensions,
+        ];
+    }
+
+    /** Combo string (tanpa spasi) → profil; fallback huruf terbanyak. */
+    private static function matchDiscType(array $types, string $combo): array
+    {
+        $combo = str_replace(' ', '', $combo);
+        $comboSet = str_split($combo);
+        sort($comboSet);
+        foreach ($types as $t) {
+            foreach (explode('/', $t['combo']) as $alt) {
+                $altSet = str_split(str_replace(' ', '', $alt));
+                sort($altSet);
+                if ($comboSet === $altSet && $comboSet !== []) {
+                    return $t;
+                }
+            }
+        }
+        // fallback: profil dengan overlap huruf terbanyak.
+        $best = $types[0];
+        $bestOverlap = -1;
+        foreach ($types as $t) {
+            $altLetters = array_unique(str_split(str_replace(['/', ' '], '', $t['combo'])));
+            $overlap = count(array_intersect($comboSet, $altLetters));
+            if ($overlap > $bestOverlap) {
+                $bestOverlap = $overlap;
+                $best = $t;
+            }
+        }
+        return $best;
     }
 
     /**

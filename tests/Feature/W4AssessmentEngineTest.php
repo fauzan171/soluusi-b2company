@@ -162,8 +162,8 @@ class W4AssessmentEngineTest extends TestCase
         $this->seedInstruments();
         $instruments = AssessmentInstrument::count();
         $questions = \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count();
-        $this->assertSame(11, $instruments);
-        $this->assertSame(114, $questions); // 5+9+7+19 + wv1 (21+10+15+12+8+8)
+        $this->assertSame(13, $instruments);
+        $this->assertSame(328, $questions); // 5+9+7+19 + wv1 (21+10+15+12+8+8) + ac1 (15+24+175)
 
         $this->seedInstruments();
         $this->assertSame($instruments, AssessmentInstrument::count());

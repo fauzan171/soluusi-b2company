@@ -107,7 +107,7 @@ class Wv1InstrumentLibraryTest extends TestCase
     {
         $this->seedInstruments();
 
-        $this->assertSame(11, AssessmentInstrument::count());
+        $this->assertSame(13, AssessmentInstrument::count());
         // backfill legacy (migration wv1)
         $this->assertSame('wellbeing', AssessmentInstrument::where('code', 'who5')->value('domain'));
         foreach (['phq9', 'gad7', 'cbi'] as $code) {
@@ -126,11 +126,11 @@ class Wv1InstrumentLibraryTest extends TestCase
         // MCMI-III stub: clinical indication-based, TIDAK mass-test
         $this->assertFalse(AssessmentInstrument::where('code', 'mcmi3')->value('is_active'));
         // jumlah item: 40 lama + 21+10+15+12+8+8 baru (MCMI stub tanpa item)
-        $this->assertSame(114, \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count());
+        $this->assertSame(328, \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count());
         // idempotent
         $this->seedInstruments();
-        $this->assertSame(11, AssessmentInstrument::count());
-        $this->assertSame(114, \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count());
+        $this->assertSame(13, AssessmentInstrument::count());
+        $this->assertSame(328, \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count());
     }
 
     public function test_wv1_schema_columns_and_grants_table()
@@ -235,15 +235,16 @@ class Wv1InstrumentLibraryTest extends TestCase
     {
         $this->seedInstruments();
 
-        foreach (['ergonomic', 'disc', 'bigfive'] as $code) {
+        // ac1: + bfitrader, disc24 sebagai add-on baru.
+        foreach (['ergonomic', 'disc', 'bigfive', 'bfitrader', 'disc24'] as $code) {
             $this->assertTrue(AssessmentInstrument::where('code', $code)->value('is_addon'), $code);
         }
         $others = AssessmentInstrument::where('is_addon', true)->pluck('code')->all();
         sort($others);
-        $this->assertSame(['bigfive', 'disc', 'ergonomic'], $others);
-        // idempotent: re-seed tetap 3 add-on, tidak duplikat
+        $this->assertSame(['bfitrader', 'bigfive', 'disc', 'disc24', 'ergonomic'], $others);
+        // idempotent: re-seed tetap 5 add-on, tidak duplikat
         $this->seedInstruments();
-        $this->assertSame(3, AssessmentInstrument::where('is_addon', true)->count());
+        $this->assertSame(5, AssessmentInstrument::where('is_addon', true)->count());
     }
 
     public function test_employee_index_shows_addon_badge_for_addon_instruments_only()
