@@ -126,6 +126,19 @@ class RealdataClean extends Command
             ->whereIn('id', $perusahaanIds)->delete());
 
         // Konsultan lokal: dependensi restrict dulu, lalu konsultan + user.
+        // Rantai restrict via schedule konsultan lokal (sesi B2C legacy + settlement + checkout + claim).
+        $localScheduleIds = fn () => DB::table('schedules')->whereIn('consultant_id', $localConsultantIds)->pluck('id');
+        $localSessionIds = fn () => DB::table('consultation_sessions')->whereIn('schedule_id', $localScheduleIds())->pluck('id');
+        $steps[] = $this->step('split_settlements (local sessions)', fn () => DB::table('split_settlements')
+            ->whereIn('session_id', $localSessionIds())->delete());
+        $steps[] = $this->step('consultation_sessions (local schedules)', fn () => DB::table('consultation_sessions')
+            ->whereIn('schedule_id', $localScheduleIds())->delete());
+        $steps[] = $this->step('checkout_links (local)', fn () => DB::table('checkout_links')
+            ->whereIn('consultant_id', $localConsultantIds)->orWhereIn('schedule_id', $localScheduleIds())->delete());
+        $steps[] = $this->step('booking_claims (local schedules)', fn () => DB::table('booking_claims')
+            ->whereIn('schedule_id', $localScheduleIds())->delete());
+        $steps[] = $this->step('consultant_skills (local, legacy)', fn () => DB::table('consultant_skills')
+            ->whereIn('consultant_id', $localConsultantIds)->delete());
         $steps[] = $this->step('schedules (local consultants)', fn () => DB::table('schedules')
             ->whereIn('consultant_id', $localConsultantIds)->delete());
         $steps[] = $this->step('consultant_ratings (local)', fn () => DB::table('consultant_ratings')

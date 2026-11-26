@@ -187,4 +187,36 @@ class RealdataCleanCommandTest extends TestCase
         $this->assertNull(User::find($orphan->id));
         $this->assertNotNull(User::where('email', 'admin@klinik-konsultan.local')->first());
     }
+
+    public function test_execute_removes_legacy_session_chain_of_local_consultant(): void
+    {
+        $local = $this->localConsultant();
+        $klinikId = DB::table('kliniks')->insertGetId(['uuid' => (string) Str::uuid(), 'name' => 'Fake Klinik', 'brand' => 'Fake', 'created_at' => now(), 'updated_at' => now()]);
+        $scheduleId = DB::table('schedules')->insertGetId([
+            'consultant_id' => $local->id, 'started_at' => now(), 'ended_at' => now()->addHour(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $pkgId = DB::table('consultant_packages')->insertGetId([
+            'consultant_id' => $local->id, 'name' => 'Fake', 'price' => 1000, 'duration' => 30,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $sessionId = DB::table('consultation_sessions')->insertGetId([
+            'schedule_id' => $scheduleId, 'consultant_package_id' => $pkgId, 'consultant_id' => $local->id,
+            'status' => 'done', 'order_number' => 'FAKE-1', 'amount' => 1000, 'payment' => 'fake', 'payment_status' => 'verified',
+            'order_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('split_settlements')->insert([
+            'session_id' => $sessionId, 'klinik_id' => $klinikId, 'net_amount' => 1, 'klinik_margin' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->artisan('realdata:clean', ['--dry-run' => false])
+            ->expectsConfirmation('Lanjut hapus data di atas?', 'yes')
+            ->assertSuccessful();
+
+        $this->assertSame(0, DB::table('split_settlements')->count());
+        $this->assertSame(0, DB::table('consultation_sessions')->count());
+        $this->assertSame(0, DB::table('schedules')->count());
+        $this->assertSame(0, Consultant::whereNull('b2c_consultant_id')->count());
+    }
 }
