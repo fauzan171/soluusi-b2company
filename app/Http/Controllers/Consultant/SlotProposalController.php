@@ -60,6 +60,8 @@ class SlotProposalController extends Controller
             ])->all(),
             'status' => SessionSlotProposal::STATUS_PENDING,
         ]);
+        // B2B-notify: slot diusulkan → email karyawan (pilih jadwal, no health detail).
+        \App\Services\SessionNotify::slotProposed($session->withoutRelations());
 
         return redirect()->route('consultant.sessions')
             ->with('success', 'Opsi jadwal dikirim. Menunggu karyawan/HR memilih salah satu.');

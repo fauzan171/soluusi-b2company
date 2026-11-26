@@ -146,6 +146,14 @@
                 <a href="{{ route('perusahaan.chat', $s) }}"
                     class="mt-auto text-xs font-semibold bg-pine-700 text-white rounded-lg px-3 py-2 text-center hover:bg-pine-800">Masuk Chat</a>
                 @endif
+                {{-- B2B-notify: simpan sesi ke kalender (offline/online/chat room). --}}
+                <div class="flex gap-2 mt-auto pt-1">
+                    <a href="{{ route('perusahaan.sessions.calendar', $s) }}"
+                        class="flex-1 text-xs font-semibold border border-pine-300 text-pine-700 rounded-lg px-3 py-1.5 text-center hover:bg-pine-50">Tambah ke kalender (.ics)</a>
+                    <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi Soluusi', $s->scheduled_at) }}"
+                        target="_blank" rel="noopener"
+                        class="text-xs font-semibold border border-blue-300 text-blue-700 rounded-lg px-3 py-1.5 hover:bg-blue-50">Google Calendar</a>
+                </div>
             </div>
             @endforeach
         </div>
@@ -334,12 +342,16 @@
                         @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
                     </p>
                 </div>
-                <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi — ' . ($typeLabels[$s->konsultan_type] ?? $s->konsultan_type), $s->scheduled_at, 'Sesi konseling rahasia via program ' . $perusahaan->brand . '. Link online dikirim mendekati jadwal.') }}"
-                    target="_blank" rel="noopener"
-                    class="shrink-0 text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
-                    Google Calendar
-                </a>
+                <div class="shrink-0 flex items-center gap-2">
+                    <a href="{{ route('perusahaan.sessions.calendar', $s) }}"
+                        class="text-xs font-semibold border border-pine-300 text-pine-700 rounded-lg px-3 py-1.5 hover:bg-pine-50">Tambah ke kalender (.ics)</a>
+                    <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi — ' . ($typeLabels[$s->konsultan_type] ?? $s->konsultan_type), $s->scheduled_at, 'Sesi konseling rahasia via program ' . $perusahaan->brand . '. Link online dikirim mendekati jadwal.') }}"
+                        target="_blank" rel="noopener"
+                        class="text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
+                        Google Calendar
+                    </a>
+                </div>
             </div>
             @endforeach
         </div>

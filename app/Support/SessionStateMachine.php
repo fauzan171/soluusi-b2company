@@ -52,6 +52,9 @@ class SessionStateMachine
             'ended_at' => $end,
             'schedule_version' => 1,
         ]);
+        if ($s instanceof PerusahaanSession) {
+            \App\Services\SessionNotify::scheduled($s->withoutRelations());
+        }
 
         return $s;
     }
@@ -79,6 +82,7 @@ class SessionStateMachine
             'ended_at' => $end,
             'schedule_version' => $s->schedule_version + 1,
         ]);
+        \App\Services\SessionNotify::rescheduled($s->withoutRelations());
 
         return $s;
     }
@@ -99,6 +103,9 @@ class SessionStateMachine
             'cancel_reason' => $reason,
             'cancelled_at' => now(),
         ]);
+        if ($s instanceof PerusahaanSession) {
+            \App\Services\SessionNotify::cancelled($s->withoutRelations());
+        }
 
         return $s;
     }
