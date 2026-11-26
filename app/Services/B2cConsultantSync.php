@@ -66,7 +66,7 @@ class B2cConsultantSync
                     'uuid' => (string) Str::uuid(),
                     'username' => 'b2c-'.$b2c->id,
                     'email' => $localEmail,
-                    'password' => Str::random(32), // never used for login (SSO); random per row
+                    'password' => bcrypt(Str::random(32)), // never used for login (SSO); random per row
                     'firstname' => $b2c->name,
                     'lastname' => '',
                     'role_id' => $consultantRoleId,
