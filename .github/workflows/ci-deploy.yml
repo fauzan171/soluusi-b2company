@@ -26,7 +26,10 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: npm ci && npm run build
       - name: Test
-        run: APP_KEY="base64:$(openssl rand -base64 32)" php artisan test
+        # storage/framework/* and bootstrap/cache are not tracked in git
+        run: |
+          mkdir -p storage/framework/{views,cache/data,sessions,testing} storage/logs bootstrap/cache
+          APP_KEY="base64:$(openssl rand -base64 32)" php artisan test
 
   deploy:
     needs: test
