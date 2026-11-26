@@ -40,6 +40,7 @@ class Consultant extends Model
         'interview_link',
         'b2c_consultant_id',
         'is_active',
+        'notify_email',
     ];
 
     protected $dates = [
@@ -83,6 +84,18 @@ class Consultant extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Email tujuan notifikasi konsultan. Urutan: notify_email (dari B2C,
+     * real) → user email, KECUALI placeholder b2c-{id}@b2b.local hasil sync
+     * (tidak pernah sampai) → null → mailer wajib skip tanpa exception.
+     */
+    public function notificationEmail(): ?string
+    {
+        $email = $this->notify_email ?: $this->user?->email;
+
+        return $email && ! str_ends_with($email, '@b2b.local') ? $email : null;
     }
 
     /**
