@@ -49,6 +49,10 @@ class Kernel extends ConsoleKernel
 
         // wb-T4 (bizrules R6): 30-day notice / kontrak lewat masa → status ended.
         $schedule->command('wellbeing:expire-programs')->daily()->withoutOverlapping();
+
+        // Fase 2: tarik konsultan B2C (read-only) tiap malam; skip kalau koneksi b2c belum dikonfigurasi.
+        $schedule->command('consultants:sync-b2c')->dailyAt('02:00')->withoutOverlapping()
+            ->when(fn () => config('database.connections.b2c.host') !== '');
     }
 
     /**
