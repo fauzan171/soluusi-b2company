@@ -154,8 +154,47 @@ class SlotConfirmationTest extends TestCase
             'slot_index' => 0,
         ])->assertRedirect();
 
-        Mail::assertSent(SlotConfirmedMail::class, 1);
         Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('doc@test.local'));
+    }
+
+    // Calendar invite: karyawan + konsultan dapat .ics (METHOD:REQUEST) supaya
+    // Gmail/Outlook/Apple bisa langsung "Add to calendar". Waktu dalam UTC.
+    public function test_confirming_slot_sends_ics_invite_to_employee_and_consultant()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, 2);
+        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('emp@test.local'));
+
+        $start = now()->addDay()->setTime(9, 0)->utc()->format('Ymd\THis\Z');
+        $end = now()->addDay()->setTime(10, 0)->utc()->format('Ymd\THis\Z');
+        Mail::assertSent(SlotConfirmedMail::class, function ($m) use ($start, $end, $session) {
+            $ics = $m->ics;
+            return str_contains($ics, 'METHOD:REQUEST')
+                && str_contains($ics, "DTSTART:$start")
+                && str_contains($ics, "DTEND:$end")
+                && str_contains($ics, "UID:perusahaan-session-{$session->id}@")
+                && str_contains($ics, "\r\nEND:VCALENDAR\r\n");
+        });
+    }
+
+    public function test_consultant_with_placeholder_local_email_is_skipped()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        $session->consultant->user->update(['email' => 'b2c-7@b2b.local']);
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, 1);
+        Mail::assertNotSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('b2c-7@b2b.local'));
     }
 
     public function test_confirm_rejects_past_slot()

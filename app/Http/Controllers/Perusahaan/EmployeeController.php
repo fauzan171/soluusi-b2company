@@ -231,17 +231,20 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // Audit UX item 6: konsultan harus tahu slotnya terkonfirmasi — cukup
-        // waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
-        if ($session->consultant?->user?->email) {
-            \Illuminate\Support\Facades\Mail::to($session->consultant->user->email)->send(
-                new \App\Mail\Perusahaan\SlotConfirmedMail(
-                    $employee->name,
-                    $session->perusahaan->brand,
-                    \Illuminate\Support\Carbon::parse($slot['start'])->translatedFormat('l, d M Y H.i'),
-                    \Illuminate\Support\Carbon::parse($slot['end'])->translatedFormat('H.i'),
-                )
-            );
+        // Audit UX item 6 + calendar invite: karyawan & konsultan dapat email + .ics.
+        // Cukup waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
+        // Konsultan hasil sync B2C pakai email placeholder *@b2b.local → di-skip.
+        $recipients = array_filter([$employee->email, $session->consultant?->user?->email],
+            fn ($e) => $e && !str_ends_with($e, '@b2b.local'));
+        foreach (array_unique($recipients) as $to) {
+            \Illuminate\Support\Facades\Mail::to($to)->send(new \App\Mail\Perusahaan\SlotConfirmedMail(
+                $employee->name,
+                $session->perusahaan->brand,
+                \Illuminate\Support\Carbon::parse($slot['start']),
+                \Illuminate\Support\Carbon::parse($slot['end']),
+                $session->id,
+                $to,
+            ));
         }
 
         return redirect()->route('perusahaan.employee')
