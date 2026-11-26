@@ -472,7 +472,10 @@ class EmployeeController extends Controller
                 ->with('error', "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
         }
 
-        return redirect()->route('perusahaan.booking')
+        // Prefill booking dgn konsultan ini — hanya kalau ada di pool tenant (booking abort 404 kalau tidak).
+        $inPool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id)->contains('id', $consultant->id);
+
+        return redirect()->route('perusahaan.booking', $inPool ? ['consultant_id' => $consultant->id] : [])
             ->with('error', 'Pilih jadwal konsultasi dulu sebelum chat.');
     }
 

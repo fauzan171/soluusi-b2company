@@ -55,7 +55,7 @@
                 <a href="{{ route('perusahaan.consultants.show', $c['id']) }}" class="block w-full text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">
                     Lihat Profil &amp; Jadwal
                 </a>
-                <a href="{{ route('perusahaan.booking') }}" class="block w-full text-center rounded-lg border border-pine-300 text-pine-800 text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-50">
+                <a href="{{ route('perusahaan.booking', ['consultant_id' => $c['id']]) }}" class="block w-full text-center rounded-lg border border-pine-300 text-pine-800 text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-50">
                     Booking
                 </a>
             </div>

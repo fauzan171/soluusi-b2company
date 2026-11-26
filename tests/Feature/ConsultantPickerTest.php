@@ -71,8 +71,17 @@ class ConsultantPickerTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('perusahaan.consultants.start-chat', $consultant));
 
-        $response->assertRedirect(route('perusahaan.booking'));
+        $response->assertRedirect(route('perusahaan.booking', ['consultant_id' => $consultant->id]));
         $this->assertDatabaseCount('perusahaan_sessions', 0);
+    }
+
+    public function test_directory_booking_links_preselect_consultant(): void
+    {
+        [$p, $user, $emp, $docUser, $consultant] = $this->fixture();
+        $url = route('perusahaan.booking', ['consultant_id' => $consultant->id]);
+
+        $this->actingAs($user)->get(route('perusahaan.consultants'))
+            ->assertOk()->assertSee($url, false);
     }
 
     public function test_duplicate_active_session_redirects_to_existing(): void
