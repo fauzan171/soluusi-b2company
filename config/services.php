@@ -39,6 +39,13 @@ return [
         'secret' => env('B2C_SSO_SECRET'),
     ],
 
+    // Base URL publik B2C untuk aset konsultan (avatar). Photo_url konsultan
+    // = asset_base + /storage/avatars/<file dari B2C users.avatar>. Tanpa
+    // trailing slash. Kosong = sync skip photo (fallback inisial di view).
+    'b2c' => [
+        'asset_base' => env('B2C_ASSET_BASE'),
+    ],
+
     'ai_insight' => [
         'base_url' => env('AI_INSIGHT_BASE_URL', 'https://tokengateway.dev/v1'),
         'key' => env('AI_INSIGHT_API_KEY'),

@@ -44,15 +44,23 @@
     @foreach($consultants as $c)
     <a href="{{ route('perusahaan.consultants.detail', $c) }}" class="portal-card p-5 flex flex-col transition hover:shadow-md hover:border-pine-300">
         <div class="flex items-start justify-between">
+            @if($c->photo_url)
+            <img src="{{ $c->photo_url }}" alt="" class="w-12 h-12 rounded-full object-cover bg-pine-100"
+                onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-12 h-12 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-lg',textContent:'{{ strtoupper(substr($c->user?->firstname ?? 'K', 0, 1)) }}'}))">
+            @else
             <div class="w-12 h-12 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-lg">
                 {{ strtoupper(substr($c->user?->firstname ?? 'K', 0, 1)) }}
             </div>
+            @endif
             @if($c->ratings_count > 0)
             <span class="text-xs font-semibold text-pine-700 bg-pine-50 rounded-full px-2.5 py-1">★ {{ number_format($c->ratings->avg('rating'), 1) }} ({{ $c->ratings_count }})</span>
             @endif
         </div>
         <h2 class="font-semibold text-pine-900 text-sm mt-3">{{ $c->user?->fullname ?? 'Konsultan' }}</h2>
-        <p class="text-xs text-gray-500 mt-1">{{ $c->categories->pluck('name')->implode(', ') ?: 'Umum' }}</p>
+        @if($c->headline)
+        <p class="text-xs text-pine-700 font-medium mt-0.5">{{ $c->headline }}</p>
+        @endif
+        <p class="text-xs text-gray-500 mt-1">{{ ($c->profile['categories'] ?? []) ? collect($c->profile['categories'])->pluck('name')->implode(', ') : ($c->categories->pluck('name')->implode(', ') ?: 'Umum') }}</p>
         <p class="text-xs text-gray-400 mt-2 line-clamp-2">{{ Str::limit($c->about, 100) }}</p>
         <span class="mt-4 text-xs font-semibold text-pine-700">Lihat detail &rarr;</span>
     </a>
