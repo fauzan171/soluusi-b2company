@@ -106,8 +106,12 @@ class AssessmentController extends Controller
         $employee = app(EmployeeController::class)->resolveEmployeePublic();
 
         // kartu assignment: instrument eager-load utk name/domain/is_addon.
+        // (forEmployee mengembalikan base Collection hasil union → load manual.)
         $assignments = AssessmentAccess::forEmployee($employee)
-            ->load('instrument')
+            ->each(fn (AssessmentAssignment $a) => $a->setRelation(
+                'instrument',
+                AssessmentInstrument::where('code', $a->instrument_code)->first()
+            ))
             ->map(function (AssessmentAssignment $a) use ($employee) {
                 $instrument = $a->instrument;
                 if (! $instrument) {
