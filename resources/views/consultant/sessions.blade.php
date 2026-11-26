@@ -62,6 +62,9 @@
                         <div class="flex flex-wrap items-center gap-2">
                             @if($cs->scheduled_at)
                             <a href="{{ route('consultant.chat', $cs) }}" class="inline-flex items-center rounded-lg bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition-colors">Chat</a>
+                            {{-- B2B-notify: simpan sesi ke kalender sendiri (.ics + Google). --}}
+                            <a href="{{ route('consultant.sessions.calendar', $cs) }}" class="inline-flex items-center rounded-lg border border-pine-300 text-pine-700 px-3 py-1.5 text-xs font-semibold hover:bg-pine-50 transition-colors">Tambah ke kalender</a>
+                            <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi Soluusi', $cs->scheduled_at) }}" target="_blank" rel="noopener" class="inline-flex items-center rounded-lg border border-blue-300 text-blue-700 px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 transition-colors">Google Calendar</a>
                             @endif
                             @if(!$cs->scheduled_at && $cs->status === 'scheduled')
                             <a href="{{ route('consultant.sessions.propose-slots.form', $cs) }}" class="inline-flex items-center rounded-lg border border-pine-300 text-pine-700 px-3 py-1.5 text-xs font-semibold hover:bg-pine-50 transition-colors">Usulkan opsi jadwal</a>
