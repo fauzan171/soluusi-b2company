@@ -1,0 +1,76 @@
+name: CI / Deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, fileinfo, mbstring
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci && npm run build
+      - name: Test
+        run: APP_KEY="base64:$(openssl rand -base64 32)" php artisan test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SSH_TARGET: u632205282@46.202.138.28
+      SSH_PORT: '65002'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          echo '[46.202.138.28]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKnVaujpnkXMmUCmaUsUB++lKY/66ddVSflHIUxUEkE5' > ~/.ssh/known_hosts
+      - name: Upload code
+        # ponytail: tar overlay never deletes files removed from the repo; switch to rsync --delete with excludes if stale files ever matter.
+        run: |
+          S="ssh -i $HOME/.ssh/deploy -o IdentitiesOnly=yes -p $SSH_PORT $SSH_TARGET"
+          git archive HEAD | $S 'tar -x -C ~/apps/soluusi-b2b'
+          tar -c public/build | $S 'rm -rf ~/apps/soluusi-b2b/public/build && tar -x -C ~/apps/soluusi-b2b'
+      - name: Install, backup DB, migrate, cache
+        run: |
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -p $SSH_PORT $SSH_TARGET bash -se <<'REMOTE'
+          set -euo pipefail
+          cd ~/apps/soluusi-b2b
+          composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+          mkdir -p ~/apps/_backup
+          php -r '(new PDO("sqlite:database/database.sqlite"))->exec("VACUUM INTO \"".getenv("HOME")."/apps/_backup/predeploy-".date("Ymd-His").".sqlite\"");'
+          ls -1t ~/apps/_backup/predeploy-*.sqlite | tail -n +8 | xargs -r rm --
+          php artisan migrate --force
+          php artisan config:cache && php artisan route:cache && php artisan view:cache
+          REMOTE
+      - name: Smoke test
+        run: |
+          for u in / /login; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://wellbeing.soluusi.com$u")
+            echo "$u $code"; [ "$code" = 200 ]
+          done
