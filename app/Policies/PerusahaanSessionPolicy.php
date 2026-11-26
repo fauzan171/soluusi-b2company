@@ -20,7 +20,8 @@ class PerusahaanSessionPolicy
         return $this->view($user, $session)
             && $session->status === 'scheduled'
             && $session->consultant_id
-            && $session->scheduled_at !== null;
+            && $session->scheduled_at !== null
+            && ! $session->chatExpired();
     }
 
     /** Employee atau konsultan pemilik sesi. */

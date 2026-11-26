@@ -246,7 +246,7 @@
                        placeholder="Tulis pesan…"></textarea>
                 <button id="chat-send" class="rounded-xl bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-800 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">Kirim</button>
             </form>
-            <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru</p>
+            <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru{{ $isCap ? ' · Sesi chat '.\App\Models\Perusahaan\PerusahaanSession::CHAT_MINUTES.' menit sejak konsultan memulai sesi' : '' }}</p>
             @else
             <p id="chat-closed-note" class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">{{ $session->status === 'done' ? 'Sesi selesai. Chat ditutup.' : 'Chat aktif setelah konsultan menyetujui jadwal sesi kamu.' }}</p>
             @endif
@@ -362,7 +362,9 @@
                 closeSession();
                 return;
             }
-            setStatus(data.can_send ? 'sesi berlangsung' : 'terhubung', 'ok');
+            // Sisa waktu sesi (30 menit sejak "Mulai sesi"); server yang menutup.
+            const left = data.ends_at ? Math.max(0, Math.ceil((Date.parse(data.ends_at) - Date.now()) / 60000)) : null;
+            setStatus(data.can_send ? (left !== null ? `sesi berlangsung · sisa ${left} menit` : 'sesi berlangsung') : 'terhubung', 'ok');
         } catch (e) {
             delay = Math.min(delay * 2, 30000);
             setStatus('terputus, coba lagi…', 'err');
