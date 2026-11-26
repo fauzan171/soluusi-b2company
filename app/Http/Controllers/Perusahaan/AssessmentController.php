@@ -188,13 +188,37 @@ class AssessmentController extends Controller
         }
         $items = InstrumentScoring::items($instrument);
 
-        $rules = ['answers' => ['required', 'array', 'size:'.$items->count()]];
+        // ac1: forced-choice (disc24) → jawaban {DSnp, DSnk} per item (p≠k);
+        // bool → 0..1; sisanya likert 0..weight.
+        $forced = $items->firstWhere('type', 'forced-choice') !== null;
+        $rules = ['answers' => ['required', 'array', 'size:'.$items->count() * ($forced ? 2 : 1)]];
         foreach ($items as $item) {
-            $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:'.(int) $item->weight];
+            if ($item->type === 'forced-choice') {
+                $rules["answers.{$item->code}p"] = ['required', 'integer', 'min:0', 'max:3'];
+                $rules["answers.{$item->code}k"] = ['required', 'integer', 'min:0', 'max:3'];
+            } elseif ($item->type === 'bool') {
+                $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:1'];
+            } else {
+                $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:'.(int) $item->weight];
+            }
         }
         $r->validate($rules);
+        $answers = collect($r->input('answers'))->only(
+            $items->flatMap(fn ($i) => $i->type === 'forced-choice' ? [$i->code.'p', $i->code.'k'] : [$i->code])
+        )->all();
 
-        $answers = collect($r->input('answers'))->only($items->pluck('code'))->all();
+        if ($forced) {
+            // p≠k: paling cocok dan paling tidak cocok tidak boleh sama.
+            $errors = [];
+            foreach ($items->where('type', 'forced-choice') as $item) {
+                if ($answers[$item->code.'p'] === $answers[$item->code.'k']) {
+                    $errors["answers.{$item->code}p"] = 'Pilihan paling cocok dan paling tidak cocok tidak boleh sama.';
+                }
+            }
+            if ($errors) {
+                throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            }
+        }
         $result = InstrumentScoring::score($instrument, $answers);
 
         // Serialisasi submit per orang+instrumen: legacy/grant tidak punya unique
