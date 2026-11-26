@@ -2,4 +2,4 @@
 
 Waktu : {{ $startsAt }} – {{ $endsAt }} WIB
 
-Sesi muncul di kalender konsultan kamu. Buka portal untuk detail sesi.
+Undangan kalender terlampir (invite.ics) — buka untuk menambahkan ke Google Calendar, Outlook, atau Apple Calendar. Buka portal untuk detail sesi.
