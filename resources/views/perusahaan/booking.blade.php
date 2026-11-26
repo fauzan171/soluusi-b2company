@@ -10,7 +10,7 @@
             <div>
                 <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-pine-200">Booking Konsultasi</p>
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Pilih Konsultan &amp; Jadwal</h1>
-                <p class="mt-3 max-w-2xl text-sm leading-6 text-pine-50/80">Pilih konsultan dari pool perusahaan kamu, lalu pilih slot yang tersedia. Sesi berlangsung online dan rahasia penuh.</p>
+                <p class="mt-3 max-w-2xl text-sm leading-6 text-pine-50/80">Pilih konsultan dari pool perusahaan kamu, lalu pilih slot yang tersedia. Sesi berlangsung online atau tatap muka, dan rahasia penuh.</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 <div class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-pine-50">
@@ -111,6 +111,7 @@
                 @csrf
                 @if($selectedConsultant)
                     <input type="hidden" name="konsultan_type" value="{{ $selectedConsultant['type'] }}">
+                    <input type="hidden" name="consultant_id" value="{{ $selectedConsultant['id'] }}">
                 @else
                     <div>
                         <label for="konsultan_type" class="block text-sm font-semibold text-pine-900 mb-1.5">
@@ -173,10 +174,19 @@
                             <legend class="px-1.5 text-xs font-semibold text-pine-900">{{ \Carbon\Carbon::parse($date)->translatedFormat('l, d F Y') }} · {{ $daySlots->count() }} slot</legend>
                             <div class="mt-1 space-y-1.5">
                                 @foreach($daySlots as $slot)
+                                @php
+                                    // SLOTS: slot dari jam kerja (id NULL) → starts_at + consultant_id;
+                                    // slot Schedule legacy → schedule_id.
+                                    $isHours = $slot->id === null;
+                                    $value = $isHours ? $slot->started_at->format('Y-m-d H:i:s') : (string) $slot->id;
+                                    $name = $isHours ? 'starts_at' : 'schedule_id';
+                                    $checkedKey = $isHours ? 'starts_at' : 'schedule_id';
+                                @endphp
                                 <label class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-pine-50/60 cursor-pointer transition">
-                                    <input type="radio" name="schedule_id" value="{{ $slot->id }}" required @checked(old('schedule_id') == $slot->id)
+                                    <input type="radio" name="{{ $name }}" value="{{ $value }}" required @checked(old($checkedKey) == $value)
+                                        x-on:change="{{ $isHours ? "\$el.closest('form').querySelector('input[name=\\'consultant_id\\']')?.setAttribute('value', '{$slot->consultant_id}')" : '' }}"
                                         class="h-4 w-4 text-pine-700 border-gray-300 focus:ring-pine-500">
-                                    <span class="text-sm text-ink">{{ $slot->started_at->translatedFormat('H.i') }}–{{ $slot->ended_at->translatedFormat('H.i') }}@unless($selectedConsultant) · {{ $slot->consultant->user->firstname }}@endunless · {{ $slot->mode === 'offline' ? 'Tatap muka' : 'Online' }}</span>
+                                    <span class="text-sm text-ink">{{ $slot->started_at->translatedFormat('H.i') }}–{{ $slot->ended_at->translatedFormat('H.i') }}@unless($selectedConsultant) · {{ $slot->consultant->user->firstname ?? '' }}@endunless · {{ $slot->mode === 'offline' ? 'Tatap muka' : 'Online' }}</span>
                                 </label>
                                 @endforeach
                             </div>
@@ -191,7 +201,7 @@
                 </div>
 
                 <div class="bg-pine-50 border border-pine-200 rounded-xl p-3.5 text-xs text-pine-800 leading-relaxed">
-                    <strong class="font-semibold">Rahasia penuh.</strong> Sesi berlangsung online. HR hanya melihat jumlah agregat — tidak pernah isi atau identitas sesi kamu.
+                    <strong class="font-semibold">Rahasia penuh.</strong> Sesi berlangsung sesuai tipe yang kamu pilih — online atau tatap muka. HR hanya melihat jumlah agregat — tidak pernah isi atau identitas sesi kamu.
                 </div>
 
                 <button type="submit"

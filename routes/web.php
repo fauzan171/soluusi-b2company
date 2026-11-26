@@ -255,6 +255,9 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     // W7 (K14): catatan klinis (encrypted + audit) & hasil sesi — konsultan pemilik sesi saja.
     Route::post('/sessions/{session}/note', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeNote'])->name('notes.store');
     Route::post('/sessions/{session}/result', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeResult'])->name('results.store');
+    // SLOTS: jam kerja mingguan konsultan (sumber slot booking karyawan).
+    Route::get('/work-hours', [\App\Http\Controllers\Consultant\WorkHourController::class, 'hours'])->name('work-hours');
+    Route::post('/work-hours', [\App\Http\Controllers\Consultant\WorkHourController::class, 'store'])->middleware('throttle:10,1')->name('work-hours.store');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---

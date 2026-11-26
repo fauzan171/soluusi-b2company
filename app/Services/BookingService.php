@@ -133,6 +133,58 @@ class BookingService
         });
     }
 
+    /**
+     * SLOTS: booking dari jam kerja mingguan (consultant_work_hours) —
+     * tanpa schedule row existing. Schedule dibuat on-the-fly lalu didelegasikan
+     * ke book() supaya kuota/claims/room/validasi pool semuanya terpakai.
+     * Race-safe: claims PK schedule_id + SlotOverlap check dalam transaksi book().
+     */
+    public static function bookFromHours(string $vertical, $row, array $data)
+    {
+        $data = array_merge(['consultation_type' => 'chat'], $data);
+        $start = \Illuminate\Support\Carbon::parse($data['starts_at']);
+
+        return DB::transaction(function () use ($vertical, $row, $data, $start) {
+            // consultant_id opsional dari form: tanpa itu, infer konsultan satu-satunya
+            // di pool tenant ini yang punya template jam cocok dengan starts_at.
+            $pools = \App\Models\ConsultantPool::query()
+                ->where('perusahaan_id', $row->perusahaan_id)
+                ->where('status', 'active')
+                ->when($data['consultant_id'] ?? null, fn ($q, $cid) => $q->where('consultant_id', $cid))
+                ->whereHas('consultant', fn ($q) => $q->where('status', \App\Models\Consultant::ACCEPT)->where('is_active', true))
+                ->with('workHours')
+                ->get();
+            $tpl = $pools
+                ->flatMap(fn ($p) => $p->workHours)
+                ->first(fn ($t) => (int) $t->weekday === (int) $start->dayOfWeek
+                    && $start->format('H:i:s') >= $t->start_time
+                    // Slot harus aligned ke grid template: (start − awal jam) % durasi slot = 0.
+                    && $start->diffInMinutes(\Illuminate\Support\Carbon::parse($start->toDateString().' '.$t->start_time)) % max(15, (int) ($t->slot_minutes ?: 60)) === 0
+                    && $start->format('H:i:s') < $t->end_time
+                    && $start->copy()->addMinutes(max(15, (int) ($t->slot_minutes ?: 60)))->format('H:i:s') <= $t->end_time);
+            abort_unless($tpl, 422, 'Slot tidak tersedia.');
+            $consultantId = (int) $tpl->consultantPool->consultant_id;
+
+            $minutes = max(15, (int) ($tpl->slot_minutes ?: 60));
+            $end = $start->copy()->addMinutes($minutes);
+
+            // Bebas cross-tenant untuk konsultan ini? (kunci + cek dalam transaksi)
+            Consultant::whereKey($consultantId)->lockForUpdate()->firstOrFail();
+            abort_if(\App\Support\SlotOverlap::exists($consultantId, $start, $end), 422, 'Slot sudah tidak tersedia.');
+
+            $schedule = Schedule::create([
+                'perusahaan_id' => $row->perusahaan_id,
+                'consultant_id' => $consultantId,
+                'started_at' => $start, 'ended_at' => $end,
+                'status' => Schedule::STATUS_CONFIRMED,
+                // Mode dari tipe konsultasi pilihan karyawan.
+                'mode' => ($data['consultation_type'] ?? 'chat') === 'one_on_one' ? 'offline' : 'online',
+            ]);
+
+            return self::book($vertical, $row, $data + ['schedule_id' => $schedule->id, 'consultant_id' => $consultantId]);
+        });
+    }
+
     public static function book(string $vertical, $row, array $data)
     {
         $slot = Schedule::findOrFail($data['schedule_id']);
