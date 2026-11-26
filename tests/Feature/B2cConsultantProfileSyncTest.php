@@ -196,6 +196,24 @@ class B2cConsultantProfileSyncTest extends TestCase
         $this->assertSame(1, $out['updated']);
     }
 
+    public function test_sync_skips_non_wellbeing_only_consultants(): void
+    {
+        $cid = $this->seedFullB2c();
+        $b2c = DB::connection('b2c');
+        $uid = $b2c->table('users')->insertGetId(['email' => 'lawyer@b2c.local', 'firstname' => 'Lawyer', 'lastname' => '']);
+        $lid = $b2c->table('consultants')->insertGetId([
+            'uuid' => (string) Str::uuid(), 'name' => 'Lawyer', 'email' => 'lawyer@b2c.local',
+            'about' => 'x', 'profit_sharing' => 0, 'user_id' => $uid, 'status' => 'accept', 'is_active' => 1,
+        ]);
+        $hukum = $b2c->table('categories')->insertGetId(['code_category' => 'hukum', 'name' => 'Hukum']);
+        $b2c->table('consultant_categories')->insert(['consultant_id' => $lid, 'category_id' => $hukum]);
+
+        \App\Services\B2cConsultantSync::sync();
+
+        $this->assertNotNull(Consultant::where('b2c_consultant_id', $cid)->first());
+        $this->assertNull(Consultant::where('b2c_consultant_id', $lid)->first());
+    }
+
     public function test_sync_clears_stale_photo_when_b2c_avatar_removed(): void
     {
         $cid = $this->seedFullB2c();

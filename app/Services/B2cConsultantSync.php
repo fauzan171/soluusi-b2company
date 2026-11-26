@@ -49,6 +49,15 @@ class B2cConsultantSync
                 'u.avatar as avatar', 'cat.name as category_name', 'cat.code_category')
             ->get()
             ->groupBy('id') // pivot multi-kategori → 1 consultant (alias, driver-proof)
+            // B2B khusus wellbeing: buang konsultan yang SEMUA kategorinya bisnis/keuangan/hukum/pajak
+            // (non-wellbeing) → tak masuk $rows → ter-deactivate otomatis di bawah.
+            ->reject(function ($g) {
+                $names = $g->pluck('category_name')->filter();
+
+                return $names->isNotEmpty() && $names->every(
+                    fn ($n) => preg_match('/bisnis|keuangan|hukum|pajak/i', $n)
+                );
+            })
             ->map(fn ($g) => tap($g->first(), fn ($r) => $r->categories = $g->pluck('code_category')->filter()->values()->all()));
 
         // Profil kaya: batched whereIn per tabel relasi B2C (bukan N+1 per konsultan).
