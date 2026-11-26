@@ -16,19 +16,36 @@ use Illuminate\Support\Collection;
  */
 class AssessmentAccess
 {
-    /** Assignment terbuka utk employee: program aktif > legacy perusahaan. */
+    /**
+     * Assignment terbuka utk employee. A2 (union): saat program aktif, assignment
+     * program di-union dengan allocation DIRECT level perusahaan (non-legacy) —
+     * dedupe by instrument_code, program menang. Legacy perusahaan tetap
+     * suppressed saat program aktif (D8). Tanpa program: semua assignment
+     * perusahaan (termasuk legacy).
+     */
     public static function forEmployee(PerusahaanEmployee $e): Collection
     {
         $program = WellbeingQuotaService::activeProgram($e->perusahaan);
-        $assignable = $program
-            ? ['type' => $program->getMorphClass(), 'id' => $program->id]
-            : ['type' => $e->perusahaan->getMorphClass(), 'id' => $e->perusahaan_id];
 
-        $codes = self::openAssignments($assignable['type'], $assignable['id'], AssessmentAssignment::AUDIENCE_EMPLOYEE)
+        $programAssignments = $program
+            ? self::openAssignments($program->getMorphClass(), $program->id, AssessmentAssignment::AUDIENCE_EMPLOYEE)
+            : collect();
+
+        $perusahaanAssignments = self::openAssignments(
+            $e->perusahaan->getMorphClass(),
+            $e->perusahaan_id,
+            AssessmentAssignment::AUDIENCE_EMPLOYEE
+        )->reject(fn (AssessmentAssignment $a) => $program && $a->source === AssessmentAssignment::SOURCE_LEGACY);
+
+        // program menang saat konflik kode instrumen (round program tetap utuh).
+        $programCodes = $programAssignments->pluck('instrument_code')->flip();
+
+        return $programAssignments
+            ->concat($perusahaanAssignments->reject(
+                fn (AssessmentAssignment $a) => $programCodes->has($a->instrument_code)
+            ))
             ->filter(fn (AssessmentAssignment $a) => AssessmentInstrument::where('code', $a->instrument_code)->value('is_active'))
             ->values();
-
-        return $codes;
     }
 
     /** Assignment terbuka utk anggota sekolah (siswa difilter STUDENT_ALLOWED). */

@@ -449,4 +449,9 @@ Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'force
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'close'])->name('sekolahs.assignments.close');
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/reopen', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'reopen'])->name('sekolahs.assignments.reopen');
     Route::put('/sekolahs/{sekolah}/assignments/{assignment}', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'update'])->name('sekolahs.assignments.update');
+
+    // A2: alokasi instrumen langsung per perusahaan (independen program wellbeing).
+    Route::get('/perusahaans/{perusahaan}/assessments', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'index'])->name('perusahaans.assessments');
+    Route::post('/perusahaans/{perusahaan}/assessments', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'store'])->name('perusahaans.assessments.store');
+    Route::post('/perusahaans/{perusahaan}/assessments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'close'])->name('perusahaans.assessments.close');
 });

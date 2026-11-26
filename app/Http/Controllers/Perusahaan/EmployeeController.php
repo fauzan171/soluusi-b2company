@@ -111,6 +111,13 @@ class EmployeeController extends Controller
         $trend = $employee->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
 
+        // A4: kartu rekomendasi dari hasil asesmen TERBARU (instrumen apapun),
+        // deskriptif — bukan diagnosis.
+        $latestAny = $employee->assessments()->whereNotNull('instrument_code')->latest('taken_at')->first();
+        $suggestion = $latestAny
+            ? \App\Support\AssessmentConsultationSuggestion::from($latestAny)
+            : null;
+
         // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.
         $pendingProposals = \App\Models\SessionSlotProposal::where('status', 'pending')
             ->whereHas('session', fn ($q) => $q->where('employee_id', $employee->id)
@@ -154,6 +161,8 @@ class EmployeeController extends Controller
             'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
+            'suggestion' => $suggestion,
+            'suggestionAssessment' => $latestAny,
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
@@ -257,6 +266,12 @@ class EmployeeController extends Controller
         $category = $request->string('category')->trim()->toString();
         $consultantId = $request->integer('consultant_id') ?: null;
 
+        // A4: prefill mode konsultasi dari kartu rekomendasi (?consultation_type=…).
+        $prefillType = $request->string('consultation_type')->trim()->toString();
+        $prefillConsultationType = in_array($prefillType, \App\Services\RoomService::TYPES, true)
+            ? $prefillType
+            : null;
+
         $selectedConsultant = null;
         if ($consultantId) {
             $selectedConsultant = $pool->firstWhere('id', $consultantId);
@@ -314,6 +329,7 @@ class EmployeeController extends Controller
             'selectedConsultant' => $selectedConsultant,
             'slots' => $visibleSlots,
             'quotaLeft' => $quotaLeft,
+            'prefillConsultationType' => $prefillConsultationType,
         ]);
     }
 

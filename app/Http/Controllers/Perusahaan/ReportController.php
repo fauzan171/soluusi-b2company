@@ -27,15 +27,25 @@ class ReportController extends Controller
         abort_unless($perusahaan && $perusahaan->is_active, 403);
 
         $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
-        $assignable = $program
-            ? $program
-            : $perusahaan;
 
+        // A2 (union): program aktif → assignment program + direct perusahaan
+        // (non-legacy); tanpa program → semua assignment perusahaan. Closed
+        // tetap tampil: hasil putaran lama dibutuhkan utk trend.
         $assignments = \App\Models\AssessmentAssignment::query()
-            ->where('assignable_type', $assignable->getMorphClass())
-            ->where('assignable_id', $assignable->id)
             ->where('audience', \App\Models\AssessmentAssignment::AUDIENCE_EMPLOYEE)
-            // closed tetap tampil: hasil putaran lama dibutuhkan utk trend.
+            ->where(function ($q) use ($program, $perusahaan) {
+                $q->where(function ($pq) use ($program) {
+                    $pq->where('assignable_type', $program?->getMorphClass() ?? 'program')
+                        ->where('assignable_id', $program?->id ?? 0);
+                })->orWhere(function ($dq) use ($program, $perusahaan) {
+                    $dq->where('assignable_type', $perusahaan->getMorphClass())
+                        ->where('assignable_id', $perusahaan->id);
+                    if ($program) {
+                        // legacy suppressed saat program aktif (D8 parity dgn AssessmentAccess).
+                        $dq->where('source', '!=', \App\Models\AssessmentAssignment::SOURCE_LEGACY);
+                    }
+                });
+            })
             ->orderBy('instrument_code')->orderBy('round')
             ->get();
 
