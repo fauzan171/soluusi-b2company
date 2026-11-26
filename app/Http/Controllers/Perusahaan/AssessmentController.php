@@ -206,7 +206,10 @@ class AssessmentController extends Controller
                 $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:'.(int) $item->weight];
             }
         }
-        $r->validate($rules);
+        $r->validate($rules + [
+            // A3: catatan diskusi opsional dari step akhir wizard.
+            'discussion_note' => ['nullable', 'string', 'max:1000'],
+        ]);
         $answers = collect($r->input('answers'))->only(
             $items->flatMap(fn ($i) => $i->type === 'forced-choice' ? [$i->code.'p', $i->code.'k'] : [$i->code])
         )->all();
@@ -244,7 +247,7 @@ class AssessmentController extends Controller
             try {
                 // QA8-F1: lock + create dalam satu transaksi — cap Discovery
                 // ter-serialisasi, unique (assignment, employee) ditangkap.
-                $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result) {
+                $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result, $r) {
                     // WB: R3 cap — program wellbeing aktif membatasi peserta assessment
                     // distinct employee (retake employee sama tidak menambah count).
                     // Scope ke window program (taken_at >= starts_at).
@@ -271,6 +274,8 @@ class AssessmentController extends Controller
                         'status' => 'completed',
                         'taken_at' => now(),
                         'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
+                        // A3: free-text "apa yang ingin kamu diskusikan" (opsional).
+                        'notes' => $r->input('discussion_note') ?: null,
                     ]);
 
                     foreach ($answers as $qCode => $value) {
