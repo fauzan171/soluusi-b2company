@@ -49,10 +49,9 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
-            KlinikAdminSeeder::class, // ponytail: add clinic admin seed
-
+            // G5: demo seeders (KlinikAdminSeeder, SekolahSeeder) tidak lagi
+            // di-chain — db:seed di production harus idempotent, tanpa data demo.
             PaymentSeeder::class,
-            SekolahSeeder::class, // vertikal Sekolah (BK + siswa demo)
         ]);
     }
 }
