@@ -33,9 +33,10 @@ class B2cConsultantSync
             'deactivated' => 0,
         ];
         $consultantRoleId = DB::table('roles')->where('name', 'consultant')->value('id');
+        $b2c = DB::connection('b2c'); // MySQL read-only — JANGAN pernah write.
 
         // Snapshot konsultan aktif B2C + kategorinya (pivot di sisi B2C).
-        $rows = DB::connection('b2c')->table('consultants as c')
+        $rows = $b2c->table('consultants as c')
             ->join('users as u', 'u.id', '=', 'c.user_id')
             ->leftJoin('consultant_categories as cc', 'cc.consultant_id', '=', 'c.id')
             ->leftJoin('categories as cat', 'cat.id', '=', 'cc.category_id')
@@ -45,10 +46,23 @@ class B2cConsultantSync
             ->select('c.id as id', 'c.uuid as uuid', 'c.name as name', 'c.slug as slug',
                 'c.email as email', 'c.about as about', 'c.profit_sharing as profit_sharing',
                 'c.user_id as user_id', 'c.category as category', 'c.specialty as specialty',
-                'cat.name as category_name', 'cat.code_category')
+                'u.avatar as avatar', 'cat.name as category_name', 'cat.code_category')
             ->get()
             ->groupBy('id') // pivot multi-kategori → 1 consultant (alias, driver-proof)
+            // B2B khusus wellbeing: buang konsultan yang SEMUA kategorinya bisnis/keuangan/hukum/pajak
+            // (non-wellbeing) → tak masuk $rows → ter-deactivate otomatis di bawah.
+            ->reject(function ($g) {
+                $names = $g->pluck('category_name')->filter();
+
+                return $names->isNotEmpty() && $names->every(
+                    fn ($n) => preg_match('/bisnis|keuangan|hukum|pajak/i', $n)
+                );
+            })
             ->map(fn ($g) => tap($g->first(), fn ($r) => $r->categories = $g->pluck('code_category')->filter()->values()->all()));
+
+        // Profil kaya: batched whereIn per tabel relasi B2C (bukan N+1 per konsultan).
+        $ids = $rows->keys()->map(fn ($k) => (int) $k)->all();
+        $profileData = $ids ? static::loadProfileData($b2c, $ids) : [];
 
         foreach ($rows as $b2c) {
             $b2c->id = (int) $b2c->id; // PDO sqlite dapat string — pastikan int.
@@ -85,6 +99,9 @@ class B2cConsultantSync
                 'profit_sharing' => (int) $b2c->profit_sharing,
                 'status' => Consultant::ACCEPT,
                 'is_active' => 1,
+                'photo_url' => static::photoUrl($b2c->avatar),
+                'headline' => $b2c->specialty,
+                'profile' => $profileData[$b2c->id] ?? null,
             ];
 
             if ($local) {
@@ -109,5 +126,113 @@ class B2cConsultantSync
             ->count();
 
         return $count;
+    }
+
+    /**
+     * URL absolut foto B2C dari filename avatar (B2C menyimpan filename di
+     * users.avatar, file di storage/app/public/avatars, served via symlink
+     * storage/avatars/<file>). asset_base kosong → null (view pakai inisial).
+     */
+    private static function photoUrl(?string $avatar): ?string
+    {
+        if (! $avatar || ! config('services.b2c.asset_base')) {
+            return null;
+        }
+
+        return rtrim(config('services.b2c.asset_base'), '/').'/storage/avatars/'.$avatar;
+    }
+
+    /**
+     * Data profil kaya semua konsultan B2C (whereIn batch per tabel):
+     * [b2c_id => {categories, education, certificates, skills, experience, packages}].
+     * Soft-deleted row B2C dikecualikan; B2C tetap read-only.
+     */
+    private static function loadProfileData($b2c, array $ids): array
+    {
+        $byId = [];
+        foreach ($ids as $id) {
+            $byId[$id] = [
+                'categories' => [], 'education' => [], 'certificates' => [],
+                'skills' => [], 'experience' => [], 'packages' => [],
+            ];
+        }
+
+        // Kategori (code+name) via pivot.
+        foreach ($b2c->table('consultant_categories as cc')
+            ->join('categories as cat', 'cat.id', '=', 'cc.category_id')
+            ->whereIn('cc.consultant_id', $ids)
+            ->select('cc.consultant_id', 'cat.code_category', 'cat.name')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['categories'][] = ['code' => $r->code_category, 'name' => $r->name];
+        }
+
+        // Pendidikan: pivot consultant_education + education + departements.
+        foreach ($b2c->table('consultant_education as ce')
+            ->join('education as e', 'e.id', '=', 'ce.education_id')
+            ->leftJoin('departements as d', 'd.id', '=', 'ce.departement_id')
+            ->whereIn('ce.consultant_id', $ids)
+            ->select('ce.*', 'e.name as institution', 'd.name as department')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['education'][] = [
+                'institution' => $r->institution,
+                'degree' => $r->degree,
+                'department' => $r->department,
+                'start' => $r->start_date,
+                'end' => $r->end_date,
+                'description' => $r->description,
+            ];
+        }
+
+        // Sertifikasi (issuer tidak ada di B2C — hanya name/number/url/year/expired_at).
+        foreach ($b2c->table('certificates')
+            ->whereIn('consultant_id', $ids)
+            ->select('consultant_id', 'name', 'number', 'url', 'year', 'expired_at')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['certificates'][] = [
+                'name' => $r->name, 'number' => $r->number, 'year' => $r->year,
+                'expired_at' => $r->expired_at, 'url' => $r->url,
+            ];
+        }
+
+        // Skills via pivot.
+        foreach ($b2c->table('consultant_skills as cs')
+            ->join('skills as s', 's.id', '=', 'cs.skill_id')
+            ->whereIn('cs.consultant_id', $ids)
+            ->select('cs.consultant_id', 's.name')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['skills'][] = $r->name;
+        }
+
+        // Pengalaman kerja: pivot consultant_companies + companies (start/end/
+        // position/description di pivot, nama + location di companies).
+        foreach ($b2c->table('consultant_companies as cc')
+            ->join('companies as co', 'co.id', '=', 'cc.company_id')
+            ->whereIn('cc.consultant_id', $ids)
+            ->select('cc.*', 'co.name as company')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['experience'][] = [
+                'company' => $r->company,
+                'position' => $r->position,
+                'start' => $r->start_at,
+                'end' => $r->end_at,
+                'description' => $r->description,
+            ];
+        }
+
+        // Paket (soft-delete dikecualikan). NB: kolom FK di B2C = consultant_id
+        // (typo 'consultan_id' hanya di fillable model B2C, bukan kolom DB).
+        foreach ($b2c->table('consultant_packages')
+            ->whereIn('consultant_id', $ids)
+            ->whereNull('deleted_at')
+            ->select('consultant_id', 'name', 'price', 'duration', 'quota')
+            ->get() as $r) {
+            $byId[$r->consultant_id]['packages'][] = [
+                'name' => $r->name, 'price' => (int) $r->price,
+                'duration' => $r->duration, 'quota' => $r->quota,
+            ];
+        }
+
+        // Konsultan tanpa data relasional sama sekali → profile null (nullable).
+        return array_filter($byId, fn ($p) => collect($p)->flatten()->isNotEmpty());
     }
 }

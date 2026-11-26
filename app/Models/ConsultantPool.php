@@ -51,7 +51,12 @@ class ConsultantPool extends Model
         return $this->hasMany(\App\Models\ConsultantWorkHour::class);
     }
 
-    /** konsultan_type dari kategori konsultan (map nama kategori → tipe sesi). */
+    /**
+     * konsultan_type dari kategori konsultan (map nama/kode kategori B2C →
+     * tipe sesi). Kategori B2C (seeder): Psikologi|Karir|Bisnis|Keuangan|Hukum|Pajak.
+     * Ambigu (Bisnis/Keuangan/Hukum/Pajak — tidak ada enum B2B-nya) → default
+     * 'psikolog'; revisit kalau B2B tambah enum.
+     */
     public static function typeFromCategory(?string $categoryName): string
     {
         return match (true) {

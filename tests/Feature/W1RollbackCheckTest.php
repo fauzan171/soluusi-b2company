@@ -29,8 +29,9 @@ class W1RollbackCheckTest extends TestCase
         // + B5 assignment link di engagement_campaigns (2026_11_24_000103)
         // + B6 terms_version/registrant_position (2026_11_24_000104)
         // + B2C sync consultants.b2c_consultant_id (2026_11_26_000100)
-        // → step 7+1+1+1+2+1+1+2+2+1+1+1+1+3+1+1+1.
-        Artisan::call('migrate:rollback', ['--step' => 28, '--force' => true]);
+        // + B2C profile sync photo_url/headline/profile (2026_11_26_000200)
+        // → step 7+1+1+1+2+1+1+2+2+1+1+1+1+3+1+1+1+1.
+        Artisan::call('migrate:rollback', ['--step' => 29, '--force' => true]);
         $this->assertFalse(Schema::hasTable('assessment_instruments'));
         $this->assertFalse(Schema::hasTable('assessment_assignments'));
         $this->assertFalse(Schema::hasTable('action_plans'));

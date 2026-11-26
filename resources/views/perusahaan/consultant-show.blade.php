@@ -5,11 +5,24 @@
 @section('content')
 <div class="max-w-3xl">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
-        <div>
-            <h1 class="text-xl font-bold text-pine-900">{{ $consultant->user?->firstname }} {{ $consultant->user?->lastname }}</h1>
-            <p class="text-sm text-gray-500 mt-1">
-                {{ $consultant->categories->pluck('name')->implode(', ') ?: 'Umum' }}
-            </p>
+        <div class="flex items-start gap-4">
+            @if($consultant->photo_url)
+            <img src="{{ $consultant->photo_url }}" alt="" class="w-16 h-16 rounded-full object-cover bg-pine-100 shrink-0"
+                onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-16 h-16 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-xl shrink-0',textContent:'{{ strtoupper(substr($consultant->user?->firstname ?? 'K', 0, 1)) }}'}))">
+            @else
+            <div class="w-16 h-16 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-xl shrink-0">
+                {{ strtoupper(substr($consultant->user?->firstname ?? 'K', 0, 1)) }}
+            </div>
+            @endif
+            <div>
+                <h1 class="text-xl font-bold text-pine-900">{{ $consultant->user?->firstname }} {{ $consultant->user?->lastname }}</h1>
+                @if($consultant->headline)
+                <p class="text-sm text-pine-700 font-medium mt-0.5">{{ $consultant->headline }}</p>
+                @endif
+                <p class="text-sm text-gray-500 mt-1">
+                    {{ $consultant->categories->pluck('name')->implode(', ') ?: 'Umum' }}
+                </p>
+            </div>
         </div>
         <a href="{{ route('perusahaan.consultants') }}" class="text-sm text-pine-700 font-medium hover:underline">&larr; Direktori konsultan</a>
     </div>
@@ -53,14 +66,41 @@
             </div>
         </div>
 
+        @php($profile = $consultant->profile ?? [])
         <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Pendidikan</h3>
+        @if($consultant->educations->count())
         <ul class="text-sm text-gray-600 space-y-1">
-            @forelse($consultant->educations as $edu)
-            <li>{{ $edu->degree ?? '' }} — {{ $edu->institution ?? '' }} {{ $edu->end_date ?? '' }}</li>
-            @empty
-            <li class="text-gray-400">—</li>
-            @endforelse
+            @foreach($consultant->educations as $edu)
+            <li>{{ $edu->degree ?? '' }} — {{ $edu->education?->name ?? '' }} {{ $edu->end_date ?? '' }}</li>
+            @endforeach
         </ul>
+        @elseif(!empty($profile['education']))
+        <ul class="text-sm text-gray-600 space-y-1">
+            @foreach($profile['education'] as $edu)
+            <li>{{ $edu['degree'] ?? '' }} — {{ $edu['institution'] ?? '' }}{{ $edu['department'] ? ' · '.$edu['department'] : '' }} {{ $edu['end'] ?? '' }}</li>
+            @endforeach
+        </ul>
+        @else
+        <p class="text-sm text-gray-400">—</p>
+        @endif
+
+        @if(!empty($profile['certificates']))
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Sertifikasi</h3>
+        <ul class="text-sm text-gray-600 space-y-1">
+            @foreach($profile['certificates'] as $cert)
+            <li>{{ $cert['name'] }} <span class="text-gray-400 text-xs">({{ $cert['year'] }})</span></li>
+            @endforeach
+        </ul>
+        @endif
+
+        @if(!empty($profile['experience']))
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Pengalaman</h3>
+        <ul class="text-sm text-gray-600 space-y-1">
+            @foreach($profile['experience'] as $exp)
+            <li>{{ $exp['position'] }} — {{ $exp['company'] }} <span class="text-gray-400 text-xs">({{ substr((string) $exp['start'], 0, 4) }}–{{ $exp['end'] ? substr((string) $exp['end'], 0, 4) : 'sekarang' }})</span></li>
+            @endforeach
+        </ul>
+        @endif
     </div>
 
     <div class="portal-card p-6">
