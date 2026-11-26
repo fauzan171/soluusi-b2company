@@ -283,6 +283,29 @@ class EmployeeController extends Controller
 
         $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
 
+        // SLOTS: slot konkret dari jam kerja mingguan konsultan (14 hari ke depan),
+        // compute-on-read — jadwal = jam kerja pool − sudah dibook.
+        $hoursSlots = collect();
+        $consultants = \App\Models\Consultant::whereIn('id', $pool->pluck('id'))->get()->keyBy('id');
+        foreach ($consultants as $consultant) {
+            if ($selectedConsultant && (int) $selectedConsultant['id'] !== (int) $consultant->id) {
+                continue;
+            }
+            foreach (\App\Services\AvailabilityService::slotsFor($consultant, $perusahaan, now(), now()->addDays(14)) as $s) {
+                $hoursSlots->push((object) [
+                    'id' => null,
+                    'consultant_id' => (int) $consultant->id,
+                    'started_at' => $s->start,
+                    'ended_at' => $s->end,
+                    'consultant' => $consultant,
+                    // Mode ditentukan tipe konsultasi pilihan karyawan, bukan slot.
+                    'mode' => null,
+                ]);
+            }
+        }
+        $slots = $slots->concat($hoursSlots)
+            ->sortBy(fn ($s) => $s->started_at->getTimestamp())->values();
+
         // Audit UX item 10: halaman booking memakai saldo ledger-aware —
         // konsisten dengan dashboard; monthQuotaUsed lama mengabaikan
         // event released/refunded di ledger.
@@ -352,9 +375,22 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
             'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
-            // Audit UX item 15: consultant_id/scheduled_at tidak pernah dipakai —
-            // konsultan & jam slot diputuskan via schedule_id di BookingService::book().
         ]);
+
+        // SLOTS: dua jalur — legacy schedule_id (slot Schedule existing) ATAU
+        // jam kerja mingguan (starts_at [+ consultant_id] → bookFromHours).
+        if ($r->filled('starts_at')) {
+            $r->validate([
+                'consultant_id' => ['nullable', 'integer'],
+                'starts_at' => ['required', 'date', 'after:now'],
+            ]);
+            \App\Services\BookingService::bookFromHours('perusahaan', $employee, $r->only(
+                'consultant_id', 'starts_at', 'konsultan_type', 'consultation_type'
+            ));
+
+            return redirect()->route('perusahaan.employee')
+                ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
+        }
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
         \App\Services\BookingService::book('perusahaan', $employee, $r->only('schedule_id', 'konsultan_type', 'consultation_type'));
