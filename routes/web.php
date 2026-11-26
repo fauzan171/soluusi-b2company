@@ -21,6 +21,8 @@ Route::get('/checkout/{token}/status', [\App\Http\Controllers\CheckoutController
 Route::post('/checkout/{token}/confirm-done', [\App\Http\Controllers\CheckoutController::class, 'confirmDone'])->name('checkout.confirmDone');
 
 // --- Auth (admin klinik, konsultan, associate, super admin) ---
+// SSO konsultan dari dashboard B2C (token HMAC 5 menit, sekali pakai).
+Route::get('/sso/b2c', \App\Http\Controllers\B2cSsoController::class)->middleware('throttle:20,1')->name('sso.b2c');
 Route::controller(\App\Http\Controllers\AuthController::class)->group(function () {
     Route::get('/login', 'index')->name('loginIndex');
     // 10/menit per IP: cukup untuk demo login multi-role, tetap menahan brute-force.

@@ -33,6 +33,12 @@ return [
     // AI Insight (HR/BK) — Tokengateway OpenAI-compatible, model glm-5.3-flash
     // (satu-satunya model yang gateway expose; diverifikasi live via /v1/models).
     // Key kosong = panel menampilkan fallback rule-based (InsightEngine).
+    // SSO konsultan dari dashboard B2C (HMAC shared secret, sama di .env B2C).
+    // Kosong = endpoint /sso/b2c mati (404).
+    'b2c_sso' => [
+        'secret' => env('B2C_SSO_SECRET'),
+    ],
+
     'ai_insight' => [
         'base_url' => env('AI_INSIGHT_BASE_URL', 'https://tokengateway.dev/v1'),
         'key' => env('AI_INSIGHT_API_KEY'),
