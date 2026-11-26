@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Sekolah;
 
 use App\Http\Controllers\Controller;
+use App\Models\AssessmentAssignment;
+use App\Models\AssessmentInstrument;
 use App\Models\Sekolah\SekolahAssessment;
 use App\Models\Sekolah\SekolahSession;
 use App\Models\Sekolah\SekolahStudent;
+use App\Services\AssessmentAccess;
+use App\Services\SekolahAssessmentService;
+use App\Services\Screening\InstrumentScoring;
 use Illuminate\Http\Request;
 
 /**
@@ -35,7 +40,8 @@ class StaffController extends Controller
             abort_if($staff->sekolah?->status === 'suspended', 403, 'Akun organisasi Anda sedang disuspend. Hubungi Soluusi.');
             if (!request()->isMethod('GET')
                 && !request()->routeIs('sekolah.staff.booking.cancel')
-                && !request()->routeIs('sekolah.staff.request.cancel')) {
+                && !request()->routeIs('sekolah.staff.request.cancel')
+                && !request()->routeIs('sekolah.staff.consent')) {
                 abort_unless($staff->sekolah?->is_active && $staff->consent_at, 403, 'Program belum aktif untuk akun Anda. Hubungi BK.');
             }
 
@@ -59,8 +65,8 @@ class StaffController extends Controller
         $usedMonth = \App\Services\BookingService::quotaUsed($staff, now());
         $history = $staff->sessions()->with('consultant.user')->orderByDesc('id')->limit(10)->get();
 
-        $latest = $staff->assessments()->latest('taken_at')->first();
-        $trend = $staff->assessments()->orderBy('taken_at')->limit(6)->get()
+        $latest = $staff->assessments()->where('instrument_code', 'who5')->latest('taken_at')->first();
+        $trend = $staff->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->format('d M'), 'score' => $a->score]);
 
         $advices = \App\Models\SessionSummary::whereIn('sekolah_session_id', $history->pluck('id'))
@@ -82,42 +88,105 @@ class StaffController extends Controller
         ]);
     }
 
-    public function assessmentForm()
+    public function assessmentForm(Request $r, ?string $code = null)
     {
         $staff = $this->resolveStaff();
+        $code ??= 'who5';
 
-        return view('sekolah.assessment', [
-            'student' => $staff,          // view sekolah/assessment.blade.php pakai nama $student
+        $assignment = AssessmentAccess::resolveForSekolahMember($staff, $code);
+        abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
+        if (AssessmentAccess::hasSubmitted($assignment, $staff->id, 'sekolah')) {
+            return redirect()->route('sekolah.staff.assessment.list')->with('info', 'Kamu sudah mengisi asesmen ini untuk periode sekarang.');
+        }
+
+        $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
+        $latest = $staff->assessments()->where('instrument_code', $code)->latest('taken_at')->first();
+
+        return view('sekolah.assessment-instrument', [
+            'student' => $staff,          // view sekolah pakai nama $student (paritas lama)
             'sekolah' => $staff->sekolah,
             'isPreview' => optional(auth()->user()->role)->name !== 'sekolah_staff',
-            'items' => self::WHO5_ITEMS,
-            'options' => self::ANSWER_OPTIONS,
-            'latest' => $staff->assessments()->latest('taken_at')->first(),
-            'action' => route('sekolah.staff.assessment.store'),
+            'instrument' => $instrument,
+            'items' => InstrumentScoring::items($instrument),
+            'latest' => $latest,
+            'listUrl' => route('sekolah.staff.assessment.list'),
+            'action' => route('sekolah.staff.assessment.store', $code),
         ]);
     }
 
-    public function assessmentStore(Request $r)
+    /** B3: simpan jawaban via engine; legacy indexed shape (0-4) tetap jalan (D8). */
+    public function assessmentStore(Request $r, ?string $code = null)
     {
         $staff = $this->resolveStaff();
+        $code ??= 'who5';
 
-        $r->validate([
-            'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['integer', 'min:0', 'max:5'],
-        ]);
+        $assignment = AssessmentAccess::resolveForSekolahMember($staff, $code);
+        abort_unless($assignment, 403, 'Instrumen belum di-assign untuk kamu.');
+        if (AssessmentAccess::hasSubmitted($assignment, $staff->id, 'sekolah')) {
+            return redirect()->route('sekolah.staff.assessment.list')->with('info', 'Kamu sudah mengisi asesmen ini untuk periode sekarang.');
+        }
 
-        $answers = array_values($r->input('answers'));
-        SekolahAssessment::create([
-            'sekolah_id' => $staff->sekolah_id,
-            'student_id' => $staff->id,
-            'kelas' => $staff->kelas,
-            'answers' => $answers,
-            'score' => array_sum($answers) * 4, // WHO-5: 0-25 → 0-100
-            'taken_at' => now(),
-        ]);
+        $instrument = AssessmentInstrument::where('code', $code)->firstOrFail();
+        $row = SekolahAssessmentService::submit($staff, $assignment, $instrument, $r);
+
+        // Paritas siswa: jawaban tanda kesulitan serius → pesan krisis.
+        if ($row->escalated) {
+            return redirect()->route('sekolah.staff')
+                ->with('crisis', 'Salah satu jawaban kamu menandakan kesulitan serius. Segera bicara dengan profesional yang kamu percaya, atau hubungi hotline krisis 119 ext. 8 (24 jam). Kamu tidak sendirian.');
+        }
 
         return redirect()->route('sekolah.staff')
             ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
+    }
+
+    /** B3: daftar instrumen yang di-assign untuk staf ini (D2). */
+    public function assessmentList()
+    {
+        $staff = $this->resolveStaff();
+
+        $instruments = AssessmentAccess::forSekolahMember($staff)
+            ->map(function (AssessmentAssignment $assignment) use ($staff) {
+                $instrument = AssessmentInstrument::where('code', $assignment->instrument_code)->first();
+                if (!$instrument) {
+                    return null;
+                }
+                $latest = $staff->assessments()
+                    ->where('instrument_code', $instrument->code)
+                    ->latest('taken_at')->first();
+                $instrument->latest_score = $latest?->score;
+                $instrument->latest_band = $latest ? $instrument->bandLabelFor((int) $latest->score) : null;
+                $instrument->latest_taken = $latest?->taken_at;
+                $instrument->done = AssessmentAccess::hasSubmitted($assignment, $staff->id, 'sekolah');
+                return $instrument;
+            })
+            ->filter()
+            ->values();
+
+        return view('sekolah.assessment-instruments', [
+            'student' => $staff,          // view sekolah pakai nama $student (paritas lama)
+            'sekolah' => $staff->sekolah,
+            'isPreview' => optional(auth()->user()->role)->name !== 'sekolah_staff',
+            'instruments' => $instruments,
+            'backUrl' => route('sekolah.staff'),
+            'formRoute' => fn ($code) => route('sekolah.staff.assessment.form', $code),
+        ]);
+    }
+
+    /**
+     * Self-consent staf dewasa (paritas W6 perusahaan): staf mencatat
+     * persetujuan programnya sendiri saat GET pertama. Staf dewasa tidak
+     * boleh pakai jejak provenance "external evidence" milik consent ortu
+     * karena tidak ada ortu — cukup satu klik dengan penjelasan.
+     */
+    public function consentSelf(): \Illuminate\Http\RedirectResponse
+    {
+        $staff = $this->resolveStaff();
+
+        if (! $staff->consent_at) {
+            $staff->forceFill(['consent_at' => now()])->save();
+        }
+
+        return redirect()->route('sekolah.staff')->with('success', 'Persetujuan program tercatat. Portal kesejahteraan aktif.');
     }
 
     public function bookingForm()

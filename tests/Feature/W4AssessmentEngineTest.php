@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AssessmentAssignment;
 use App\Models\AssessmentInstrument;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanAdmin;
@@ -64,6 +65,16 @@ class W4AssessmentEngineTest extends TestCase
             $out[$code.$i] = $fn($i);
         }
         return $out;
+    }
+
+    /** B1: employee butuh assignment terbuka utk kerjakan instrumen (D2). */
+    private function assign(PerusahaanEmployee $emp, string $code): \App\Models\AssessmentAssignment
+    {
+        return \App\Models\AssessmentAssignment::create([
+            'assignable_type' => 'perusahaan', 'assignable_id' => $emp->perusahaan_id,
+            'instrument_code' => $code, 'audience' => 'employee', 'source' => 'core',
+            'opens_at' => today()->subDay(),
+        ]);
     }
 
     // --- Parity: WHO-5 path lama (formula controller) vs engine baru — same answers → same band.
@@ -151,8 +162,8 @@ class W4AssessmentEngineTest extends TestCase
         $this->seedInstruments();
         $instruments = AssessmentInstrument::count();
         $questions = \App\Models\ScreeningQuestion::whereNotNull('instrument_code')->count();
-        $this->assertSame(4, $instruments);
-        $this->assertSame(40, $questions); // 5+9+7+19
+        $this->assertSame(11, $instruments);
+        $this->assertSame(114, $questions); // 5+9+7+19 + wv1 (21+10+15+12+8+8)
 
         $this->seedInstruments();
         $this->assertSame($instruments, AssessmentInstrument::count());
@@ -165,6 +176,7 @@ class W4AssessmentEngineTest extends TestCase
     {
         $this->seedInstruments();
         [, $emp, $user] = $this->makeEmployee();
+        $this->assign($emp, 'phq9');
 
         $this->actingAs($user)->get(route('perusahaan.assessment.instruments'))->assertOk()->assertSee('PHQ-9');
 
@@ -211,7 +223,8 @@ class W4AssessmentEngineTest extends TestCase
     public function test_store_rejects_invalid_answers()
     {
         $this->seedInstruments();
-        [, , $user] = $this->makeEmployee();
+        [, $emp, $user] = $this->makeEmployee();
+        $this->assign($emp, 'gad7');
 
         $this->actingAs($user)->post(route('perusahaan.assessment.instrument.store', 'gad7'), [
             'answers' => ['G1' => 1, 'G2' => 1], // size salah
@@ -222,7 +235,7 @@ class W4AssessmentEngineTest extends TestCase
         ])->assertSessionHasErrors('answers.G1');
     }
 
-    // --- Privacy: HR hanya agregat per instrumen; n≥5 suppression; eskalasi count-only.
+    // --- Privacy: HR hanya agregat per instrumen; n≥10 suppression (wv1 R10); eskalasi count-only.
 
     public function test_hr_aggregate_suppression_and_escalation_count_only()
     {
@@ -230,9 +243,23 @@ class W4AssessmentEngineTest extends TestCase
         [$p, , ] = $this->makeEmployee();
         $hr = $this->makeHr($p);
 
-        // 6 karyawan PHQ-9 satu band (Ringan, skor 9) + 2 eskalasi → safe() lolos;
-        // 3 GAD-7 → suppressed. Band minoritas <5 juga tersupresi (whole-family, konvensi lama).
-        for ($i = 1; $i <= 6; $i++) {
+        // B4: report is now per-assignment; add a legacy phq9 assignment so the
+        // PHQ-9 rows (NULL assessment_assignment_id) still map to a section.
+        // No privacy assertion weakened — same rows, same aggregate.
+        AssessmentAssignment::create([
+            'assignable_type' => 'perusahaan',
+            'assignable_id' => $p->id,
+            'instrument_code' => 'phq9',
+            'audience' => AssessmentAssignment::AUDIENCE_EMPLOYEE,
+            'source' => AssessmentAssignment::SOURCE_LEGACY,
+            'round' => 1,
+            'status' => 'active',
+            'opens_at' => now()->subDay(),
+        ]);
+
+        // 10 karyawan PHQ-9 satu band (Ringan, skor 9) + 2 eskalasi → safe() lolos;
+        // 3 GAD-7 → suppressed. Band minoritas <10 juga tersupresi (whole-family).
+        for ($i = 1; $i <= 10; $i++) {
             $emp = PerusahaanEmployee::create([
                 'perusahaan_id' => $p->id, 'name' => "Agg {$i}",
                 'email' => "agg{$i}@w4.local", 'consent_at' => now(),
@@ -264,7 +291,8 @@ class W4AssessmentEngineTest extends TestCase
         $res->assertOk();
         $body = $res->getContent();
 
-        $this->assertStringContainsString('Eskalasi: 2', $body);          // count eskalasi (PHQ n=6 ≥ 5)
+        // M1: eskalasi 1-9 disembunyikan (re-identifikasi), n=10 band tetap tampil.
+        $this->assertStringContainsString('Eskalasi: &lt;10 (disembunyikan)', $body);
         $this->assertStringNotContainsString('Agg 1', $body);             // tidak ada identitas individu
         $this->assertStringNotContainsString('Agg 3', $body);
 
@@ -281,7 +309,7 @@ class W4AssessmentEngineTest extends TestCase
         [$p, , ] = $this->makeEmployee();
         $hr = $this->makeHr($p);
 
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             $emp = PerusahaanEmployee::create([
                 'perusahaan_id' => $p->id, 'name' => "Gad {$i}",
                 'email' => "gad{$i}@w4.local", 'consent_at' => now(),
@@ -297,8 +325,8 @@ class W4AssessmentEngineTest extends TestCase
         $gad = AssessmentInstrument::where('code', 'gad7')->firstOrFail();
         $agg = InstrumentScoring::aggregate($p, $gad);
         $this->assertNotNull($agg['bands']);
-        $this->assertSame(5, $agg['assessed']);
-        $this->assertSame(5, $agg['bands']['Sedang']);
+        $this->assertSame(10, $agg['assessed']);
+        $this->assertSame(10, $agg['bands']['Sedang']);
         $this->assertSame(0, $agg['escalatedCount']);
     }
 }

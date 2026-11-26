@@ -32,8 +32,26 @@ class SweepNoShowSessions extends Command
 
         $swept = 0;
         foreach ($stale as $session) {
-            QuotaService::forfeit($session, 'no_show: lewat jadwal > 24 jam (sweeper)');
-            $swept++;
+            // QA7-F4: re-fetch + lock in transaction — jangan overwrite sesi yang
+            // sudah berubah status (cancelled) oleh BookingService::cancel.
+            $forgone = \Illuminate\Support\Facades\DB::transaction(function () use ($session) {
+                $fresh = PerusahaanSession::whereKey($session->id)->lockForUpdate()->first();
+                if (! $fresh || $fresh->status !== 'scheduled') {
+                    return false;
+                }
+                // WB: routing — sesi wellbeing → hangus di ledger wellbeing saja;
+                // else QuotaService legacy (path lama identik).
+                if (\App\Services\WellbeingQuotaService::reservedLedgerFor($fresh)) {
+                    \App\Services\WellbeingQuotaService::forfeit($fresh, 'no_show: lewat jadwal > 24 jam (sweeper)');
+                } else {
+                    QuotaService::forfeit($fresh, 'no_show: lewat jadwal > 24 jam (sweeper)');
+                }
+
+                return true;
+            });
+            if ($forgone) {
+                $swept++;
+            }
         }
 
         $this->info("No-show swept: {$swept} dari {$stale->count()} kandidat.");

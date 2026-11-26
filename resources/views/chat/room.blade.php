@@ -6,6 +6,10 @@
     $endUrl = $endUrl ?? route('perusahaan.chat.end', $session);
     $rateUrl = $rateUrl ?? route('perusahaan.chat.rate', $session);
     $startUrl = $startUrl ?? route('consultant.chat.start', $session);
+    // Catatan/hasil/ulasan/meeting link hanya ada di CAP (PerusahaanSession); room SAP berbagi view ini.
+    $isCap = $session instanceof \App\Models\Perusahaan\PerusahaanSession;
+    // Satu jalur rating: rating sesi (dashboard) + ulasan CAP (agregat konsultan) ditulis bersamaan oleh rate.
+    $givenRating = $session->rating ?: ($isCap ? $session->review?->rating : null);
 @endphp
 
 @section('content')
@@ -59,21 +63,31 @@
                 <button type="submit" class="text-sm font-semibold text-red-600 hover:text-red-800">Akhiri sesi</button>
                 <span class="text-xs text-gray-400">Chat akan ditutup setelah sesi diakhiri.</span>
             </form>
-            @elseif($session->status === 'done' && !$session->rating)
-            <form method="POST" action="{{ $rateUrl }}" class="flex items-center gap-3">
+            @elseif($session->status === 'done' && !$givenRating)
+            <form method="POST" action="{{ $rateUrl }}" class="space-y-2">
                 @csrf
-                <label class="text-sm text-gray-600">Rating:</label>
-                <select name="rating" class="rounded-lg border border-[#e7e2d9] px-2 py-1 text-sm">
-                    <option value="5">★★★★★</option>
-                    <option value="4">★★★★☆</option>
-                    <option value="3">★★★☆☆</option>
-                    <option value="2">★★☆☆☆</option>
-                    <option value="1">★☆☆☆☆</option>
-                </select>
-                <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1 text-sm font-semibold text-white hover:bg-pine-800">Kirim</button>
+                <label class="block text-xs text-gray-600">Beri ulasan untuk konsultan:</label>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <label class="text-sm text-gray-600" for="rating-select">Rating:</label>
+                    <select id="rating-select" name="rating" required class="rounded-lg border border-[#e7e2d9] px-2 py-1.5 text-sm bg-white">
+                        <option value="5">★★★★★ Sangat membantu</option>
+                        <option value="4">★★★★☆ Membantu</option>
+                        <option value="3">★★★☆☆ Cukup</option>
+                        <option value="2">★★☆☆☆ Kurang</option>
+                        <option value="1">★☆☆☆☆ Tidak membantu</option>
+                    </select>
+                    @if($isCap)
+                    <input type="text" name="comment" maxlength="2000" placeholder="Komentar (opsional, privat)" aria-label="Komentar"
+                           class="flex-1 min-w-[200px] rounded-lg border border-[#e7e2d9] px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-pine-400">
+                    @endif
+                    <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Kirim ulasan</button>
+                </div>
+                @if($isCap)
+                <p class="text-[11px] text-gray-400">Ulasan anonim bagi konsultan — mereka hanya melihat rata-rata, bukan komentar kamu.</p>
+                @endif
             </form>
-            @elseif($session->status === 'done' && $session->rating)
-            <p class="text-sm text-gray-500">Sesi selesai. Rating: {{ str_repeat('★', $session->rating) . str_repeat('☆', 5 - $session->rating) }}</p>
+            @elseif($session->status === 'done')
+            <p class="text-sm text-gray-500">Sesi selesai. Rating: {{ str_repeat('★', $givenRating) . str_repeat('☆', 5 - $givenRating) }} · terima kasih sudah memberi feedback.</p>
             @endif
         </div>
         @endif
@@ -94,6 +108,18 @@
                 <span class="text-sm text-gray-500">Sesi selesai.</span>
             @endif
         </div>
+        {{-- W5 (K10): konsultan set link meeting (gmeet/zoom) — CAP saja, selama sesi aktif. --}}
+        @if($isCap && $session->status === 'scheduled')
+        <form method="POST" action="{{ route('consultant.sessions.meeting-link', $session) }}" class="px-5 py-3 border-b border-[#e7e2d9] bg-white flex flex-wrap items-center gap-2 shrink-0">
+            @csrf
+            <label for="meeting-url" class="text-xs text-gray-600">Link meeting:</label>
+            <input id="meeting-url" type="url" name="meeting_url" required value="{{ old('meeting_url', $session->meeting_url) }}"
+                   placeholder="https://meet.google.com/… atau https://zoom.us/…"
+                   class="flex-1 min-w-[200px] rounded-lg border border-[#e7e2d9] px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-pine-400">
+            <button type="submit" class="rounded-lg border border-pine-300 px-3 py-1.5 text-sm font-semibold text-pine-700 hover:bg-pine-50">Simpan link</button>
+            @error('meeting_url')<p class="w-full text-xs text-red-600">{{ $message }}</p>@enderror
+        </form>
+        @endif
         @endif
 
         {{-- W5 (K10): tombol join meeting — hanya saat sesi scheduled dan dalam
@@ -118,8 +144,8 @@
         @endif
 
         {{-- W7 (K14): catatan klinis konsultan — konsultan-only, encrypted, tiap
-             akses halaman (bukan poll) ter-audit (note.view). --}}
-        @if(!$isEmployee)
+             akses halaman (bukan poll) ter-audit (note.view). CAP saja. --}}
+        @if(!$isEmployee && $isCap)
         @php($note = $session->note)
         <div class="px-5 py-4 border-b border-[#e7e2d9] bg-pine-50/50" x-data="{ open: {{ $note ? 'false' : 'true' }} }">
             <div class="flex items-center justify-between gap-3">
@@ -189,10 +215,8 @@
         @endif
 
         {{-- W7 (K14): hasil sesi — sisi karyawan, hanya setelah sesi selesai. --}}
-        @if($isEmployee && $session->status === 'done')
+        @if($isEmployee && $isCap && $session->status === 'done')
         @php($result = $session->result)
-        @php($review = $session->review)
-        @php($agg = \App\Models\Perusahaan\PerusahaanSession::ratingAggregate($session->consultant_id, $session->perusahaan_id))
         <div class="px-5 py-4 border-b border-[#e7e2d9] bg-pine-50/50 space-y-3">
             <h2 class="text-sm font-semibold text-pine-900">Hasil sesi kamu</h2>
             @if($result)
@@ -204,29 +228,6 @@
             </div>
             @else
             <p class="text-sm text-gray-400">Konsultan belum menuliskan ringkasan sesi.</p>
-            @endif
-
-            {{-- Ulasan: 1x per sesi, hanya setelah done. --}}
-            @if(!$review)
-            <form method="POST" action="{{ route('perusahaan.reviews.store', $session) }}" class="pt-2 space-y-2">
-                @csrf
-                <label class="block text-xs text-gray-600">Beri ulasan untuk konsultan:</label>
-                <div class="flex items-center gap-2 flex-wrap">
-                    <select name="rating" required class="rounded-lg border border-[#e7e2d9] px-2 py-1.5 text-sm bg-white">
-                        <option value="5">★★★★★ Sangat membantu</option>
-                        <option value="4">★★★★☆ Membantu</option>
-                        <option value="3">★★★☆☆ Cukup</option>
-                        <option value="2">★★☆☆☆ Kurang</option>
-                        <option value="1">★☆☆☆☆ Tidak membantu</option>
-                    </select>
-                    <input type="text" name="comment" maxlength="2000" placeholder="Komentar (opsional, privat)"
-                           class="flex-1 min-w-[200px] rounded-lg border border-[#e7e2d9] px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-pine-400">
-                    <button type="submit" class="rounded-lg bg-pine-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-pine-800">Kirim ulasan</button>
-                </div>
-                <p class="text-[11px] text-gray-400">Ulasan anonim bagi konsultan — mereka hanya melihat rata-rata, bukan komentar kamu.</p>
-            </form>
-            @else
-            <p class="text-xs text-gray-500 pt-1">Ulasan kamu: {{ str_repeat('★', $review->rating) . str_repeat('☆', 5 - $review->rating) }} · terima kasih sudah memberi feedback.</p>
             @endif
         </div>
         @endif
@@ -245,9 +246,9 @@
                        placeholder="Tulis pesan…"></textarea>
                 <button id="chat-send" class="rounded-xl bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-800 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">Kirim</button>
             </form>
-            <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru</p>
+            <p class="px-5 pb-3 text-[11px] text-gray-400 bg-white">Enter untuk kirim · Shift+Enter baris baru{{ $isCap ? ' · Sesi chat '.\App\Models\Perusahaan\PerusahaanSession::CHAT_MINUTES.' menit sejak konsultan memulai sesi' : '' }}</p>
             @else
-            <p id="chat-closed-note" class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">Chat aktif setelah konsultan menyetujui jadwal sesi kamu.</p>
+            <p id="chat-closed-note" class="border-t border-[#e7e2d9] px-5 py-3 text-xs text-gray-500 bg-white">{{ $session->status === 'done' ? 'Sesi selesai. Chat ditutup.' : 'Chat aktif setelah konsultan menyetujui jadwal sesi kamu.' }}</p>
             @endif
         </div>
     </div>
@@ -361,7 +362,9 @@
                 closeSession();
                 return;
             }
-            setStatus(data.can_send ? 'sesi berlangsung' : 'terhubung', 'ok');
+            // Sisa waktu sesi (30 menit sejak "Mulai sesi"); server yang menutup.
+            const left = data.ends_at ? Math.max(0, Math.ceil((Date.parse(data.ends_at) - Date.now()) / 60000)) : null;
+            setStatus(data.can_send ? (left !== null ? `sesi berlangsung · sisa ${left} menit` : 'sesi berlangsung') : 'terhubung', 'ok');
         } catch (e) {
             delay = Math.min(delay * 2, 30000);
             setStatus('terputus, coba lagi…', 'err');

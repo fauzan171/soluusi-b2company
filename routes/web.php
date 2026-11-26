@@ -21,6 +21,8 @@ Route::get('/checkout/{token}/status', [\App\Http\Controllers\CheckoutController
 Route::post('/checkout/{token}/confirm-done', [\App\Http\Controllers\CheckoutController::class, 'confirmDone'])->name('checkout.confirmDone');
 
 // --- Auth (admin klinik, konsultan, associate, super admin) ---
+// SSO konsultan dari dashboard B2C (token HMAC 5 menit, sekali pakai).
+Route::get('/sso/b2c', \App\Http\Controllers\B2cSsoController::class)->middleware('throttle:20,1')->name('sso.b2c');
 Route::controller(\App\Http\Controllers\AuthController::class)->group(function () {
     Route::get('/login', 'index')->name('loginIndex');
     // 10/menit per IP: cukup untuk demo login multi-role, tetap menahan brute-force.
@@ -67,6 +69,10 @@ Route::get('/portal', fn () => redirect()->route('loginIndex'));
 // --- Registrasi partner (publik, approval oleh ops) ---
 Route::get('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'create'])->name('partner.register');
 Route::post('/daftar-mitra', [\App\Http\Controllers\PartnerRegisterController::class, 'store'])->middleware('throttle:5,1')->name('partner.register.store');
+
+// wv3: daftar-perusahaan — publik "Daftar Sekarang" (lead-capture, approval ops).
+Route::get('/daftar-perusahaan', [\App\Http\Controllers\Auth\PerusahaanRegisterController::class, 'create'])->name('perusahaan.register');
+Route::post('/daftar-perusahaan', [\App\Http\Controllers\Auth\PerusahaanRegisterController::class, 'store'])->middleware('throttle:5,1')->name('perusahaan.register.store');
 
 // --- Klinik portal (Partner Admin/Staff) — Build-NEW #5/#6 ---
 Route::prefix('klinik')->as('klinik.')->middleware(['auth', 'role:klinik_admin,admin', 'force.password'])->group(function () {
@@ -117,8 +123,10 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
     });
     Route::middleware('role:sekolah_staff,admin')->group(function () {
         Route::get('/staff', [\App\Http\Controllers\Sekolah\StaffController::class, 'index'])->name('staff');
-        Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
-        Route::post('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');
+        Route::post('/staff/consent', [\App\Http\Controllers\Sekolah\StaffController::class, 'consentSelf'])->name('staff.consent');
+        Route::get('/staff/assessment', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentList'])->name('staff.assessment.list');
+        Route::get('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentForm'])->name('staff.assessment.form');
+        Route::post('/staff/assessment/{code?}', [\App\Http\Controllers\Sekolah\StaffController::class, 'assessmentStore'])->name('staff.assessment.store');
         Route::get('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingForm'])->name('staff.booking');
         Route::post('/staff/booking', [\App\Http\Controllers\Sekolah\StaffController::class, 'bookingStore'])->middleware('throttle:10,1')->name('staff.booking.store');
         Route::post('/staff/request', [\App\Http\Controllers\Sekolah\StaffController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('staff.request');
@@ -132,8 +140,9 @@ Route::prefix('sekolah-portal')->as('sekolah.')->middleware(['auth', 'force.pass
     });
     Route::middleware('role:student,admin')->group(function () {
         Route::get('/siswa', [\App\Http\Controllers\Sekolah\StudentController::class, 'index'])->name('student');
-        Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');
-        Route::post('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
+        Route::get('/siswa/assessment', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentList'])->name('assessment.list');
+        Route::get('/siswa/assessment/{code?}', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentForm'])->name('assessment.form');
+        Route::post('/siswa/assessment/{code?}', [\App\Http\Controllers\Sekolah\StudentController::class, 'assessmentStore'])->name('assessment.store');
         Route::get('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingForm'])->name('booking');
         Route::post('/siswa/booking', [\App\Http\Controllers\Sekolah\StudentController::class, 'bookingStore'])->middleware('throttle:10,1')->name('booking.store');
         Route::post('/siswa/request', [\App\Http\Controllers\Sekolah\StudentController::class, 'requestConsultation'])->middleware('throttle:10,1')->name('siswa.request');
@@ -178,6 +187,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/kesejahteraan', [\App\Http\Controllers\Perusahaan\WellbeingController::class, 'index'])->name('wellbeing');
         // W2: refund kuota (HR/superadmin, reason wajib, audit_logs entry)
         Route::post('/consultation-quota/{ledger}/refund', [\App\Http\Controllers\Perusahaan\QuotaAdminController::class, 'refund'])->name('quota.refund');
+        // wb-T5: HR read-only "Program & Subscription" — snapshot kontrak Wellbeing aktif.
+        Route::get('/program-subscription', [\App\Http\Controllers\Perusahaan\ProgramSubscriptionController::class, 'index'])->name('program-subscription');
 
         // W5: Room 1-on-1 (M5) — CRUD terbatas HR admin, tenant-scoped via PerusahaanContext.
         Route::get('/rooms', [\App\Http\Controllers\Perusahaan\RoomController::class, 'index'])->name('rooms.index');
@@ -188,8 +199,9 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
     });
     Route::middleware('role:employee,admin')->group(function () {
         Route::get('/employee', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'index'])->name('employee');
-        Route::get('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentForm'])->name('assessment.form');
-        Route::post('/employee/assessment', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'assessmentStore'])->name('assessment.store');
+        // B1 (D8): legacy WHO-5 path dihapus — 301 permanen ke daftar instrumen.
+        Route::get('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.form');
+        Route::post('/employee/assessment', fn () => redirect()->route('perusahaan.assessment.instruments', [], 301))->name('assessment.store');
         Route::get('/employee/assessments', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'index'])->name('assessment.instruments');
         Route::get('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'form'])->name('assessment.instrument.form');
         Route::post('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'store'])->name('assessment.instrument.store');
@@ -350,4 +362,84 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'role:admin'])->group(
     Route::get('/consultant-assignment', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'index'])->name('consultant-assignment.index');
     Route::post('/consultant-assignment/assign', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'assign'])->middleware('throttle:20,1')->name('consultant-assignment.assign');
     Route::post('/consultant-assignment/remove', [\App\Http\Controllers\Admin\ConsultantAssignmentController::class, 'remove'])->middleware('throttle:20,1')->name('consultant-assignment.remove');
+
+    // wb-T3: katalog paket Wellbeing superadmin (edit saja, no create/delete —
+    // katalog = 4 paket seeder K3). Snapshot kontrak tak tersentuh (K4).
+    Route::get('/wellbeing-packages', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'index'])->name('wellbeing-packages.index');
+    Route::get('/wellbeing-packages/{package}/edit', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'edit'])->name('wellbeing-packages.edit');
+    Route::put('/wellbeing-packages/{package}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'update'])->name('wellbeing-packages.update');
+    Route::put('/wellbeing-packages/{package}/bands/{band}', [\App\Http\Controllers\Admin\WellbeingPackageController::class, 'updateBand'])->name('wellbeing-packages.bands.update');
+
+    // wb-T4: Assign Program wizard superadmin (create + store + terminasi 30-day notice).
+    Route::get('/wellbeing-programs/create', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'create'])->name('wellbeing-programs.create');
+    Route::post('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'store'])->name('wellbeing-programs.store');
+    Route::post('/wellbeing-programs/{program}/request-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'requestTermination'])->name('wellbeing-programs.request-termination');
+    Route::post('/wellbeing-programs/{program}/cancel-termination', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'cancelTermination'])->name('wellbeing-programs.cancel-termination');
+
+// wv1: instruments
+    Route::get('/instruments', [\App\Http\Controllers\Admin\InstrumentController::class, 'index'])->name('instruments.index');
+    Route::post('/instruments/{instrument}/toggle', [\App\Http\Controllers\Admin\InstrumentController::class, 'toggle'])->name('instruments.toggle');
+    Route::post('/instruments/grants', [\App\Http\Controllers\Admin\InstrumentController::class, 'storeGrant'])->name('instruments.grants.store');
+    Route::delete('/instruments/grants/{grant}', [\App\Http\Controllers\Admin\InstrumentController::class, 'destroyGrant'])->name('instruments.grants.destroy');
+    // wv2: webinars (research2-infra §2/§3) — CRUD webinar per kontrak + mark
+    // done/cancel/forfeit, dan complete review kuartalan Impact.
+    Route::get('/wellbeing-programs/{program}/webinars', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'index'])->name('wellbeing-webinars.index');
+    Route::post('/wellbeing-programs/{program}/webinars', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'store'])->name('wellbeing-webinars.store');
+    Route::post('/wellbeing-programs/{program}/webinars/{webinar}/mark-done', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'markDone'])->name('wellbeing-webinars.mark-done');
+    Route::post('/wellbeing-programs/{program}/webinars/{webinar}/cancel', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'cancel'])->name('wellbeing-webinars.cancel');
+    Route::post('/wellbeing-programs/{program}/webinars/forfeit', [\App\Http\Controllers\Admin\WellbeingWebinarController::class, 'forfeit'])->name('wellbeing-webinars.forfeit');
+    Route::post('/wellbeing-reviews/{review}/complete', [\App\Http\Controllers\Admin\WellbeingProgramReviewController::class, 'complete'])->name('wellbeing-reviews.complete');
+
+    // wv4: admin pages — daftar program + browser karyawan + billing/kontrak.
+    Route::get('/employees', [\App\Http\Controllers\Admin\EmployeeBrowseController::class, 'index'])->name('employees.index');
+    Route::get('/billing', [\App\Http\Controllers\Admin\BillingContractController::class, 'index'])->name('billing.index');
+    Route::get('/assessment-instruments', [\App\Http\Controllers\Admin\AssessmentInstrumentsController::class, 'index'])->name('assessment-instruments.index');
+
+    // wv3: Program Order printable (snapshot kontrak — dokumen cetak, no PDF lib).
+    Route::get('/wellbeing-programs/{program}/order', [\App\Http\Controllers\Admin\WellbeingProgramController::class, 'order'])->name('wellbeing-programs.order');
+
+    // wv3: klinik checkpoints — progress Checkpoint 40 Konsultasi per klinik.
+    Route::get('/klinik-checkpoints', [\App\Http\Controllers\Admin\KlinikCheckpointController::class, 'index'])->name('klinik-checkpoints');
+});
+
+// B2 (D1): manajemen assignment instrumen per program — admin + operations
+// (group terpisah: role admin-only parent akan memblokir operations).
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    // Audit: landing page role operations setelah login.
+    Route::get('/wellbeing-programs', [\App\Http\Controllers\Admin\WellbeingProgramListController::class, 'index'])->name('wellbeing-programs.index');
+    Route::get('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'index'])->name('programs.assessments');
+    Route::post('/wellbeing-programs/{program}/assessments', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'store'])->name('programs.assessments.store');
+    Route::put('/wellbeing-programs/{program}/assessments/{assignment}', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'update'])->name('programs.assessments.update');
+    Route::post('/wellbeing-programs/{program}/assessments/{assignment}/close', [\App\Http\Controllers\Admin\AssessmentAssignmentController::class, 'close'])->name('programs.assessments.close');
+});
+
+// wv4: hr pages — engagement, action plan (B), progres program, utilisasi expert, campaign (D).
+Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.password', 'profile.confirmed'])->group(function () {
+    Route::middleware('role:hr_admin,admin')->group(function () {
+        Route::get('/engagement', [\App\Http\Controllers\Perusahaan\EngagementController::class, 'index'])->name('engagement');
+        Route::get('/action-plan', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'index'])->name('action-plan.index');
+        Route::post('/action-plan', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'store'])->name('action-plan.store');
+        Route::post('/action-plan/{plan}/status', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'updateStatus'])->name('action-plan.status');
+        Route::delete('/action-plan/{plan}', [\App\Http\Controllers\Perusahaan\ActionPlanController::class, 'destroy'])->name('action-plan.destroy');
+        Route::get('/program-progress', [\App\Http\Controllers\Perusahaan\ProgramProgressController::class, 'index'])->name('program-progress');
+        Route::get('/expert-utilization', [\App\Http\Controllers\Perusahaan\ExpertUtilizationController::class, 'index'])->name('expert-utilization');
+        Route::get('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'index'])->name('campaigns.index');
+        Route::post('/campaigns', [\App\Http\Controllers\Perusahaan\CampaignController::class, 'store'])->middleware('throttle:10,1')->name('campaigns.store');
+    });
+
+    // wv4: employee pages — aktivitasku, hasilku, privasi & consent.
+    Route::middleware('role:employee,admin')->group(function () {
+        Route::get('/employee/activities', [\App\Http\Controllers\Perusahaan\EmployeeActivityController::class, 'index'])->name('employee.activities');
+        Route::get('/employee/results', [\App\Http\Controllers\Perusahaan\EmployeeResultController::class, 'index'])->name('employee.results');
+        Route::get('/employee/privacy', [\App\Http\Controllers\Perusahaan\EmployeePrivacyController::class, 'index'])->name('employee.privacy');
+    });
+
+});
+
+// B3: admin assignment instrumen per sekolah (admin + operations, D9 minor-safety gate).
+Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'force.password', 'role:admin,operations'])->group(function () {
+    Route::post('/sekolahs/{sekolah}/assignments', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'store'])->name('sekolahs.assignments.store');
+    Route::post('/sekolahs/{sekolah}/assignments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'close'])->name('sekolahs.assignments.close');
+    Route::post('/sekolahs/{sekolah}/assignments/{assignment}/reopen', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'reopen'])->name('sekolahs.assignments.reopen');
+    Route::put('/sekolahs/{sekolah}/assignments/{assignment}', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'update'])->name('sekolahs.assignments.update');
 });

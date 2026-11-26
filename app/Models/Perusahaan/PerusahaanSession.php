@@ -51,7 +51,21 @@ class PerusahaanSession extends Model
         'scheduled_at' => 'datetime',
         'ended_at' => 'datetime',
         'transcript_purged_at' => 'datetime',
+        'checked_in_at' => 'datetime',
     ];
+
+    /** Durasi chat sejak konsultan klik "Mulai sesi"; lewat ini chat ditutup otomatis. */
+    public const CHAT_MINUTES = 30;
+
+    public function chatEndsAt(): ?\Illuminate\Support\Carbon
+    {
+        return $this->checked_in_at?->copy()->addMinutes(self::CHAT_MINUTES);
+    }
+
+    public function chatExpired(): bool
+    {
+        return $this->status === 'scheduled' && $this->chatEndsAt()?->isPast();
+    }
 
     public function schedule()
     {

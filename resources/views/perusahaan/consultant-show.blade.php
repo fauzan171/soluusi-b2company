@@ -76,7 +76,7 @@
             </li>
             @endforeach
         </ul>
-        <a href="{{ route('perusahaan.booking') }}"
+        <a href="{{ route('perusahaan.booking', ['consultant_id' => $consultant->id]) }}"
            class="mt-4 inline-block rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800 transition">
             Booking slot
         </a>

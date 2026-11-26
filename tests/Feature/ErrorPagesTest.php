@@ -10,7 +10,7 @@ use Tests\TestCase;
  */
 class ErrorPagesTest extends TestCase
 {
-    /** @dataProvider errorPages */
+    #[\PHPUnit\Framework\Attributes\DataProvider('errorPages')]
     public function test_error_page_renders_with_app_name(string $code, string $heading)
     {
         config(['app.name' => 'Acme Wellbeing']);

@@ -66,14 +66,14 @@ class AggregatePrivacySuppressionTest extends TestCase
     {
         [$p, $hr, $deptA, $deptB] = $this->makeHrTenant();
 
-        // Engineering: 6 karyawan, 5 sesi done → tampil normal.
-        foreach (range(1, 6) as $i) {
+        // Engineering: 16 karyawan, 11 sesi done → tampil normal (R10: threshold perusahaan 10).
+        foreach (range(1, 16) as $i) {
             $emp = $this->addEmployee($p, $deptA->id, 'A'.$i);
-            if ($i <= 5) {
+            if ($i <= 11) {
                 $this->doneSession($p, $emp);
             }
         }
-        // Finance: 3 karyawan, 2 sesi done → baris harus disuppress.
+        // Finance: 3 karyawan, 2 sesi done → baris harus disuppress (<10, R10).
         foreach (range(1, 3) as $i) {
             $emp = $this->addEmployee($p, $deptB->id, 'B'.$i);
             if ($i <= 2) {
@@ -88,9 +88,9 @@ class AggregatePrivacySuppressionTest extends TestCase
         $eng = $groups->firstWhere('name', 'Engineering');
         $fin = $groups->firstWhere('name', 'Finance');
 
-        $this->assertSame(5, $eng['participants'], 'departemen ≥5 tampil normal');
-        $this->assertNull($fin['participants'], 'departemen <5: participants disuppress');
-        $this->assertNull($fin['sessions'], 'departemen <5: sessions disuppress');
+        $this->assertSame(11, $eng['participants'], 'departemen ≥10 tampil normal (R10)');
+        $this->assertNull($fin['participants'], 'departemen <10: participants disuppress (R10)');
+        $this->assertNull($fin['sessions'], 'departemen <10: sessions disuppress (R10)');
     }
 
     public function test_report_all_small_tenant_still_suppressed_as_before()
@@ -110,9 +110,9 @@ class AggregatePrivacySuppressionTest extends TestCase
     public function test_csv_export_suppresses_small_department_rows()
     {
         [$p, $hr, $deptA, $deptB] = $this->makeHrTenant();
-        foreach (range(1, 6) as $i) {
+        foreach (range(1, 16) as $i) {
             $emp = $this->addEmployee($p, $deptA->id, 'A'.$i);
-            if ($i <= 5) {
+            if ($i <= 11) {
                 $this->doneSession($p, $emp);
             }
         }
@@ -127,7 +127,7 @@ class AggregatePrivacySuppressionTest extends TestCase
         $res->assertOk();
         $csv = $res->getContent();
 
-        $this->assertMatchesRegularExpression('/Engineering,("?5"?)\R/', $csv);
+        $this->assertMatchesRegularExpression('/Engineering,("?11"?)\R/', $csv);
         $this->assertMatchesRegularExpression('/Finance,("?(—|Tidak tersedia)"?)\R/u', $csv);
         $this->assertStringNotContainsString('Finance,2', $csv);
     }
@@ -135,9 +135,9 @@ class AggregatePrivacySuppressionTest extends TestCase
     public function test_dashboard_chart_participation_suppressed_for_small_departments()
     {
         [$p, $hr, $deptA, $deptB] = $this->makeHrTenant();
-        foreach (range(1, 6) as $i) {
+        foreach (range(1, 16) as $i) {
             $emp = $this->addEmployee($p, $deptA->id, 'A'.$i);
-            if ($i <= 5) {
+            if ($i <= 11) {
                 $this->doneSession($p, $emp);
             }
         }
@@ -158,9 +158,9 @@ class AggregatePrivacySuppressionTest extends TestCase
         $this->assertNotFalse($idxA);
         $this->assertNotFalse($idxB);
 
-        $this->assertSame(5, $chartDept['data'][$idxA], 'dept ≥5: jumlah sesi tampil');
-        $this->assertNull($chartDept['data'][$idxB], 'dept <5: jumlah sesi disuppress');
-        $this->assertNull($chartPart['data'][$idxB], 'dept <5: partisipasi disuppress');
+        $this->assertSame(11, $chartDept['data'][$idxA], 'dept ≥10: jumlah sesi tampil (R10)');
+        $this->assertNull($chartDept['data'][$idxB], 'dept <10: jumlah sesi disuppress (R10)');
+        $this->assertNull($chartPart['data'][$idxB], 'dept <10: partisipasi disuppress (R10)');
     }
 
     public function test_sekolah_report_suppresses_small_kelas()

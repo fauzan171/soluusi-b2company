@@ -8,6 +8,7 @@ use App\Services\DashboardMetrics;
 use App\Services\ProgramAggregate;
 use App\Support\AggregatePrivacy;
 use App\Support\SekolahContext;
+use App\Models\Sekolah\SekolahSession;
 
 class DashboardController extends Controller
 {
@@ -47,9 +48,13 @@ class DashboardController extends Controller
             $metrics['contractGap'] > 0 ? ['tone' => 'terra', 'text' => $metrics['contractGap'] . ' siswa kontrak belum onboard ke roster.'] : null,
         ])));
         $metrics['consultantPool'] = ConsultantPool::poolFor('sekolah', $sekolah->id)->take(4)->all();
+        // Permintaan menunggu review BK (scheduled + tanpa slot + tanpa konsultan)
+        // per jenis — tenant terbatas via TenantScope 'sekolah' (context sudah resolve).
+        $pendingByType = SekolahSession::where('status', 'scheduled')->whereNull('scheduled_at')->whereNull('consultant_id')
+            ->get()->groupBy('konsultan_type')->map->count();
         $metrics['programs'] = [
-            ['name' => 'Psikolog Anak & Remaja', 'desc' => 'Konseling untuk stress akademik, kecemasan, dan relasi sebaya.', 'done' => $metrics['byType']->get('psikolog', 0), 'scheduled' => 0],
-            ['name' => 'Konselor Karir', 'desc' => 'Arah studi, minat-bakat, dan persiapan lanjutan.', 'done' => $metrics['byType']->get('karir', 0), 'scheduled' => 0],
+            ['name' => 'Psikolog Anak & Remaja', 'desc' => 'Konseling untuk stress akademik, kecemasan, dan relasi sebaya.', 'done' => $metrics['byType']->get('psikolog', 0), 'scheduled' => $pendingByType->get('psikolog', 0)],
+            ['name' => 'Konselor Karir', 'desc' => 'Arah studi, minat-bakat, dan persiapan lanjutan.', 'done' => $metrics['byType']->get('karir', 0), 'scheduled' => $pendingByType->get('karir', 0)],
         ];
         $metrics['serviceShare'] = $metrics['byType']->map(fn ($c) => round($c / max(1, $metrics['doneMonth']) * 100))->all();
         $metrics['funnel'] = [

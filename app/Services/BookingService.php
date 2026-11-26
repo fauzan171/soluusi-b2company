@@ -87,7 +87,12 @@ class BookingService
             // FIX (review B2): early-cancel W2 ledger → event released, saldo kembali
             // (UI sudah bilang "Kuota kamu kembali" — sekarang ledger-nya juga).
             if (! $late && $vertical === 'perusahaan') {
-                \App\Services\QuotaService::release($session, 'cancel: '.$reason);
+                // WB: routing — sesi wellbeing → ledger wellbeing; else legacy.
+                if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+                    \App\Services\WellbeingQuotaService::release($session, 'cancel: '.$reason);
+                } else {
+                    \App\Services\QuotaService::release($session, 'cancel: '.$reason);
+                }
             }
             return !$late;
         });
@@ -110,6 +115,9 @@ class BookingService
                 // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
                 // senyap ditimpa mode slot baru.
                 'mode' => $mode,
+                // Audit UX: tipe konsultasi juga dipertahankan saat reschedule
+                // — tanpa ini one_on_one senyap jatuh ke 'chat' + room hilang.
+                'consultation_type' => $session->consultation_type,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
             ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
         });
@@ -197,7 +205,14 @@ class BookingService
             ]);
             // W2: entrypoint tunggal kuota — reserve di transaction yang sama.
             if ($vertical === 'perusahaan') {
-                \App\Services\QuotaService::reserve($row, $session, $slot->started_at);
+                // WB: routing kuota — program wellbeing aktif → bucket kontrak-level;
+                // tanpa program → QuotaService bulanan legacy (identik).
+                if (\App\Services\WellbeingQuotaService::activeProgram($tenant)) {
+                    \App\Services\WellbeingQuotaService::reserve($row, $session,
+                        \App\Services\WellbeingQuotaService::bucketFor($consultationType));
+                } else {
+                    \App\Services\QuotaService::reserve($row, $session, $slot->started_at);
+                }
             }
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
             return $session;

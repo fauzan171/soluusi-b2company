@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\Perusahaan\SlotConfirmedMail;
 use App\Models\Consultant;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
@@ -10,6 +11,7 @@ use App\Models\SessionSlotProposal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -139,6 +141,60 @@ class SlotConfirmationTest extends TestCase
         ])->assertSessionHasErrors('slot_index');
 
         $this->assertNull($session->fresh()->scheduled_at);
+    }
+
+    // Audit UX item 6: konsultan menerima email konfirmasi (waktu sesi saja,
+    // tanpa data assessment/klinis) saat karyawan mengonfirmasi slot proposal.
+    public function test_confirming_slot_notifies_consultant_by_mail()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('doc@test.local'));
+    }
+
+    // Calendar invite: karyawan + konsultan dapat .ics (METHOD:REQUEST) supaya
+    // Gmail/Outlook/Apple bisa langsung "Add to calendar". Waktu dalam UTC.
+    public function test_confirming_slot_sends_ics_invite_to_employee_and_consultant()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, 2);
+        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('emp@test.local'));
+
+        $start = now()->addDay()->setTime(9, 0)->utc()->format('Ymd\THis\Z');
+        $end = now()->addDay()->setTime(10, 0)->utc()->format('Ymd\THis\Z');
+        Mail::assertSent(SlotConfirmedMail::class, function ($m) use ($start, $end, $session) {
+            $ics = $m->ics;
+            return str_contains($ics, 'METHOD:REQUEST')
+                && str_contains($ics, "DTSTART:$start")
+                && str_contains($ics, "DTEND:$end")
+                && str_contains($ics, "UID:perusahaan-session-{$session->id}@")
+                && str_contains($ics, "\r\nEND:VCALENDAR\r\n");
+        });
+    }
+
+    public function test_consultant_with_placeholder_local_email_is_skipped()
+    {
+        [$empUser, $emp, $session, $proposal] = $this->fixture();
+        $session->consultant->user->update(['email' => 'b2c-7@b2b.local']);
+        Mail::fake();
+
+        $this->actingAs($empUser)->post(route('perusahaan.slots.confirm', $proposal), [
+            'slot_index' => 0,
+        ])->assertRedirect();
+
+        Mail::assertSent(SlotConfirmedMail::class, 1);
+        Mail::assertNotSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('b2c-7@b2b.local'));
     }
 
     public function test_confirm_rejects_past_slot()

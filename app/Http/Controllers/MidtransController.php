@@ -172,6 +172,17 @@ class MidtransController extends Controller
 
         $session->save();
 
+        // QA10-F3 claw-back: sesi refunded keluar dari completedCounts → stage
+        // HAP 'due' yang milestone-nya tak lagi tercapai dibatalkan. Best-effort
+        // (pola split ledger): refund tetap sukses walau evaluasi gagal.
+        if ($session->payment_status === ConsultationSession::PAYMENT_STATUS_REFUNDED) {
+            try {
+                \App\Services\Klinik\HapPervormaService::cancelUnmetStages($session);
+            } catch (Exception $e) {
+                Log::error('HAP clawback gagal session #' . $session->id . ': ' . $e->getMessage());
+            }
+        }
+
         return response()->json(['message' => 'success']);
     }
 

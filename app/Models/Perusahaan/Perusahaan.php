@@ -24,12 +24,16 @@ class Perusahaan extends Model
         'status',
         'ai_enabled',
         'consultant_request_enabled',
+        'terms_agreed_at',
+        'registrant_position',
+        'terms_version',
     ];
 
     protected $casts = [
         'mou_at' => 'datetime',
         'is_active' => 'boolean',
         'ai_enabled' => 'boolean',
+        'terms_agreed_at' => 'datetime',
     ];
 
     public function associate()
@@ -71,5 +75,23 @@ class Perusahaan extends Model
     public function assessments()
     {
         return $this->hasMany(PerusahaanAssessment::class);
+    }
+
+    /** Kontrak Wellbeing aktif/berakhir per perusahaan (K1, 1 aktif guard app-level K8). */
+    public function programs()
+    {
+        return $this->hasMany(\App\Models\CompanyWellbeingProgram::class);
+    }
+
+    // WB: alias eksplisit utk routing kuota (WellbeingQuotaService::activeProgram).
+    public function wellbeingPrograms()
+    {
+        return $this->programs();
+    }
+
+    // wv4: engagement campaigns (feature D) per perusahaan.
+    public function campaigns()
+    {
+        return $this->hasMany(\App\Models\EngagementCampaign::class);
     }
 }

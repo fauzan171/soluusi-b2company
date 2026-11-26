@@ -168,6 +168,31 @@
         @endforeach
     </section>
 
+    {{-- Program & kontrak: parameter kerjasama sesuai MoU (ringkas, tanpa data sensitif). --}}
+    <section class="fade-up dash-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="dash-section-title">Program &amp; Kontrak</h3>
+                <p class="dash-section-subtitle">Parameter kerjasama sesuai perjanjian dengan Soluusi.</p>
+            </div>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <div class="panel-surface bg-white">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Kuota siswa kontrak</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">{{ (int) $sekolah->student_count }} siswa</p>
+            </div>
+            <div class="panel-surface bg-white">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Sesi per siswa / bulan</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">{{ $sekolah->sessions_per_student_month }} sesi</p>
+            </div>
+            <div class="panel-surface bg-white">
+                <p class="text-[11px] uppercase tracking-[0.14em] text-gray-400">Tanggal MoU</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">{{ optional($sekolah->mou_at)->translatedFormat('d M Y') ?? '—' }}</p>
+            </div>
+        </div>
+    </section>
+
+    {{-- Funnel keterlibatan --}}
     <section class="fade-up dash-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -231,7 +256,7 @@
                                 <p class="text-xs uppercase tracking-[0.14em] text-gray-400">{{ $item['title'] }}</p>
                                 <div class="mt-1 text-xl font-semibold {{ $tone['text'] }}">{{ $item['value'] }}</div>
                             </div>
-                            <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $tone['chip'] }}">Review</span>
+                            <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $tone['chip'] }}">Perlu review</span>
                         </div>
                         <p class="mt-2 text-xs leading-6 text-gray-500">{{ $item['note'] }}</p>
                     </div>
@@ -263,7 +288,9 @@
                         </p>
                     @else
                     @foreach($riskPalette as $label => $color)
-                        @php $value = $riskDist[$label] ?? 0; @endphp
+                        @php
+                        $value = $riskDist[$label] ?? 0;
+                        @endphp
                         <div>
                             <div class="mb-1.5 flex items-center justify-between text-xs">
                                 <span class="font-medium text-gray-600">{{ $label }}</span>
@@ -341,7 +368,7 @@
                 <h3 class="dash-section-title">Jadwal dan aktivasi</h3>
                 <p class="dash-section-subtitle">Agenda sesi per hari tanpa identitas peserta.</p>
             </div>
-            <a href="{{ route('sekolah.dashboard.export') }}" class="rounded-full bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800">Laporan bulanan →</a>
+            <a href="{{ route('sekolah.report') }}" class="rounded-full bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800">Laporan bulanan →</a>
         </div>
 
         <div class="mt-5">
@@ -622,7 +649,7 @@
                 @foreach($byType as $type => $c)
                 <div class="flex justify-between rounded-xl border border-[#e7e2d9] px-4 py-2.5"><span class="text-gray-600">{{ ucfirst($type) }}</span><span class="font-semibold">{{ $c }}</span></div>
                 @endforeach
-                <a href="{{ route('sekolah.dashboard.export') }}" class="block text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Laporan lengkap →</a>
+                <a href="{{ route('sekolah.report') }}" class="block text-center rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 hover:bg-pine-800">Laporan lengkap →</a>
             </div>
 
             <div x-show="modal === 'terjadwal'" class="mt-4 space-y-3 text-sm">
@@ -668,7 +695,6 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <script>
 function aiInsight() {
     return {

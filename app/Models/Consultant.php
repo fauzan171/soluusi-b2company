@@ -38,10 +38,17 @@ class Consultant extends Model
         'decision_at',
         'interview_at',
         'interview_link',
+        'b2c_consultant_id',
+        'is_active',
     ];
 
     protected $dates = [
         'deleted_at',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'b2c_consultant_id' => 'integer',
     ];
 
     public function getBlogPackageLabelAttribute(): string

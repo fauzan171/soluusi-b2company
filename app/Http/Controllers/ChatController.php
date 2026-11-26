@@ -68,12 +68,7 @@ class ChatController extends Controller
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
         abort_unless($session->scheduled_at !== null, 422, 'Sesi belum dijadwalkan.');
 
-        $session->update(['status' => 'done', 'completed_at' => now()]);
-        // W2: sesi selesai → ledger event used (reserved jadi terminal).
-        \App\Services\QuotaService::consume($session);
-
-        \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
-        \App\Jobs\GenerateSessionSummary::dispatch($session->id);
+        $this->finish($session);
 
         return redirect()->route('consultant.chat', $session)->with('success', 'Sesi diakhiri.');
     }
@@ -86,15 +81,7 @@ class ChatController extends Controller
         abort_unless($session->status === 'scheduled', 422, 'Sesi tidak aktif.');
         abort_unless($session->scheduled_at !== null, 422, 'Sesi belum dijadwalkan.');
 
-        $session->update([
-            'status' => 'done',
-            'completed_at' => now(),
-        ]);
-        // W2: sesi selesai → ledger event used (reserved jadi terminal).
-        \App\Services\QuotaService::consume($session);
-
-        \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
-        \App\Jobs\GenerateSessionSummary::dispatch($session->id);
+        $this->finish($session);
 
         return redirect()->route('perusahaan.chat', $session)
             ->with('success', 'Sesi diakhiri. Silakan beri rating.');
@@ -105,11 +92,24 @@ class ChatController extends Controller
     {
         $this->authorize('rate', $session);
 
-        abort_if($session->rating, 422, 'Sudah dirating.');
+        abort_if($session->rating || $session->review()->exists(), 422, 'Sudah dirating.');
 
-        $r->validate(['rating' => ['required', 'integer', 'min:1', 'max:5']]);
+        $data = $r->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
 
-        $session->update(['rating' => $r->rating]);
+        // Satu form di room: rating sesi (dashboard HR/utilisasi) + ulasan
+        // (agregat konsultan, ratingAggregate) ditulis sekaligus.
+        \Illuminate\Support\Facades\DB::transaction(function () use ($session, $data) {
+            $session->update(['rating' => $data['rating']]);
+            \App\Models\Perusahaan\ConsultationReview::create([
+                'perusahaan_session_id' => $session->id,
+                'perusahaan_employee_id' => $session->employee_id,
+                'rating' => $data['rating'],
+                'comment' => $data['comment'] ?? null,
+            ]);
+        });
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Terima kasih atas ratingnya.');
@@ -146,8 +146,39 @@ class ChatController extends Controller
         return back()->with('success', 'Link meeting tersimpan.');
     }
 
+    /**
+     * Sesi selesai: done + ledger used + pervorma + summary. Update bersyarat
+     * status=scheduled → aman dipanggil paralel (end manual vs auto-close poll),
+     * kuota cuma ter-consume sekali.
+     */
+    private function finish(PerusahaanSession $session): void
+    {
+        $won = PerusahaanSession::whereKey($session->id)->where('status', 'scheduled')
+            ->update(['status' => 'done', 'completed_at' => now()]);
+        $session->refresh();
+        if (! $won) {
+            return;
+        }
+        // W2: sesi selesai → ledger event used (reserved jadi terminal).
+        // WB: routing — sesi wellbeing → ledger wellbeing; else legacy.
+        if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+            \App\Services\WellbeingQuotaService::consume($session, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT);
+        } else {
+            \App\Services\QuotaService::consume($session);
+        }
+
+        \App\Services\PervormaService::evaluate('cap', $session->perusahaan);
+        \App\Jobs\GenerateSessionSummary::dispatch($session->id);
+    }
+
     private function room(PerusahaanSession $session, string $peerLabel, string $postUrl, string $backUrl, bool $isEmployee = false)
     {
+        // Batas 30 menit sejak "Mulai sesi": tutup saat room dibuka/di-poll.
+        // ponytail: lazy close — sesi yang tak pernah dibuka lagi ditutup sweeper zombie (4 jam).
+        if ($session->chatExpired()) {
+            $this->finish($session);
+        }
+
         if (request()->wantsJson() || request()->has('after')) {
             return response()->json($this->payload($session, (int) request('after', 0), $peerLabel));
         }
@@ -217,7 +248,8 @@ class ChatController extends Controller
     {
         return $session->status === 'scheduled'
             && $session->consultant_id
-            && $session->scheduled_at !== null;
+            && $session->scheduled_at !== null
+            && ! $session->chatExpired();
     }
 
     /**
@@ -272,6 +304,7 @@ class ChatController extends Controller
             'has_more' => $hasMore,
             'status' => $session->status,
             'can_send' => $this->canSend($session),
+            'ends_at' => $session->chatEndsAt()?->toIso8601String(),
             // D.5: id pesan sendiri terakhir yang sudah dibaca lawan → tick live.
             'peer_read_upto' => (int) $session->chatMessages()
                 ->where('sender_id', $myId)->whereNotNull('read_at')->max('id'),

@@ -5,7 +5,9 @@
     $total = $employees->count();
     $aktif = $employees->whereNotNull('user_id')->count();
     $consent = $employees->whereNotNull('consent_at')->count();
-    $pending = $total - $aktif;
+    // Audit UX: "Belum Diundang" = undangan minta masih belum dikonsumsi
+    // (belum daftar ATAU sudah provisioned tapi baru dikirim emaile).
+    $pending = $employees->filter(fn ($e) => !$e->isInvitationConsumed())->count();
 @endphp
 <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
     <div>
@@ -127,13 +129,15 @@
                     </details>
                 </td>
                 <td class="p-3">
-                    @if($emp->user_id)
+                    @if($emp->user_id && !$emp->user?->must_change_password)
                     <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-800">Akun aktif</span>
                     @else
                     <form method="POST" action="{{ route('perusahaan.employees.invite') }}" class="inline">
                         @csrf
                         <input type="hidden" name="employee_id" value="{{ $emp->id }}">
-                        <button class="text-xs text-pine-700 font-semibold border border-pine-700 rounded px-3 py-1 hover:bg-pine-50">Undang via email</button>
+                        <button class="text-xs text-pine-700 font-semibold border border-pine-700 rounded px-3 py-1 hover:bg-pine-50">
+                            {{ $emp->user_id ? 'Kirim ulang undangan' : 'Undang via email' }}
+                        </button>
                     </form>
                     @endif
                 </td>

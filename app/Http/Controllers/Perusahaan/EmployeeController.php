@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Perusahaan;
 use App\Http\Controllers\Controller;
 use App\Models\Consultant;
 use App\Models\ConsultantPool;
-use App\Models\Perusahaan\PerusahaanAssessment;
 use App\Models\Perusahaan\PerusahaanEmployee;
 use App\Models\Perusahaan\PerusahaanSession;
 use Illuminate\Http\Request;
@@ -53,6 +52,10 @@ class EmployeeController extends Controller
             return $employee;
         }
 
+        // QA1-MED: preview lintas tenant hanya untuk super admin — jangan
+        // fallback ke branch ini untuk role non-employee lain (hr_admin,
+        // consultant, dst) kalau routing middleware berubah di masa depan.
+        abort_unless(optional($user->role)->name === 'admin', 403, 'Akses ditolak.');
         abort_unless(request()->isMethod('GET'), 403, 'Preview read-only.');
         // Super admin: preview experience karyawan.
         $employee = PerusahaanEmployee::find(request('employee_id'))
@@ -104,10 +107,9 @@ class EmployeeController extends Controller
             ->filter(fn ($s) => $s->scheduled_at->isFuture() || ($s->ended_at && $s->ended_at->isFuture()))
             ->values();
 
-        $latest = $employee->assessments()->latest('taken_at')->first();
-        $trend = $employee->assessments()->orderBy('taken_at')->limit(6)->get()
+        $latest = $employee->assessments()->where('instrument_code', 'who5')->latest('taken_at')->first();
+        $trend = $employee->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
-        $needsAssessment = !$latest || $latest->taken_at->lt(now()->subDays(30));
 
         // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.
         $pendingProposals = \App\Models\SessionSlotProposal::where('status', 'pending')
@@ -129,6 +131,15 @@ class EmployeeController extends Controller
             ->get(['perusahaan_session_id', 'client_advice'])
             ->keyBy('perusahaan_session_id');
 
+        // Audit UX: modal "Ubah jadwal" hanya menawarkan slot milik konsultan
+        // sesi masing-masing (keyed by session id) — bukan semua slot tenant.
+        // Server-side: lebih murah daripada render semua slot + filter Alpine,
+        // sekaligus menghapus pemanggilan BookingService::available di view (N+1 render).
+        $rescheduleSlots = $mySessions
+            ->mapWithKeys(fn ($s) => [$s->id => \App\Services\BookingService::available('perusahaan', $perusahaan->id)
+                ->where('consultant_id', $s->consultant_id)->values()])
+            ->filter(fn ($slots) => $slots->isNotEmpty());
+
         return view('perusahaan.employee', [
             'employee' => $employee,
             'perusahaan' => $perusahaan,
@@ -143,10 +154,10 @@ class EmployeeController extends Controller
             'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
-            'needsAssessment' => $needsAssessment,
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
+            'rescheduleSlots' => $rescheduleSlots,
         ]);
     }
 
@@ -163,6 +174,13 @@ class EmployeeController extends Controller
 
         DB::transaction(function () use ($session) {
             \App\Support\SessionStateMachine::cancel($session, 'Dibatalkan oleh karyawan sebelum terjadwal');
+            // FIX (review wb REV#2): release ledger reserve requestConsultation —
+            // UI bilang "Kuota kamu kembali", ledger-nya sekarang juga (WB kontrak-level).
+            if (\App\Services\WellbeingQuotaService::reservedLedgerFor($session)) {
+                \App\Services\WellbeingQuotaService::release($session, 'employee cancel pending');
+            } else {
+                \App\Services\QuotaService::release($session, 'employee cancel pending');
+            }
             // D.2: proposal slot yang masih pending tidak boleh menggantung.
             \App\Models\SessionSlotProposal::where('session_id', $session->id)
                 ->where('status', 'pending')->update(['status' => 'rejected']);
@@ -213,49 +231,30 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // ponytail: notifikasi ke konsultan belum ada — tambah saat notification channel diputuskan.
+        // Audit UX item 6 + calendar invite: karyawan & konsultan dapat email + .ics.
+        // Cukup waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
+        // Konsultan hasil sync B2C pakai email placeholder *@b2b.local → di-skip.
+        $recipients = array_filter([$employee->email, $session->consultant?->user?->email],
+            fn ($e) => $e && !str_ends_with($e, '@b2b.local'));
+        foreach (array_unique($recipients) as $to) {
+            \Illuminate\Support\Facades\Mail::to($to)->send(new \App\Mail\Perusahaan\SlotConfirmedMail(
+                $employee->name,
+                $session->perusahaan->brand,
+                \Illuminate\Support\Carbon::parse($slot['start']),
+                \Illuminate\Support\Carbon::parse($slot['end']),
+                $session->id,
+                $to,
+            ));
+        }
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
     }
 
-    public function assessmentForm()
-    {
-        $employee = $this->resolveEmployee();
-        $latest = $employee->assessments()->latest('taken_at')->first();
-
-        return view('perusahaan.assessment', [
-            'employee' => $employee,
-            'perusahaan' => $employee->perusahaan,
-            'isPreview' => optional(auth()->user()->role)->name !== 'employee',
-            'items' => self::WHO5_ITEMS,
-            'options' => self::ANSWER_OPTIONS,
-            'latest' => $latest,
-        ]);
-    }
-
-    public function assessmentStore(Request $r)
-    {
-        $employee = $this->resolveEmployee();
-
-        $r->validate([
-            'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['integer', 'min:0', 'max:5'],
-        ]);
-
-        $answers = array_values($r->input('answers'));
-        PerusahaanAssessment::create([
-            'perusahaan_id' => $employee->perusahaan_id,
-            'employee_id' => $employee->id,
-            'departement_id' => $employee->departement_id,
-            'answers' => $answers,
-            'score' => array_sum($answers) * 4, // 0-25 → 0-100 (formula WHO-5 standar)
-            'taken_at' => now(),
-        ]);
-
-        return redirect()->route('perusahaan.employee')
-            ->with('success', 'Terima kasih! Hasil asesmen kamu sudah tersimpan.');
-    }
+    // B1 (D8): assessmentForm/assessmentStore legacy WHO-5 dihapus —
+    // NULL instrument_code bug mati; route lama redirect 301 ke
+    // perusahaan.assessment.instruments. WHO5_ITEMS dipertahankan
+    // (dipakai Sekolah sampai B3). Engine baru: AssessmentController.
 
     public function bookingForm(Request $request)
     {
@@ -283,6 +282,11 @@ class EmployeeController extends Controller
             ->values();
 
         $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
+
+        // Audit UX item 10: halaman booking memakai saldo ledger-aware —
+        // konsisten dengan dashboard; monthQuotaUsed lama mengabaikan
+        // event released/refunded di ledger.
+        $quotaLeft = max(0, \App\Services\QuotaService::balanceFor($employee));
         $visibleSlots = $selectedConsultant
             ? $slots->where('consultant_id', $selectedConsultant['id'])->values()
             : $slots;
@@ -299,7 +303,7 @@ class EmployeeController extends Controller
             'activeCategory' => $category,
             'selectedConsultant' => $selectedConsultant,
             'slots' => $visibleSlots,
-            'quotaLeft' => max(0, $quota - $usedMonth),
+            'quotaLeft' => $quotaLeft,
         ]);
     }
 
@@ -314,8 +318,8 @@ class EmployeeController extends Controller
             return $this->cancelPendingRequest($session);
         }
 
-        request()->validate(['reason' => ['required', 'string', 'max:1000']]);
-        $restored = \App\Services\BookingService::cancel('perusahaan', $session, request('reason'));
+        request()->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+        $restored = \App\Services\BookingService::cancel('perusahaan', $session, (string) request('reason'));
 
         return back()->with('success', $restored ? 'Sesi dibatalkan. Kuota kamu kembali.' : 'Sesi dibatalkan. Kuota tetap terpakai karena melewati batas pembatalan.');
     }
@@ -348,8 +352,8 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
             'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
-            'consultant_id' => ['nullable', 'integer'],
-            'scheduled_at' => ['nullable', 'date', 'after:now'],
+            // Audit UX item 15: consultant_id/scheduled_at tidak pernah dipakai —
+            // konsultan & jam slot diputuskan via schedule_id di BookingService::book().
         ]);
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
@@ -458,13 +462,23 @@ class EmployeeController extends Controller
         }
 
         // W2: tutup quota hole (recon-R3 startChat:232) — guard saldo server-side.
-        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+        // WB: routing — program wellbeing aktif → kuota kontrak bucket expert_chat.
+        if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+            $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
+            if (\App\Services\WellbeingQuotaService::bucketBalance($program, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT) < 1) {
+                return redirect()->route('perusahaan.employee')
+                    ->with('error', 'Kuota chat program wellbeing sudah habis. Hubungi HR untuk info program.');
+            }
+        } elseif (\App\Services\QuotaService::balanceFor($employee) < 1) {
             $label = \App\Services\QuotaService::packageLabel($employee);
             return redirect()->route('perusahaan.employee')
                 ->with('error', "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
         }
 
-        return redirect()->route('perusahaan.booking')
+        // Prefill booking dgn konsultan ini — hanya kalau ada di pool tenant (booking abort 404 kalau tidak).
+        $inPool = \App\Models\ConsultantPool::poolFor('perusahaan', $perusahaan->id)->contains('id', $consultant->id);
+
+        return redirect()->route('perusahaan.booking', $inPool ? ['consultant_id' => $consultant->id] : [])
             ->with('error', 'Pilih jadwal konsultasi dulu sebelum chat.');
     }
 
@@ -486,7 +500,14 @@ class EmployeeController extends Controller
             422, 'Masih ada permintaan menunggu review.');
 
         // W2: guard kuota server-side via QuotaService (entrypoint tunggal).
-        if (\App\Services\QuotaService::balanceFor($employee) < 1) {
+        // WB: routing — program wellbeing aktif → kuota kontrak bucket expert_chat
+        // (requestConsultation = sesi chat; 1-on-1 lewat booking).
+        if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+            $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
+            if (\App\Services\WellbeingQuotaService::bucketBalance($program, \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT) < 1) {
+                abort(422, 'Kuota chat program wellbeing sudah habis. Hubungi HR untuk info program.');
+            }
+        } elseif (\App\Services\QuotaService::balanceFor($employee) < 1) {
             $label = \App\Services\QuotaService::packageLabel($employee);
             abort(422, "Kuota bulan ini habis (paket {$label['name']} {$label['monthly_quota']}x). Hubungi HR untuk penambahan kuota.");
         }
@@ -508,7 +529,14 @@ class EmployeeController extends Controller
                 'request_notes' => $validated['body'],
                 'mode' => $validated['mode'],
             ]);
-            \App\Services\QuotaService::reserve($employee, $session);
+            // WB: routing reserve — program aktif → bucket expert_chat (sesi chat);
+            // else QuotaService bulanan legacy.
+            if (\App\Services\WellbeingQuotaService::activeProgram($perusahaan)) {
+                \App\Services\WellbeingQuotaService::reserve($employee, $session,
+                    \App\Services\WellbeingQuotaService::BUCKET_EXPERT_CHAT);
+            } else {
+                \App\Services\QuotaService::reserve($employee, $session);
+            }
             return $session;
         });
 

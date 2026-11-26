@@ -1,102 +1,98 @@
-# MASTER-PLAN — Soluusi B2B Klinik: Package Quota, Multi-Company Consultant, Consultation Types, Multi-Assessment, Session Dashboard
+# MASTER-PLAN — Wellbeing Product (katalog 4 paket + pricing band + assign program + kuota kontrak-level)
 
-Status: FROZEN (Phase 2 complete — research A-F masuk semua; F ditulis mandor karena agent mati 2x oleh API 503)
-Base: `feat/mission-package-quota` @ `80ac781` (= brief tip `65e3e6e` + recon). Tests: 66/66.
-Inputs: `recon-SUMMARY.md`, `research-a..f-*.md`.
+Status: FROZEN v1 (siap eksekusi engineer agents)
+Supersedes: MASTER-PLAN mission-package-quota (arsip di git history @ `a4b73fb..5dce21f`)
+Worktree: `/home/hermes/workspace/projects/soluusi-b2b-wellbeing` · Branch `feat/wellbeing-product` @ `5dce21f`
+Baseline: **712 passed / 2553 assertions** (`/usr/local/bin/php artisan test`, sqlite `:memory:`, RefreshDatabase)
+Sources: `PRODUCT-DOC-SUMMARY.md` (source of truth) + `research-arch.md`, `research-ux.md`, `research-bizrules.md`, `research-tests.md`.
+Resolusi inkonsistensi doc = PRODUCT-DOC-SUMMARY §8. Tidak ada keputusan baru di bawah ini — semua diturunkan dari research.
 
 ---
 
-## 0. Keputusan arsitektur (dengan alasan)
+## 1. Arsitektur ringkas
 
-| # | Keputusan | Alasan |
+4 tabel baru, 2 migrasi aditif, 0 kolom tabel existing berubah:
+
+```
+wellbeing_packages          katalog 4 paket (DATA seeder: discovery|foundation|growth|impact)
+  └─ wellbeing_pricing_bands  5 band × paket berbayar, monthly_price + mhcu_quota (DATA seeder)
+company_wellbeing_programs  KONTRAK: assign oleh superadmin, SNAPSHOT kuota+band+option+harga, status active|ended|cancelled
+  └─ wellbeing_quota_ledger   append-only mirror M2, 2 bucket (expert_chat|deep_support), TANPA period_ym
+```
+
+- Kuota = **kontrak-level total** (bukan bulanan): saldo = snapshot − distinct(reserved|used|forfeited) + released/refunded per (`program_id`,`bucket`); window = `status=active && starts_at ≤ today ≤ ends_at`. Unused hangus otomatis.
+- `WellbeingQuotaService` adapter terpisah (QuotaService existing TIDAK diubah). Routing if-guard di 4 call-site: program aktif → wellbeing ledger; tanpa program → jalur legacy identik.
+- Katalog + harga = data seeder `WellbeingPackageSeeder` (idempotent `firstOrCreate`), editable runtime via admin UI.
+- Admin UI mengikuti pola `KlinikPackageController` + `PerusahaanActivationController` (Blade flat + Tailwind, `role:admin`).
+- Bayar v1 = pencatatan manual (no Midtrans). Discovery gratis.
+
+## 2. Keputusan (K1..K14 — dari research, FROZEN)
+
+| # | Keputusan | Sumber |
 |---|---|---|
-| K1 | Naming ikut codebase: `perusahaan_*` (bukan `company_*`) | recon-R1: seluruh domain pakai Indonesia naming; mencampur = kebingungan migrasi+model |
-| K2 | Quota = **ledger append-only** `consultation_quota_ledger` (reserved/used/forfeited/refunded/released) + unique constraint, BUKAN counter | research-A (Stripe pattern); audit + hangus+refund natural; sqlite-safe |
-| K3 | Periode kuota = **calendar month** (`period_ym` "YYYY-MM", timezone Asia/Jakarta) | research-A: HR report = GROUP BY periode |
-| K4 | Slot = **computed-on-read** dari workhour template — TANPA materialisasi slot rows, TANPA rolling job | research-B (Cal.com pattern); skala 40 konsultan = ms-level |
-| K5 | Anti-double-book = overlap check half-open dalam `DB::transaction` + `BEGIN IMMEDIATE` (sqlite single-writer) + unique(consultant_id, started_at) sebagai guard tambahan | research-B |
-| K6 | Assignment konsultan = extend `consultant_pools` → tambah kolom kontrak (contract_start/end, status) DARIPADA tabel baru `consultant_company` | recon-R1: `consultant_pools` sudah hub live consultant↔tenant; duplikat tabel = dua sumber kebenaran |
-| K7 | Workhour = 2 lapis: `consultant_work_hours` (template mingguan per assignment `consultant_pool_id`) + `consultant_availability_exceptions` (per consultant, global semua perusahaan) | default desain mission, divalidasi research-B (override = 1 tabel, libur = NULL hours) |
-| K8 | Lock request konsultan = feature flag **per perusahaan** `perusahaans.consultant_request_enabled` default OFF, guard **server-side** di controller + tombol hidden | catatan meeting; recon-R2: pola guard harus eksplisit |
-| K9 | Tipe konsultasi = kolom baru `consultation_type` (online_meeting/chat/one_on_one) di `perusahaan_sessions` — TERPISAH dari `konsultan_type` (jenis profesional) | recon-R1: `konsultan_type` = psikolog/nutrisionis; overloading = migrasi data berbahaya |
-| K10 | Meeting link: pertahankan arsitektur existing (`link_meeting` + GoogleCalendarService), tambah endpoint override manual per sesi; NO Zoom v1 | research-E |
-| K11 | Chat: **tetap polling** (5s, `?after_id=`, adaptive 3s/10s) + field-encrypt `chat_messages.body` + purge 90 hari Prunable. NO Reverb/paid service v1 | research-D: php -S 6 worker math; PDP burden |
-| K12 | Assessment engine = **extend mesin screening existing** (`screening_questions`/`screening_answers` + ScoringService) jadi engine definition-driven; WHO-5 diport jadi definition + data; instrumen baru = seeder | recon-R4: setengah engine sudah ada; buat baru = duplikasi |
-| K13 | Instrumen tambahan: PHQ-9 + GAD-7 + CBI (semua free/public domain, tervalidasi Indonesia). MBI NO-GO (paid), PSS-10 skip (permission-required) | research-C |
-| K14 | Catatan/hasil/review: `consultation_notes` (encrypted cast, konsultan-only), `consultation_results` (ringkasan, employee+consultant boleh lihat), `consultation_reviews` (rating 1-5 + komentar, hanya setelah done) | mission default + research-F |
-| K16 | Privacy (research-F): encrypted cast di notes+chat-body; **custom `audit_logs` table minimal** (bukan spatie — minim dependency); n≥5 dipertahankan; retensi notes = permanent, chat = purge 90 hari Prunable; chat self-host polling (konsisten PDP cross-border avoidance) | research-F |
-| K15 | Semua route baru wajib policy/gate eksplisit; buat 1 trait/helper guard tenant konsisten untuk menggantikan ad-hoc abort_* di kode BARU (kode lama tidak di-refactor — surgical) | recon-R2 + hard rules |
+| K1 | 4 tabel baru terpisah, BUKAN extend `packages`/`employee_packages`/ledger existing | arch §5.2 |
+| K2 | 2 migrasi: `2026_11_23_000001` (katalog+bands), `2026_11_23_000002` (programs+ledger). TEXT enum, sqlite-safe | arch §3.6 |
+| K3 | Katalog+harga = DATA seeder idempotent (`firstOrCreate` per `code`/band), editable runtime | arch §5.1 |
+| K4 | Snapshot kuota+band+option+harga di `company_wellbeing_programs` saat assign (kebal perubahan katalog) | arch §5.4, biz R9 |
+| K5 | Band dari `perusahaans.employee_count` (deklaratif MO) saat assign → snapshot `pricing_band_id` + `employee_band_size`; validasi ≥50 kecuali discovery; band tidak bergeser mid-contract | biz §3 |
+| K6 | 2 bucket kuota terpisah: `expert_chat` (chat) vs `deep_support` (1-on-1/MHCU/online_meeting) | arch §3.1 |
+| K7 | Option A (MHCU) XOR B (1-on-1) per kontrak, `deep_support_mode NOT NULL` wajib utk growth/impact; band MHCU menang atas default katalog (resolusi §8.2/8.3) | biz R2 |
+| K8 | 1 program aktif per perusahaan — guard app-level (sqlite tanpa partial unique) | biz §4 |
+| K9 | No pro-rate / no auto-upgrade v1: kontrak baru hanya setelah ended/cancelled | biz §4 |
+| K10 | `WellbeingQuotaService` adapter terpisah + routing if-guard di 4 call-site (BookingService:200, EmployeeController::startChat:511, ChatController:73,94, SweepNoShowSessions:35); fallback legacy = jalur lama identik | arch §4 |
+| K11 | 30-day notice termination: validasi efektif ≥ today+30; program tetap aktif s.d. tanggal efektif; daily command flip `ended` | biz R6 |
+| K12 | Discovery: max 40 peserta assessment (distinct employee, retake tidak menambah) + 8 sesi deep support hanya utk karyawan terpilih (list `selected_employee_ids` JSON di program, null = semua) + consent gate existing | biz R3/R4, §8.1 |
+| K13 | Harga exclude pajak: suffix "+ pajak" di view (no tax column); invoice = harga × bulan | biz R5 |
+| K14 | `AggregatePrivacy::safe($counts, int $min = 5)` parameterize; report wellbeing program pass 10; legacy caller tetap 5 | biz R10 |
 
-## 1. ERD target (delta dari existing)
+Naming UI (research-ux §2): admin "Katalog Paket Wellbeing" + "Assign Program"; HR "Program & Subscription"; "Band Karyawan"; copy paket alternatif (a); tone-of-voice rules ux §5 (no istilah klinis, no "diagnosis", "sisa kuota program" bukan bulanan).
 
-(existing: users, roles, perusahaans, perusahaan_employees, perusahaan_sessions, schedules, booking_claims, consultants, consultant_pools, chat_messages, perusahaan_assessments, screening_questions, screening_answers)
+## 3. Task DAG + parallel groups
 
-BARU:
 ```
-packages(id, name, monthly_quota default 2, is_active)
-employee_packages(id, perusahaan_employee_id FK, package_id FK, perusahaan_id FK, starts_at, ends_at, status)  -- aktif 1 per employee
-consultation_quota_ledger(id, employee_package_id FK, perusahaan_session_id FK nullable, period_ym TEXT, event ENUM(reserved|used|forfeited|refunded|released), reason TEXT nullable, actor_id nullable FK users, created_at)
-  UNIQUE(perusahaan_session_id, event)  -- idempotent
-consultant_work_hours(id, consultant_pool_id FK, weekday TINYINT 0-6, start_time TIME, end_time TIME, consultation_types JSON nullable, slot_minutes INT default 60)
-consultant_availability_exceptions(id, consultant_id FK, date DATE, start_time TIME nullable, end_time TIME nullable)  -- NULL time = full-day block
-consultation_notes(id, perusahaan_session_id FK, consultant_id FK, body TEXT encrypted, created_at, updated_at)
-consultation_results(id, perusahaan_session_id FK, summary TEXT, recommendation TEXT nullable, created_at, updated_at)
-consultation_reviews(id, perusahaan_session_id FK UNIQUE, perusahaan_employee_id FK, rating TINYINT 1-5, comment TEXT nullable, created_at)
-rooms(id, perusahaan_id FK, name, is_active)  -- 1-on-1 physical rooms
-```
-UBAH:
-```
-perusahaans: + consultant_request_enabled BOOLEAN default 0
-perusahaan_sessions: + consultation_type TEXT default 'chat' (backfill: 'chat'), + meeting_url nullable, + room_id nullable FK
-consultant_pools: + contract_start DATE nullable, + contract_end DATE nullable, + status TEXT default 'active'
+T1 Foundation (migrasi + 4 model + seeder + schema test)
+ └─> T2 WellbeingQuotaService + routing/gating 4 call-site
+      └─> T3 Superadmin katalog CRUD + harga band UI (routes admin group + nav admin)
+           ├─> T4 Assign program wizard + aktivasi + termination + AdminAction   ┐ PARALLEL
+           └─> T5 HR "Program & Subscription" + AggregatePrivacy parameterize    ┘ (file disjoint)
+                └─> T6 Test suite baru (±18 scenario) + full regression 712
 ```
 
-## 2. Urutan migration (semua additive, idempotent, sqlite-safe)
+- T1 blocking semua (skema+model adalah dependensi T2–T5).
+- T2 blocking T3–T5 (routing butuh service + program model final).
+- T3 blocking T4 (T4 route masuk group nav yang dibuat T3; T4 controller assign = 1 form per halaman terpisah dari katalog T3).
+- T4 ∥ T5: disjoint (T4 = `admin` route section + `admin/wellbeing-programs/*` views; T5 = `perusahaan` route section + `perusahaan/program-subscription.blade.php` + nav hr_admin + `AggregatePrivacy`). Kedua-duanya boleh sentuh `routes/web.php` dan `layouts/app.blade.php` hanya dengan baris BARU di section berbeda (merge serial di integration branch).
+- T6 terakhir: 5–6 file test baru, 0 edit test existing.
 
-M1 packages + employee_packages
-M2 consultation_quota_ledger (+ backfill ledger dari sessions existing per bulan — data-safe: derived, bukan delete)
-M3 consultant_pools alter (additive columns) + consultant_work_hours + consultant_availability_exceptions
-M4 perusahaans.consultant_request_enabled + perusahaan_sessions.consultation_type/meeting_url/room_id + backfill 'chat'
-M5 consultation_notes + consultation_results + consultation_reviews + rooms
-M6 assessment definitions: alter screening_questions (+instrument_code, +version, +weight nullable) — memperluas engine existing
-M7 audit_logs (K16)
-(pola: guard hasColumn/hasTable per 9e60184; enum = TEXT + CHECK via driver-dispatch bila perlu)
+## 4. Task summary (detail brief: `tasks/wb-T*.md`)
 
-## 3. Dependency graph + worker split
+| Task | Judul | Mode | Files inti |
+|---|---|---|---|
+| wb-T1 | Migrasi + model + seeder katalog | serial | 2 migration, 4 model, `WellbeingPackageSeeder`, 1 test baru |
+| wb-T2 | WellbeingQuotaService + routing & gating call-site | serial | `WellbeingQuotaService.php`, edit 4 call-site + `AssessmentController::store`, 1 test baru |
+| wb-T3 | Superadmin katalog CRUD + harga band UI | serial | `Admin/WellbeingPackageController.php`, `admin/wellbeing-packages/*` views, routes+nav, 1 test baru |
+| wb-T4 | Assign program wizard + aktivasi + 30-day notice | parallel | `Admin/WellbeingProgramController.php`, `admin/wellbeing-programs/*`, `wb:expire-programs` command, 1 test baru |
+| wb-T5 | HR Program & Subscription + threshold 10 | parallel | `Perusahaan/ProgramSubscriptionController.php`, `perusahaan/program-subscription.blade.php`, `AggregatePrivacy`, 1 test baru |
+| wb-T6 | Suite baru ±18 scenario + regression | serial | 5–6 file test Feature |
 
-W1 Foundation (M1-M6, models, factories, seeder) ──┬─> W2 Quota & Package (service reserve/forfeit/refund, no_show sweeper command + scheduler, label package UI)
-                                                   ├─> W3 Consultant & Schedule (superadmin assignment+workhour CRUD, availability compute, kalender konsultan, direktori+detail, flag lock)
-                                                   ├─> W4 Assessment (engine definition-driven, port WHO-5, seeder PHQ-9/GAD-7/CBI, UI + agregat)
-                                                   └─> W5 Types & Chat (3 tipe di booking, meeting link override endpoint, room 1-on-1, chat polling+encrypt)
-W2+W3 ─> W6 Employee "Sesi Saya" (dashboard kartu sesi + tombol Minta Konsultasi dengan guard quota+flag)
-W2..W5 ─> W7 Notes/Results/Reviews (+ agregat rating ke detail konsultan)
-W8 QA & Docs (regression + tenant isolation + quota edge cases + authz tests, rapikan docs)
+Semua task verify: `/usr/local/bin/php artisan test` (full suite, 712 + N baru hijau).
 
-## 4. Risk register
+## 5. Risk register
 
 | Risiko | Mitigasi |
 |---|---|
-| Quota hole startChat/requestConsultation belum ketutup → ledger bypass | W2: semua jalur create session wajib lewat QuotaService (refactor entrypoint tunggal) |
-| Zero policies → route baru bocor authz | K15: guard helper + W8 authz test matrix per route baru |
-| Scheduler prod mati (schedule:run gak jalan) → sweeper no-show tidak pernah jalan | W2: dokumentasikan aktivasi cron/systemd timer di deploy doc; QA cek manual command |
-| php -S prod fixes gak ada di branch ini → deploy = empty-500 | Pre-deploy: cherry-pick 44bed0d/52954db/3d48aed + finfo polyfill dari improvement-live (W8 step) |
-| sqlite enum/CHECK rebuild bikin migrasi rusak di prod | pola idempotent + driver-dispatch (M4 pakai TEXT default, hindari CHECK baru) |
-| Backfill ledger salah hitung bulan existing | M2 backfill derived-only + test verifikasi count vs query lama |
-| HR lihat catatan klinis (privacy) | K14 + W8 test authorization (HR 403 pada notes/results individual) |
-| Chat plaintext body (PDP) | K11/K16: encrypted cast — pesan baru; existing rows re-encrypt via one-time command (W5) |
+| Double-reserve (sesi masuk 2 ledger) | routing single if/else; UNIQUE(session,event) kedua tabel; T6 assert "program aktif → 0 row baru di consultation_quota_ledger" |
+| 712 baseline break via sentuh call-site | if-guard murni; fixture existing tanpa program → path lama identik; full suite tiap task |
+| Seeder menimpa kontrak snapshot | snapshot di kontrak; seeder `firstOrCreate` idempotent |
+| `deep_support_mode` mismatch (booking chat di kontrak tanpa expert chat) | gate 403 pesan jelas di T2; UI menyembunyikan opsi (T5) |
+| Merge conflict T4/T5 (routes/nav sama-sama disentuh) | constraint "baris baru saja, no reformat"; merge serial satu-satu ke integration branch + re-run suite |
+| Scope creep (dashboard 6-role, klinik bagi hasil, MCMI-III, Midtrans, add-on entity) | OUT of scope — backlog, tidak ada tabel/kode |
+| File baru tidak kebaca (env gotcha) | tiap file baru: `chgrp hermes` + `g+r` setelah tulis |
 
-## 5. Rollback plan
+## 6. Out of scope (backlog)
 
-- Semua migration additive → `migrate:rollback` aman (drop kolom/tabel baru).
-- Ledger/quota: kalau quota service meledak → set flag `perusahaans.sessions_per_employee_month` path lama masih jalan? NO — jangan dual-path. Rollback = deploy commit sebelumnya (git), DB kolom lama tidak disentuh.
-- Feature flag request lock default OFF = aman rollback behavior (lock on = default baru anyway).
+6-role internal dashboard penuh · klinik bagi-hasil (§7 doc) · MCMI-III · add-on purchase entity · Midtrans charge kontrak (prefix `WB-` + guard webhook) · prorated upgrade · top-up mid-contract.
 
-## 6. Definition of Done per worker
+## 7. Definition of Done mission
 
-(tertulis di docs/plan/tasks/Wn.md saat brief dibuat; umum: test hijau 66+baru, tenant isolation test, lint, diff minimal, review mandor)
-
-## 7. Pertanyaan terbuka (untuk GATE)
-
-1. Chat lama (existing rows): encrypt saat migrasi atau biarkan plaintext (hanya baru yang encrypted)?
-2. `requestConsultation` (minta tanpa pilih slot): tetap ada untuk employee, atau employee hanya bisa pilih slot? (Meeting notes: karyawan TIDAK boleh request konsultan = lock; tapi "Minta Konsultasi" button di poin 8 = pilih slot booking biasa?)
-3. Rating konsultan existing (`consultant_ratings` di klinik vertical) vs `consultation_reviews` baru: pakai tabel baru untuk perusahaan vertical (K14) atau unify?
+712 existing + ±18 scenario baru hijau, 0 edit test existing, `git diff` minimal per task, reviewer + security-auditor pada combined diff, tasks/wb-T*.md status updated.

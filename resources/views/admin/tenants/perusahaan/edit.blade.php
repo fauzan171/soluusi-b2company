@@ -19,6 +19,9 @@
     <label class="text-sm">Brand tampilan
         <input name="brand" required maxlength="100" value="{{ old('brand', $perusahaan->brand) }}" class="w-full border rounded p-2 mt-1">
     </label>
+    <label class="text-sm">Jumlah Karyawan
+        <input type="number" name="employee_count" required min="0" max="1000000" value="{{ old('employee_count', $perusahaan->employee_count) }}" class="w-full border rounded p-2 mt-1">
+    </label>
     <label class="text-sm">Rate PEPM (Rp)
         <input name="pepm_rate" type="number" min="0" value="{{ old('pepm_rate', $perusahaan->pepm_rate) }}" class="w-full border rounded p-2 mt-1">
     </label>

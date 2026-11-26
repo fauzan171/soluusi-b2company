@@ -60,4 +60,19 @@ class PerusahaanEmployee extends Model
     {
         return $this->hasMany(EmployeePackage::class);
     }
+
+    /**
+     * Audit UX: undangan terkonsumsi = karyawan pernah claim link (self-register)
+     * ATAU sudah mengganti password. Satu sinyal untuk stat roster + aksi kirim ulang.
+     */
+    public function isInvitationConsumed(): bool
+    {
+        if ($this->user && ! $this->user->must_change_password) {
+            return true;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('roster_invitations')
+            ->where('type', 'karyawan')->where('roster_id', $this->id)
+            ->whereNotNull('consumed_at')->exists();
+    }
 }

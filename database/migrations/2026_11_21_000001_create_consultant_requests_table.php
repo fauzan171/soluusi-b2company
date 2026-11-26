@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('consultant_requests')) {
+            return; // idempotent: aman saat re-run di DB yang sudah termigrate
+        }
+
         Schema::create('consultant_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('perusahaan_id')->constrained('perusahaans')->cascadeOnDelete();

@@ -178,6 +178,44 @@ class ChatTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_chat_closes_and_session_finalizes_30_min_after_start()
+    {
+        [$owner, , $emp, , $docUser, $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+        $session->update(['scheduled_at' => now(), 'checked_in_at' => now()]);
+
+        // Masih dalam 30 menit: boleh kirim.
+        $this->travel(29)->minutes();
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'masih'])
+            ->assertOk();
+
+        // Lewat 30 menit: kirim ditolak, poll menutup sesi (done) sekali saja.
+        $this->travel(2)->minutes();
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'telat'])
+            ->assertForbidden();
+        $this->actingAs($docUser)->getJson(route('consultant.chat', $session).'?after=0')
+            ->assertOk()->assertJsonFragment(['status' => 'done', 'can_send' => false]);
+        $this->actingAs($owner)->getJson(route('perusahaan.chat', $session).'?after=0')->assertOk();
+
+        $this->assertSame('done', $session->fresh()->status);
+        $this->assertNotNull($session->fresh()->completed_at);
+
+        // Setelah selesai konsultan tetap bisa isi catatan.
+        $this->actingAs($docUser)->post(route('consultant.notes.store', $session), ['body' => 'catatan pasca sesi'])
+            ->assertRedirect();
+        $this->assertSame('catatan pasca sesi', $session->fresh()->note?->body);
+    }
+
+    public function test_poll_reports_chat_end_time_after_start()
+    {
+        [$owner, , $emp, , , $consultant] = $this->fixture();
+        $session = $this->makeSession($emp, $consultant->id);
+        $session->update(['scheduled_at' => now(), 'checked_in_at' => now()]);
+
+        $this->actingAs($owner)->getJson(route('perusahaan.chat', $session).'?after=0')
+            ->assertOk()->assertJsonPath('ends_at', $session->fresh()->checked_in_at->addMinutes(30)->toIso8601String());
+    }
+
     public function test_employee_can_end_session_and_give_rating()
     {
         [$owner, , $emp, , , $consultant] = $this->fixture();

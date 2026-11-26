@@ -34,6 +34,21 @@ return [
     */
 
     'connections' => [
+        // B2C master (jerichoad/soluusi): read-only MySQL — sumber konsultan REAL.
+        // Env prefix B2C_DB_*, default dari config agar dev tanpa B2C tetap hidup
+        // (B2cConsultantSync abort 503 kalau database kosong).
+        'b2c' => [
+            'driver' => 'mysql',
+            'host' => env('B2C_DB_HOST', ''),
+            'port' => env('B2C_DB_PORT', '3306'),
+            'database' => env('B2C_DB_DATABASE', ''),
+            'username' => env('B2C_DB_USERNAME', ''),
+            'password' => env('B2C_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+        ],
+
 
         'sqlite' => [
             'driver' => 'sqlite',

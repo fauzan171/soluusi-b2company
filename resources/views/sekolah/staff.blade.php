@@ -15,6 +15,17 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
     </div>
     <p class="text-sm text-gray-500 mb-6">Portal kesejahteraan staf sekolah. Skor asesmen dan isi chat kamu rahasia — sekolah hanya melihat data agregat. Kalau kamu minta konseling, guru BK membaca alasan permintaanmu untuk menentukan jadwal.</p>
 
+    @if(!$staff->consent_at)
+    {{-- Self-consent staf dewasa (paritas W6 perusahaan): tanpa ini, booking/asesmen terkunci 403. --}}
+    <div class="mb-6 rounded-2xl border border-terra-200 bg-terra-50 p-5">
+        <h2 class="text-sm font-semibold text-terra-900">Persetujuan program dibutuhkan</h2>
+        <p class="text-xs text-terra-800 mt-1 leading-6">Program kesejahteraan ini diadakan oleh sekolah kamu. Dengan menyetujui, kamu mengizinkan penggunaan layanan konseling dan asesmen secara rahasia (sekolah hanya melihat data agregat). Kamu bisa berhenti kapan saja.</p>
+        <form method="POST" action="{{ route('sekolah.staff.consent') }}" class="mt-3">@csrf
+            <button class="rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white hover:bg-pine-800 transition">Saya setuju ikut program</button>
+        </form>
+    </div>
+    @endif
+
     <div class="grid md:grid-cols-3 gap-4 mb-6">
         {{-- Kuota --}}
         <div class="portal-card p-5">
@@ -44,7 +55,7 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                     <p class="text-sm text-gray-500 mt-1">Belum ada</p>
                     @endif
                 </div>
-                <a href="{{ route('sekolah.staff.assessment.form') }}" class="text-xs bg-pine-700 text-white px-3 py-1.5 rounded-lg">{{ $assessment ? 'Ulangi' : 'Isi' }}</a>
+                <a href="{{ route('sekolah.staff.assessment.list') }}" class="text-xs bg-pine-700 text-white px-3 py-1.5 rounded-lg">Lihat asesmen →</a>
             </div>
             @if($needsAssessment)
             <p class="text-[11px] text-terra-700 mt-2">Asesmen terakhir &gt; 30 hari lalu — isi ulang ya.</p>
@@ -257,9 +268,13 @@ $pendingRequest = $history->first(fn ($h) => $h->status === 'scheduled' && $h->s
                     <p class="text-xs text-gray-500">{{ $h->scheduled_at?->translatedFormat('d M Y, H.i') }}@if($h->consultant?->user) · {{ $h->consultant->user->fullname }}@endif</p>
                 </div>
                 @if($h->status === 'scheduled')
-                <form method="POST" action="{{ route('sekolah.staff.booking.cancel', $h) }}">@csrf
-                    <button class="text-xs text-red-600 hover:underline">Batalkan</button>
-                </form>
+                <details class="shrink-0">
+                    <summary class="text-xs text-red-600 hover:underline cursor-pointer list-none">Batalkan</summary>
+                    <form method="POST" action="{{ route('sekolah.staff.booking.cancel', $h) }}" class="mt-1.5 w-56 rounded-lg border border-[#e7e2d9] bg-gray-50 p-2 space-y-1.5">@csrf
+                        <textarea name="reason" rows="2" maxlength="1000" required placeholder="Alasan pembatalan" class="w-full rounded-md border border-[#e7e2d9] bg-white px-2 py-1 text-xs"></textarea>
+                        <button class="w-full rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700">Batalkan sesi</button>
+                    </form>
+                </details>
                 @else
                 <span class="text-xs font-semibold px-2 py-1 rounded-lg {{ $h->status === 'done' ? 'bg-pine-50 text-pine-700' : 'bg-gray-100 text-gray-500' }}">{{ ucfirst($h->status) }}</span>
                 @endif
