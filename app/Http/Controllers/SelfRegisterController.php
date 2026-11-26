@@ -33,8 +33,12 @@ class SelfRegisterController extends Controller
     public function store(Request $request, string $type)
     {
         $invitation = $this->invitation($request, $type);
+        // Password divalidasi HANYA di jalur yang menulis password: user baru
+        // dan aktivasi provisioned (password acak di-reset). Jalur login-as-owner
+        // tidak menyentuh password → tanpa field password pun sah.
         $existing = User::where('email', $invitation->email)->first();
-        if (!$existing) {
+        $activatesProvisioned = $existing && $existing->must_change_password;
+        if (!$existing || $activatesProvisioned) {
             $request->validate(['password' => ['required', 'string', 'min:8']]);
         }
         $user = DB::transaction(function () use ($request, $type, $invitation) {
@@ -60,11 +64,30 @@ class SelfRegisterController extends Controller
             $role = Role::where('name', $type === 'karyawan' ? 'employee' : 'student')->firstOrFail();
             $user = User::where('email', $invitation->email)->lockForUpdate()->first();
             if ($user) {
-                abort_unless(auth()->id() === $user->id && $user->is_active && $user->role_id === $role->id,
-                    403, 'Login sebagai pemilik email undangan dengan role sesuai. Hubungi ops jika akun berbeda.');
-                abort_if($model::where('user_id', $user->id)->where('id', '!=', $row->id)->exists()
-                    || ($type === 'karyawan' ? SekolahStudent::class : PerusahaanEmployee::class)::where('user_id', $user->id)->exists(),
-                    403, 'Membership akun ambigu. Hubungi ops.');
+                $otherModel = $type === 'karyawan' ? SekolahStudent::class : PerusahaanEmployee::class;
+                $foreignMembership = $model::withoutGlobalScopes()->where('user_id', $user->id)->where('id', '!=', $row->id)->exists()
+                    || $otherModel::withoutGlobalScopes()->where('user_id', $user->id)->exists();
+                // Provisioned roster user = akun dibuat provisioner untuk email
+                // ini (password acak, must_change_password masih true) dan
+                // tidak punya membership roster lain: token undangan = bukti
+                // kepemilikan email. Akun aktif existing bukan provisioned
+                // (mis. siswa yang sudah punya password) tetap wajib login.
+                $isProvisioned = $user->must_change_password
+                    && $user->is_active && $user->role_id === $role->id
+                    && ($row->user_id === $user->id || (!$row->user_id && !$foreignMembership));
+                if ($isProvisioned) {
+                    abort_if($foreignMembership, 403, 'Membership akun ambigu. Hubungi ops.');
+                    // Aktivasi: ganti password acak provisioner, buka gerbang
+                    // must_change_password (parity ChangePasswordController).
+                    $user->forceFill([
+                        'password' => Hash::make($request->password),
+                        'must_change_password' => false,
+                    ])->save();
+                } else {
+                    abort_unless(auth()->id() === $user->id && $user->is_active && $user->role_id === $role->id,
+                        403, 'Login sebagai pemilik email undangan dengan role sesuai. Hubungi ops jika akun berbeda.');
+                    abort_if($foreignMembership, 403, 'Membership akun ambigu. Hubungi ops.');
+                }
             } else {
                 abort_if($row->user_id, 403, 'Roster sudah tertaut. Hubungi ops.');
                 $user = User::create([
