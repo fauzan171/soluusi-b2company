@@ -211,6 +211,9 @@ class InstrumentScoring
         return $out;
     }
 
+    /** Instrumen di mana skor item tinggi = lebih menekan (top items bermakna). */
+    public const SYMPTOM_INSTRUMENTS = ['pss10', 'cbi', 'dass21', 'phq9', 'gad7'];
+
     /**
      * HR agregat per instrumen (n≥5 suppression via AggregatePrivacy::safe()).
      * Band distribusi diambil dari latest assessment per karyawan —
@@ -251,7 +254,7 @@ class InstrumentScoring
 
         $assessed = $latest->count();
         if (! AggregatePrivacy::safe(array_values($bandCounts), 10)) {
-            return ['assessed' => $assessed, 'bands' => null, 'escalatedCount' => null, 'mean' => null];
+            return ['assessed' => $assessed, 'bands' => null, 'escalatedCount' => null, 'mean' => null, 'topItems' => null, 'freeTextCount' => null];
         }
 
         return [
@@ -260,7 +263,57 @@ class InstrumentScoring
             // M1: eskalasi 1-9 bisa re-identifikasi → tampil hanya 0 atau ≥10.
             'escalatedCount' => ($esc = $latest->where('escalated', true)->count()) === 0 || $esc >= 10 ? $esc : null,
             'mean' => round($latest->avg('score'), 1),
+            // T3: top-3 item mean tertinggi (sama gate n≥10) + count pengisi free_text.
+            // Hanya instrumen stres/gejala (skor tinggi = lebih berat); WHO-5/kepribadian tidak.
+            'topItems' => in_array($instrument->code, self::SYMPTOM_INSTRUMENTS, true)
+                ? self::topItems($instrument, $latest)
+                : null,
+            // sama dgn M1: 1-9 bisa re-identifikasi → tampil hanya 0 atau ≥10.
+            'freeTextCount' => ($ft = $latest->whereNotNull('free_text')->count()) === 0 || $ft >= 10 ? $ft : null,
         ];
+    }
+
+    /**
+     * T3: top-3 item mean skor tertinggi (jawaban dinormalkan reverse supaya
+     * "semakin tinggi = semakin menekan"). Agregat — tanpa identitas individu.
+     *
+     * @param  \Illuminate\Support\Collection  $latest  rows latest per employee
+     * @return array<int, array{code:string, text:string, mean:float}>|null
+     */
+    private static function topItems(AssessmentInstrument $instrument, $latest): ?array
+    {
+        $items = self::items($instrument);
+        if ($items->isEmpty()) {
+            return null;
+        }
+
+        $rows = $latest->pluck('answers', 'employee_id')->filter();
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($items as $item) {
+            $bound = (int) ($item->weight ?? self::defaultMax($item));
+            if ($bound <= 0) {
+                continue;
+            }
+            $sum = 0;
+            $n = 0;
+            foreach ($rows as $answers) {
+                if (! is_array($answers) || ! array_key_exists($item->code, $answers)) {
+                    continue;
+                }
+                $value = (int) $answers[$item->code];
+                $sum += $item->reverse ? $bound - $value : $value;
+                $n++;
+            }
+            if ($n >= 10) { // gate n per item, bukan hanya per band
+                $out[] = ['code' => $item->code, 'text' => $item->text, 'mean' => round($sum / $n, 1)];
+            }
+        }
+
+        return collect($out)->sortByDesc('mean')->take(3)->values()->all();
     }
 
     /** @return Collection<ScreeningQuestion> */

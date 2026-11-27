@@ -127,6 +127,26 @@ class AdminPerusahaanAssessmentAllocationTest extends TestCase
         ]);
     }
 
+    public function test_store_rejects_unknown_code()
+    {
+        $this->actingAs($this->admin)
+            ->post(route('admin.tenants.perusahaans.assessments.store', $this->perusahaan), [
+                'instrument_code' => 'nosuchcode',
+            ])->assertSessionHasErrors('instrument_code');
+
+        $this->assertDatabaseMissing('assessment_assignments', [
+            'instrument_code' => 'nosuchcode',
+        ]);
+    }
+
+    public function test_perusahaan_show_page_links_to_assessments()
+    {
+        $this->actingAs($this->admin)
+            ->get(route('admin.tenants.perusahaans.show', $this->perusahaan))
+            ->assertOk()
+            ->assertSee(route('admin.tenants.perusahaans.assessments', $this->perusahaan));
+    }
+
     public function test_store_duplicate_rejected_friendly()
     {
         $this->actingAs($this->admin)
@@ -193,5 +213,41 @@ class AdminPerusahaanAssessmentAllocationTest extends TestCase
             ])->assertSessionHasErrors('reason');
 
         $this->assertSame(0, InstrumentGrant::count());
+    }
+
+    public function test_end_to_end_no_program_employee_sees_submits_and_hr_report_counts()
+    {
+        // No wellbeing program: superadmin allocates directly (A2 fallback).
+        $this->actingAs($this->admin)
+            ->post(route('admin.tenants.perusahaans.assessments.store', $this->perusahaan), [
+                'instrument_code' => 'who5',
+            ])->assertRedirect();
+
+        // Karyawan: Asesmenku shows the instrument, submit succeeds.
+        $empUser = $this->emp->user;
+        $this->actingAs($empUser)
+            ->get(route('perusahaan.assessment.instruments'))
+            ->assertOk()
+            ->assertSee('WHO-5');
+
+        $this->actingAs($empUser)
+            ->post(route('perusahaan.assessment.instrument.store', 'who5'), [
+                'answers' => ['W1' => 3, 'W2' => 3, 'W3' => 3, 'W4' => 3, 'W5' => 3],
+            ])->assertRedirect();
+
+        $row = \App\Models\Perusahaan\PerusahaanAssessment::where('employee_id', $this->emp->id)
+            ->where('instrument_code', 'who5')->firstOrFail();
+        $this->assertNotNull($row->assessment_assignment_id);
+
+        // HR report (employee_count=5 → completion 1 / 5, band tersembunyi D10).
+        $hr = User::factory()->create(['role_id' => Role::firstOrCreate(['name' => 'hr_admin'])->id]);
+        \App\Models\Perusahaan\PerusahaanAdmin::create([
+            'perusahaan_id' => $this->perusahaan->id, 'user_id' => $hr->id, 'role' => 'hr_admin',
+        ]);
+        $this->actingAs($hr)
+            ->get(route('perusahaan.report.assessment'))
+            ->assertOk()
+            ->assertSee('1 / 5')
+            ->assertSee('WHO-5');
     }
 }

@@ -43,8 +43,20 @@ class DemoShowcaseSeeder extends Seeder
     private const TOPICS = ['Stress', 'Kecemasan', 'Karir', 'Keuangan', 'Work-life balance', 'Relasi', 'Burnout'];
     private const TYPES = ['psikolog', 'psikolog', 'psikolog', 'nutrisionis', 'karir'];
 
+    /** Guard produksi: demo data tidak boleh tersebar ke DB live tanpa opt-in eksplisit. */
+    private static function guardProduction(): void
+    {
+        if (! app()->environment(['local', 'testing']) && !filter_var(env('DEMO_SEED_ALLOW_PROD', config('demo_seed.allow_prod', false)), FILTER_VALIDATE_BOOLEAN)) {
+            throw new \RuntimeException(
+                'DemoShowcaseSeeder ditolak di luar local/testing (data demo fiktif). Set DEMO_SEED_ALLOW_PROD=true untuk override sadar.'
+            );
+        }
+    }
+
     public function run(): void
     {
+        self::guardProduction();
+
         $this->seedPerusahaan();
         $this->seedSekolah();
         $this->seedKlinik();
@@ -536,6 +548,8 @@ class DemoShowcaseSeeder extends Seeder
      */
     public static function purge(): void
     {
+        self::guardProduction();
+
         DB::transaction(function (): void {
             self::doPurge();
         });

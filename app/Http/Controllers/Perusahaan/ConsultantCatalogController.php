@@ -21,11 +21,14 @@ class ConsultantCatalogController extends Controller
 
         $q = $request->string('q')->trim()->toString();
         $category = $request->string('category')->trim()->toString();
+        $scopeAll = $request->query('scope') === 'all';
 
         $query = Consultant::query()
             ->where('status', Consultant::ACCEPT)
             ->where('is_active', true)
             ->whereHas('user', fn ($u) => $u->where('is_active', true))
+            // T2: default pool-only; ?scope=all utk cari konsultan baru (request flow).
+            ->when(! $scopeAll, fn ($q) => $q->whereHas('pools', fn ($p) => $p->where('perusahaan_id', $perusahaan->id)))
             ->with(['user', 'categories', 'skills', 'educations', 'certificates'])
             ->withCount('ratings');
 
@@ -46,6 +49,7 @@ class ConsultantCatalogController extends Controller
             'categories' => $categories,
             'q' => $q,
             'activeCategory' => $category,
+            'scopeAll' => $scopeAll,
             'requests' => $perusahaan->consultantRequests()->latest()->take(10)->get(),
         ]);
     }

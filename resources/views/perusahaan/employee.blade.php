@@ -133,6 +133,32 @@
         </div>
     </div>
 
+    {{-- T3: hasil asesmen terbaru per instrumen (bukan hanya WHO-5). --}}
+    @if(($latestPerInstrument ?? collect())->isNotEmpty())
+    <section class="mb-6">
+        <h2 class="font-semibold text-sm text-pine-900 mb-3">Hasil Asesmen Terbaru Kamu</h2>
+        <div class="grid gap-3 sm:grid-cols-2">
+            @foreach($latestPerInstrument as $a)
+            @php
+                $band = $a->instrument ? $a->instrument->bandLabelFor((int) $a->score) : $a->band();
+                $bandClass = in_array($band, ['Sehat', 'Minimal', 'Rendah', 'Baik', 'Normal', 'Selesai']) ? 'bg-pine-100 text-pine-800'
+                    : (in_array($band, ['Perlu Perhatian', 'Ringan', 'Sedang']) ? 'bg-terra-100 text-terra-800' : 'bg-red-100 text-red-800');
+            @endphp
+            <a href="{{ route('perusahaan.assessment.result', $a) }}" class="portal-card p-4 flex items-center justify-between transition hover:shadow-md hover:border-pine-300">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">{{ $a->instrument->name }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ $a->taken_at->translatedFormat('d M Y') }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-lg font-bold text-gray-900">{{ $a->score }}</span>
+                    <span class="block text-[11px] font-semibold px-2 py-0.5 rounded-full mt-1 {{ $bandClass }}">{{ $band }}</span>
+                </div>
+            </a>
+            @endforeach
+        </div>
+    </section>
+    @endif
+
     {{-- W6: Sesi Saya — kartu per sesi scheduled mendatang --}}
     <section class="mb-6">
         <h2 class="font-semibold text-sm text-pine-900 mb-3">Sesi Saya</h2>

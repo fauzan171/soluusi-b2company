@@ -50,6 +50,20 @@ class AssessmentController extends Controller
         return [$instrument, $assignment];
     }
 
+    /**
+     * T3: section hasil = domain instrumen (parity dgn screening_questions.section).
+     * mh/wellbeing/clinical → mental_health; nutrition → nutrition_lifestyle;
+     * ergonomic → ergonomic; null domain (Big Five/DISC) → mental_health.
+     */
+    private static function sectionFor(AssessmentInstrument $instrument): string
+    {
+        return match ($instrument->domain) {
+            'nutrition' => 'nutrition_lifestyle',
+            'ergonomic' => 'ergonomic',
+            default => 'mental_health',
+        };
+    }
+
     /** Redirect kalau employee sudah submit utk assignment ini (D6). */
     private function submittedRedirect(PerusahaanEmployee $employee, AssessmentAssignment $assignment): ?\Illuminate\Http\RedirectResponse
     {
@@ -178,6 +192,7 @@ class AssessmentController extends Controller
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'instrument' => $instrument,
+            'assignment' => $assignment,
             'items' => InstrumentScoring::items($instrument),
         ]);
     }
@@ -209,6 +224,8 @@ class AssessmentController extends Controller
         $r->validate($rules + [
             // A3: catatan diskusi opsional dari step akhir wizard.
             'discussion_note' => ['nullable', 'string', 'max:1000'],
+            // T3: free-text opsional "apa yang paling menekan" — HR hanya lihat COUNT.
+            'free_text' => ['nullable', 'string', 'max:1000'],
         ]);
         $answers = collect($r->input('answers'))->only(
             $items->flatMap(fn ($i) => $i->type === 'forced-choice' ? [$i->code.'p', $i->code.'k'] : [$i->code])
@@ -270,12 +287,15 @@ class AssessmentController extends Controller
                         'answers' => $answers,
                         'score' => $result['score'],
                         'escalated' => $result['escalated'],
-                        'section' => 'mental_health',
+                        // T3: section dari domain instrumen, bukan hardcode.
+                        'section' => self::sectionFor($instrument),
                         'status' => 'completed',
                         'taken_at' => now(),
                         'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
                         // A3: free-text "apa yang ingin kamu diskusikan" (opsional).
                         'notes' => $r->input('discussion_note') ?: null,
+                        // T3: free-text "apa yang paling menekan" (opsional, private).
+                        'free_text' => $r->input('free_text') ?: null,
                     ]);
 
                     foreach ($answers as $qCode => $value) {
@@ -318,7 +338,7 @@ class AssessmentController extends Controller
             $dimensions = $scoring['dimensions'];
         }
 
-        return view('perusahaan.assessment-result', [
+        return response()->view('perusahaan.assessment-result', [
             'employee' => $employee,
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
@@ -328,6 +348,28 @@ class AssessmentController extends Controller
             'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
             'escalated' => (bool) $assessment->escalated,
             'dimensions' => $dimensions,
-        ]);
+        ], 200, ['Cache-Control' => 'private, no-store']);
+    }
+
+    /**
+     * T3: print/PDF page — owner-only (403 utk user lain). Tanpa dependency
+     * PDF: HTML print-friendly + window.print() (keputusan #3).
+     */
+    public function print(PerusahaanAssessment $assessment)
+    {
+        $employee = app(EmployeeController::class)->resolveEmployeePublic();
+        abort_unless($assessment->employee_id === $employee->id, 403);
+
+        $instrument = AssessmentInstrument::where('code', $assessment->instrument_code)->first();
+
+        return response()->view('perusahaan.assessment-print', [
+            'employee' => $employee,
+            'perusahaan' => $employee->perusahaan,
+            'isPreview' => optional(auth()->user()->role)->name !== 'employee',
+            'assessment' => $assessment,
+            'instrument' => $instrument,
+            'bandLabel' => $instrument ? $instrument->bandLabelFor((int) $assessment->score) : $assessment->band(),
+            'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
+        ], 200, ['Cache-Control' => 'private, no-store']);
     }
 }

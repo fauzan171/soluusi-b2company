@@ -56,6 +56,15 @@ class Consultant extends Model
         'profile' => 'array',
     ];
 
+    /**
+     * T2: photo_url hanya boleh URL absolut http(s) — scheme lain
+     * (javascript:, data:, …) tidak pernah dirender (XSS guard, semua view).
+     */
+    public function getPhotoUrlAttribute(?string $value): ?string
+    {
+        return $value && preg_match('~^https?://~i', $value) ? $value : null;
+    }
+
     public function getBlogPackageLabelAttribute(): string
     {
         if (!$this->blog_package || $this->blog_package === 'none') {

@@ -121,7 +121,7 @@
             </nav>
             @auth
             <a href="{{ route('password.change') }}" class="block shrink-0 border-t border-white/10 pt-3 px-2 text-sm text-white/60 hover:text-white">Ubah password</a>
-            <form method="POST" action="{{ route('logout') }}" class="shrink-0 pt-2 px-2">@csrf
+            <form method="POST" action="{{ route('logout') }}" onsubmit="try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('assessment:')===0)sessionStorage.removeItem(k)})}catch(e){}" class="shrink-0 pt-2 px-2">@csrf
                 <button class="text-sm text-white/60 hover:text-white w-full text-left">Keluar</button>
             </form>
             @endauth
@@ -208,7 +208,7 @@
                     @endforeach
                     @auth
                         <a href="{{ route('password.change') }}" class="text-sm py-1 text-gray-500">Ubah password</a>
-                        <form method="POST" action="{{ route('logout') }}">@csrf
+                        <form method="POST" action="{{ route('logout') }}" onsubmit="try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('assessment:')===0)sessionStorage.removeItem(k)})}catch(e){}">@csrf
                             <button class="text-left text-sm py-1 text-gray-500">Keluar</button>
                         </form>
                     @endauth

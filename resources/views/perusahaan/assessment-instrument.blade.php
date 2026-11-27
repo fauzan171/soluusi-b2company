@@ -13,7 +13,7 @@
         <a href="{{ route('perusahaan.assessment.instruments') }}" class="text-sm text-pine-700 hover:underline">← Pilih instrumen lain</a>
     </div>
 
-    <form method="POST" action="{{ route('perusahaan.assessment.instrument.store', $instrument->code) }}" class="space-y-4">
+    <form method="POST" action="{{ route('perusahaan.assessment.instrument.store', $instrument->code) }}" class="space-y-4" data-autosave-key="assessment:{{ $employee->id }}:{{ $instrument->code }}:{{ $assignment?->id ?? 'grant' }}">
         @csrf
 
         {{-- Progress bar + counter (wizard shell; tanpa JS tetap dirender, statis). --}}
@@ -68,6 +68,16 @@
                       class="w-full border border-[#e7e2d9] rounded-lg px-3 py-2 text-sm focus:border-pine-600 focus:outline-none"
                       placeholder="Contoh: ingin bicara soal pola tidur atau manajemen beban kerja…">{{ old('discussion_note') }}</textarea>
             @error('discussion_note')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
+        </div>
+
+        {{-- T3: free-text opsional "apa yang paling menekan" (private, HR count-only). --}}
+        <div class="portal-card p-4" data-step data-step-optional data-free-text-step>
+            <p class="text-sm font-medium mb-2">Apa yang paling menekan Anda saat ini?</p>
+            <p class="text-xs text-gray-500 mb-3">Opsional. Jawaban ini tidak dibagikan ke HR — mereka hanya melihat berapa banyak yang mengisi.</p>
+            <textarea name="free_text" rows="3" maxlength="1000" data-autosave-field="free_text"
+                      class="w-full border border-[#e7e2d9] rounded-lg px-3 py-2 text-sm focus:border-pine-600 focus:outline-none"
+                      placeholder="Contoh: beban kerja, tenggat proyek, atau hal di luar pekerjaan…">{{ old('free_text') }}</textarea>
+            @error('free_text')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror
         </div>
 
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
@@ -171,6 +181,51 @@
         current = gotoNextUnanswered(current);
         render();
     });
+
+    // --- T3: autosave sessionStorage (hilang saat tab ditutup; dibersihkan saat logout) (assignment+instrument keyed) ---
+    // Restore on load, save on change, clear on submit. try/catch —
+    // private mode / quota / disabled storage jangan mematahkan form.
+    var form = root.querySelector('form[data-autosave-key]');
+    var storageKey = form ? form.getAttribute('data-autosave-key') : null;
+    var freeTextField = root.querySelector('textarea[data-autosave-field="free_text"]');
+
+    function loadDraft() {
+        if (!storageKey) return;
+        try {
+            var draft = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
+            Object.keys(draft.answers || {}).forEach(function (name) {
+                var inputs = form.querySelectorAll('input[name="answers[' + name + ']"]');
+                Array.prototype.forEach.call(inputs, function (el) {
+                    el.checked = String(el.value) === String(draft.answers[name]);
+                });
+            });
+            if (freeTextField && draft.free_text) freeTextField.value = draft.free_text;
+        } catch (e) { /* draft corrupt — abaikan */ }
+    }
+
+    function saveDraft() {
+        if (!storageKey) return;
+        try {
+            var draft = { answers: {}, free_text: freeTextField ? freeTextField.value : '' };
+            answerInputs.forEach(function (el) {
+                if (el.checked) {
+                    var m = el.name.match(/^answers\[(.+)\]$/);
+                    if (m) draft.answers[m[1]] = el.value;
+                }
+            });
+            sessionStorage.setItem(storageKey, JSON.stringify(draft));
+        } catch (e) { /* storage penuh/blocked — autosave off, form tetap jalan */ }
+    }
+
+    if (form) {
+        loadDraft();
+        answerInputs.forEach(function (el) { el.addEventListener('change', saveDraft); });
+        if (freeTextField) freeTextField.addEventListener('input', saveDraft);
+        form.addEventListener('submit', function () {
+            try { sessionStorage.removeItem(storageKey); } catch (e) { /* noop */ }
+        });
+        updateProgress();
+    }
 
     render();
     updateProgress();

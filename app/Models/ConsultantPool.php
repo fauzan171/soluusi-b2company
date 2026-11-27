@@ -86,6 +86,10 @@ class ConsultantPool extends Model
                 'name' => $p->consultant->user?->fullname ?? 'Konsultan #' . $p->consultant_id,
                 'category' => $p->consultant->categories->pluck('name')->implode(', '),
                 'type' => self::typeFromCategory($p->consultant->categories->first()?->name),
+                // T2: profil kaya (photo/headline/JSON) untuk display direktori.
+                'photo_url' => $p->consultant->photo_url,
+                'headline' => $p->consultant->headline,
+                'profile' => $p->consultant->profile,
             ])
             ->sortBy('name')->values();
     }
