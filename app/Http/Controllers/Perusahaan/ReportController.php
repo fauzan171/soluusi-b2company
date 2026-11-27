@@ -53,7 +53,7 @@ class ReportController extends Controller
                     $row['round'],
                     $section['completers'],
                     $section['registered'],
-                    $agg['mean'] ?? '—',
+                    $section['completers'] > 0 ? ($agg['mean'] ?? '—') : '—',
                     $bands,
                 ];
                 if ($topItems) {
