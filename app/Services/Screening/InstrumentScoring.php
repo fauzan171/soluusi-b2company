@@ -260,7 +260,55 @@ class InstrumentScoring
             // M1: eskalasi 1-9 bisa re-identifikasi → tampil hanya 0 atau ≥10.
             'escalatedCount' => ($esc = $latest->where('escalated', true)->count()) === 0 || $esc >= 10 ? $esc : null,
             'mean' => round($latest->avg('score'), 1),
+            // T3: top-3 item mean tertinggi (sama gate n≥10) + count pengisi free_text.
+            'topItems' => AggregatePrivacy::safe(array_values($bandCounts), 10)
+                ? self::topItems($instrument, $latest)
+                : null,
+            'freeTextCount' => $latest->whereNotNull('free_text')->count(),
         ];
+    }
+
+    /**
+     * T3: top-3 item mean skor tertinggi (jawaban dinormalkan reverse supaya
+     * "semakin tinggi = semakin menekan"). Agregat — tanpa identitas individu.
+     *
+     * @param  \Illuminate\Support\Collection  $latest  rows latest per employee
+     * @return array<int, array{code:string, text:string, mean:float}>|null
+     */
+    private static function topItems(AssessmentInstrument $instrument, $latest): ?array
+    {
+        $items = self::items($instrument);
+        if ($items->isEmpty()) {
+            return null;
+        }
+
+        $rows = $latest->pluck('answers', 'employee_id')->filter();
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($items as $item) {
+            $bound = (int) ($item->weight ?? self::defaultMax($item));
+            if ($bound <= 0) {
+                continue;
+            }
+            $sum = 0;
+            $n = 0;
+            foreach ($rows as $answers) {
+                if (! is_array($answers) || ! array_key_exists($item->code, $answers)) {
+                    continue;
+                }
+                $value = (int) $answers[$item->code];
+                $sum += $item->reverse ? $bound - $value : $value;
+                $n++;
+            }
+            if ($n > 0) {
+                $out[] = ['code' => $item->code, 'text' => $item->text, 'mean' => round($sum / $n, 1)];
+            }
+        }
+
+        return collect($out)->sortByDesc('mean')->take(3)->values()->all();
     }
 
     /** @return Collection<ScreeningQuestion> */
