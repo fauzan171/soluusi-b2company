@@ -45,6 +45,10 @@ class DemoShowcaseSeeder extends Seeder
 
     public function run(): void
     {
+        if (app()->isProduction()) {
+            $this->command?->error('DemoShowcaseSeeder refused: APP_ENV=production.');
+            return;
+        }
         $this->seedPerusahaan();
         $this->seedSekolah();
         $this->seedKlinik();
@@ -109,13 +113,13 @@ class DemoShowcaseSeeder extends Seeder
             $employees->push($emp);
         }
 
-        $this->seedProgram($p);
-        $this->seedAssessments($p, $employees);
+        $program = $this->seedProgram($p);
+        $this->seedAssessments($p, $employees, $program);
         $this->seedSessions($p, $employees);
     }
 
-    /** Program Growth aktif (band 50-150 utk employee_count 15? tidak — pakai snapshot manual, mirror PerusahaanAssessmentUnionTest::program()). */
-    private function seedProgram(Perusahaan $p): void
+    /** Program Growth aktif — snapshot manual, mirror PerusahaanAssessmentUnionTest::program(). */
+    private function seedProgram(Perusahaan $p): CompanyWellbeingProgram
     {
         // Pastikan katalog paket ada (WellbeingPackageSeeder idempotent — aman dipanggil ulang).
         if (!WellbeingPackage::where('code', 'growth')->exists()) {
@@ -127,7 +131,7 @@ class DemoShowcaseSeeder extends Seeder
 
         $package = WellbeingPackage::where('code', 'growth')->firstOrFail();
 
-        CompanyWellbeingProgram::firstOrCreate(
+        $program = CompanyWellbeingProgram::firstOrCreate(
             ['perusahaan_id' => $p->id, 'wellbeing_package_id' => $package->id, 'status' => 'active'],
             [
                 'employee_band_size' => $p->employee_count,
@@ -145,36 +149,56 @@ class DemoShowcaseSeeder extends Seeder
             ]
         );
 
-        // Assignment instrumen level perusahaan: core + add-on bfitrader/disc24.
+        // Assignment instrumen LEVEL PROGRAM (mirror Admin\WellbeingProgramController
+        // ::createAssignments growth): core dass21+nutrition, extra MH who5, add-on
+        // bfitrader/disc24. Level perusahaan tidak dipakai: saat program aktif,
+        // assignment legacy perusahaan tersupresi (AssessmentAccess::forEmployee D8)
+        // dan row asesmen tanpa assessment_assignment_id tidak terhitung di report.
         // Rerun aman: unique (assignable, instrument, audience, round).
+        $starts = $program->starts_at->toDateString();
+        $ends = $program->ends_at->toDateString();
         foreach ([
-            ['who5', AssessmentAssignment::SOURCE_LEGACY, 1],
-            ['phq9', AssessmentAssignment::SOURCE_LEGACY, 1],
-            ['bfitrader', AssessmentAssignment::SOURCE_ADDON, 1],
-            ['disc24', AssessmentAssignment::SOURCE_ADDON, 1],
-        ] as [$code, $source, $round]) {
+            // [code, source, round, opens, closes]
+            ['dass21', AssessmentAssignment::SOURCE_CORE, 1, $starts, $program->starts_at->copy()->addDays(29)->toDateString()],
+            ['dass21', AssessmentAssignment::SOURCE_CORE, 2, $program->ends_at->copy()->subDays(29)->toDateString(), $ends],
+            ['nutrition', AssessmentAssignment::SOURCE_CORE, 1, $starts, $program->starts_at->copy()->addDays(29)->toDateString()],
+            ['nutrition', AssessmentAssignment::SOURCE_CORE, 2, $program->ends_at->copy()->subDays(29)->toDateString(), $ends],
+            ['who5', AssessmentAssignment::SOURCE_CORE, 1, $starts, $program->starts_at->copy()->addDays(29)->toDateString()],
+            ['who5', AssessmentAssignment::SOURCE_CORE, 2, $program->ends_at->copy()->subDays(29)->toDateString(), $ends],
+            ['bfitrader', AssessmentAssignment::SOURCE_ADDON, 1, $starts, $ends],
+            ['disc24', AssessmentAssignment::SOURCE_ADDON, 1, $starts, $ends],
+        ] as [$code, $source, $round, $opens, $closes]) {
             AssessmentAssignment::firstOrCreate([
-                'assignable_type' => $p->getMorphClass(),
-                'assignable_id' => $p->id,
+                'assignable_type' => $program->getMorphClass(),
+                'assignable_id' => $program->id,
                 'instrument_code' => $code,
                 'audience' => AssessmentAssignment::AUDIENCE_EMPLOYEE,
                 'round' => $round,
             ], [
                 'source' => $source,
                 'addon_price' => $source === AssessmentAssignment::SOURCE_ADDON ? 250000 : null,
-                'opens_at' => today()->subDays(30)->toDateString(),
-                'closes_at' => null,
+                'opens_at' => $opens,
+                'closes_at' => $closes,
                 'status' => 'active',
                 'assigned_by' => null,
             ]);
         }
+
+        return $program;
     }
 
     /** Asesmen selesai 13/15 karyawan, band varied biar dashboard hidup. */
-    private function seedAssessments(Perusahaan $p, $employees): void
+    private function seedAssessments(Perusahaan $p, $employees, CompanyWellbeingProgram $program): void
     {
         $who5 = AssessmentInstrument::where('code', 'who5')->firstOrFail();
         $questions = $who5->questions()->get();
+
+        // Link ke assignment program round 1 supaya terhitung di report completers.
+        $assignment = AssessmentAssignment::where('assignable_type', $program->getMorphClass())
+            ->where('assignable_id', $program->id)
+            ->where('instrument_code', 'who5')
+            ->where('round', 1)
+            ->first();
 
         foreach ($employees as $idx => $emp) {
             if ($idx >= 13) {
@@ -184,7 +208,7 @@ class DemoShowcaseSeeder extends Seeder
                 continue;
             }
 
-            // Distribusi band: 5 sehat, 5 perlu perhatian, 3 berisiko (total 13).
+            // Distribusi band over idx 0-12 (idx%3): 5× Sehat(80), 4× Perlu Perhatian(60), 4× Berisiko(40).
             $roll = $idx % 3;
             // sum item (0-25) * 4: 5×4=20→80 Sehat; 5×3=15→60 Perlu Perhatian; 5×2=10→40 Berisiko.
             $perItem = $roll === 0 ? 4 : ($roll === 1 ? 3 : 2);
@@ -196,6 +220,7 @@ class DemoShowcaseSeeder extends Seeder
                 'employee_id' => $emp->id,
                 'departement_id' => $emp->departement_id,
                 'instrument_code' => 'who5',
+                'assessment_assignment_id' => $assignment?->id,
                 'answers' => $answers,
                 'score' => $perItem * 5 * 4,
                 'escalated' => false,
@@ -360,9 +385,8 @@ class DemoShowcaseSeeder extends Seeder
             ['role' => 'staff']
         );
 
-        // Pasien demo (guest PII transaksional — nama fiktif, email @demo.com).
-        // Tidak dibuat akun: klinik flow pakai guest checkout; row consultation
-        // session minimal tidak perlu untuk login demo. Email hanya marker.
+        // Pasien demo: akun user role customer (login portal), tanpa row
+        // consultation session — nama fiktif, email @demo.com.
 
         $patientRoleId = $this->roleId('customer');
         foreach (range(1, 3) as $i) {
@@ -516,6 +540,13 @@ class DemoShowcaseSeeder extends Seeder
      */
     public static function purge(): void
     {
+        DB::transaction(function (): void {
+            self::doPurge();
+        });
+    }
+
+    private static function doPurge(): void
+    {
         $demoUserIds = \App\Models\User::where('email', 'like', '%@demo.com')->pluck('id')->all();
 
         // Tenants demo (exact name).
@@ -524,11 +555,23 @@ class DemoShowcaseSeeder extends Seeder
         $k = Klinik::where('name', self::KLINIK_NAME)->first();
 
         if ($p) {
+            // Jawaban item asesmen demo (polymorphic, tanpa FK — harus eksplisit).
+            $assessmentIds = PerusahaanAssessment::where('perusahaan_id', $p->id)->pluck('id');
+            DB::table('screening_answers')
+                ->where('assessable_type', \App\Models\Perusahaan\PerusahaanAssessment::class)
+                ->whereIn('assessable_id', $assessmentIds)
+                ->delete();
             PerusahaanSession::where('perusahaan_id', $p->id)->delete();
             PerusahaanAssessment::where('perusahaan_id', $p->id)->delete();
             PerusahaanEmployee::where('perusahaan_id', $p->id)->delete();
             PerusahaanAdmin::where('perusahaan_id', $p->id)->delete();
-            AssessmentAssignment::where('assignable_type', $p->getMorphClass())->where('assignable_id', $p->id)->delete();
+            // Assignment level perusahaan + level program (morph 'program').
+            AssessmentAssignment::where(function ($q) use ($p) {
+                $q->where(function ($pq) use ($p) {
+                    $pq->where('assignable_type', $p->getMorphClass())->where('assignable_id', $p->id);
+                })->orWhereIn('assignable_id', CompanyWellbeingProgram::where('perusahaan_id', $p->id)->pluck('id'))
+                    ->where('assignable_type', 'program');
+            })->delete();
             CompanyWellbeingProgram::where('perusahaan_id', $p->id)->delete();
             foreach (\App\Models\ConsultantPool::where('perusahaan_id', $p->id)->get() as $pool) {
                 ConsultantWorkHour::where('consultant_pool_id', $pool->id)->delete();
