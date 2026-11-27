@@ -288,6 +288,33 @@ class ChatTest extends TestCase
         \Illuminate\Support\Facades\Mail::assertNothingSent();
     }
 
+    public function test_first_message_mails_consultant_notify_email()
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        [$owner, , $emp, , $docUser, $consultant] = $this->fixture();
+        $docUser->update(['email' => 'b2c-42@b2b.local']);
+        $consultant->update(['notify_email' => 'real@b2c.example']);
+        $session = $this->makeSession($emp, $consultant->id);
+
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo dok']);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ChatNewMessage::class,
+            fn ($m) => $m->hasTo('real@b2c.example'));
+    }
+
+    public function test_first_message_skips_mail_for_placeholder_b2b_local_consultant()
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        [$owner, , $emp, , $docUser, $consultant] = $this->fixture();
+        $docUser->update(['email' => 'b2c-42@b2b.local']);
+        $consultant->update(['notify_email' => null]);
+        $session = $this->makeSession($emp, $consultant->id);
+
+        $this->actingAs($owner)->postJson(route('perusahaan.chat.store', $session), ['body' => 'halo dok']);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
     public function test_employee_end_rejects_cancelled_session()
     {
         [$owner, , $emp, , , $consultant] = $this->fixture();

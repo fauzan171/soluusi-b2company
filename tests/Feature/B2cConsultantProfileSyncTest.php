@@ -249,6 +249,10 @@ class B2cConsultantProfileSyncTest extends TestCase
         \App\Models\Perusahaan\PerusahaanAdmin::create(['perusahaan_id' => $p->id, 'user_id' => $hr->id, 'name' => 'HR']);
 
         $consultant = Consultant::where('b2c_consultant_id', $cid)->first();
+        // T2: katalog HR pool-only — konsultan harus di-assign ke pool perusahaan.
+        \App\Models\ConsultantPool::create([
+            'perusahaan_id' => $p->id, 'consultant_id' => $consultant->id,
+        ]);
 
         // Katalog: photo + headline.
         $this->actingAs($hr)->get(route('perusahaan.consultants.catalog'))

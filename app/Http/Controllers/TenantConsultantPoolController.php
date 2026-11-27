@@ -85,6 +85,10 @@ abstract class TenantConsultantPoolController extends Controller
                 'name' => $p->consultant->user?->fullname ?? 'Konsultan #' . $p->consultant_id,
                 'category' => $p->consultant->categories->pluck('name')->implode(', '),
                 'is_active' => (bool) $p->is_active,
+                // T2: profil kaya (photo/headline/JSON) untuk display pool HR.
+                'photo_url' => $p->consultant->photo_url,
+                'headline' => $p->consultant->headline,
+                'profile' => $p->consultant->profile,
             ])
             ->sortBy('name')
             ->values();
