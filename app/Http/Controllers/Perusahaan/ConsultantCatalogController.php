@@ -26,6 +26,8 @@ class ConsultantCatalogController extends Controller
             ->where('status', Consultant::ACCEPT)
             ->where('is_active', true)
             ->whereHas('user', fn ($u) => $u->where('is_active', true))
+            // T2: default pool-only — konsultan yang di-assign ke perusahaan ini.
+            ->whereHas('pools', fn ($p) => $p->where('perusahaan_id', $perusahaan->id))
             ->with(['user', 'categories', 'skills', 'educations', 'certificates'])
             ->withCount('ratings');
 

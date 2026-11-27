@@ -53,8 +53,36 @@
             <tbody>
                 @foreach($rows as $row)
                 <tr class="border-b last:border-0 hover:bg-gray-50">
-                    <td class="p-3 font-medium">{{ $row['name'] }}</td>
-                    <td class="p-3 text-gray-500">{{ $row['category'] ?: '—' }}</td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-3">
+                            @if($row['photo_url'])
+                            <img src="{{ $row['photo_url'] }}" alt="Foto {{ $row['name'] }}" class="w-10 h-10 rounded-full object-cover bg-pine-100 shrink-0"
+                                onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-10 h-10 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-sm shrink-0',textContent:'{{ strtoupper(substr($row['name'], 0, 1)) }}'}))">
+                            @else
+                            <div class="w-10 h-10 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-sm shrink-0">
+                                {{ strtoupper(substr($row['name'], 0, 1)) }}
+                            </div>
+                            @endif
+                            <div>
+                                <p class="font-medium">{{ $row['name'] }}</p>
+                                @if($row['headline'])
+                                <p class="text-xs text-pine-700 font-medium">{{ $row['headline'] }}</p>
+                                @endif
+                                @if(!empty($row['profile']['education']))
+                                <p class="text-xs text-gray-400">{{ collect($row['profile']['education'])->pluck('institution')->implode(', ') }}</p>
+                                @endif
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-3 text-gray-500">
+                        {{ $row['category'] ?: '—' }}
+                        @if(!empty($row['profile']['skills']))
+                        <p class="text-xs text-gray-400 mt-1">{{ collect($row['profile']['skills'])->implode(', ') }}</p>
+                        @endif
+                        @if(!empty($row['profile']['certificates']))
+                        <p class="text-xs text-gray-400 mt-1">Sertifikasi: {{ collect($row['profile']['certificates'])->pluck('name')->implode(', ') }}</p>
+                        @endif
+                    </td>
                     <td class="p-3">
                         @if($row['is_active'])
                         <span class="text-xs px-2 py-0.5 rounded bg-pine-100 text-pine-800">Aktif</span>
