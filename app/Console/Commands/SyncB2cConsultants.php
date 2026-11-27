@@ -16,8 +16,8 @@ class SyncB2cConsultants extends Command
         $count = B2cConsultantSync::sync();
 
         $this->info(sprintf(
-            'B2C consultant sync: created=%d updated=%d deactivated=%d',
-            $count['created'], $count['updated'], $count['deactivated']
+            'B2C consultant sync: created=%d updated=%d deactivated=%d deferred=%d',
+            $count['created'], $count['updated'], $count['deactivated'], $count['deferred']
         ));
 
         return self::SUCCESS;

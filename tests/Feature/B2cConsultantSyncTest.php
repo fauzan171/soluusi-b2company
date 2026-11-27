@@ -207,6 +207,32 @@ class B2cConsultantSyncTest extends TestCase
         $this->assertSame(0, User::where('email', 'b2c-'.$this->b2cIds['Alpha'].'@b2b.local')->value('is_active'));
     }
 
+    public function test_sync_defers_deactivation_while_future_sessions_exist(): void
+    {
+        $this->seedB2c([['email' => 'a@b2c.local', 'name' => 'Alpha', 'uuid' => (string) Str::uuid()]]);
+        \App\Services\B2cConsultantSync::sync();
+        $alpha = Consultant::where('b2c_consultant_id', $this->b2cIds['Alpha'])->first();
+
+        $p = \App\Models\Perusahaan\Perusahaan::create(['name' => 'PT Fake', 'brand' => 'Fake', 'employee_count' => 10, 'is_active' => true]);
+        $e = \App\Models\Perusahaan\PerusahaanEmployee::create(['perusahaan_id' => $p->id, 'name' => 'Emp', 'email' => 'emp@fake.test']);
+        $s = \App\Models\Perusahaan\PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $e->id, 'consultant_id' => $alpha->id,
+            'status' => 'scheduled', 'scheduled_at' => now()->addDays(3),
+        ]);
+
+        DB::connection('b2c')->table('consultants')->where('id', $this->b2cIds['Alpha'])->update(['status' => 'reject']);
+        $out = \App\Services\B2cConsultantSync::sync();
+        $this->assertSame(0, $out['deactivated']);
+        $this->assertSame(1, $out['deferred']);
+        $this->assertTrue((bool) $alpha->fresh()->is_active);
+
+        // Sesi selesai → sync berikut menonaktifkan.
+        $s->update(['status' => 'done']);
+        $out = \App\Services\B2cConsultantSync::sync();
+        $this->assertSame(1, $out['deactivated']);
+        $this->assertFalse((bool) $alpha->fresh()->is_active);
+    }
+
     public function test_command_runs_and_reports(): void
     {
         $this->seedB2c([['email' => 'a@b2c.local', 'name' => 'Alpha', 'uuid' => (string) Str::uuid()]]);

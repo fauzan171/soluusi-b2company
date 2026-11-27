@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class B2cConsultantSync
 {
     /**
-     * @return array{created:int, updated:int, deactivated:int}
+     * @return array{created:int, updated:int, deactivated:int, deferred:int}
      */
     public static function sync(): array
     {
@@ -31,6 +31,7 @@ class B2cConsultantSync
             'created' => 0,
             'updated' => 0,
             'deactivated' => 0,
+            'deferred' => 0,
         ];
         $consultantRoleId = DB::table('roles')->where('name', 'consultant')->value('id');
         $b2c = DB::connection('b2c'); // MySQL read-only — JANGAN pernah write.
@@ -115,15 +116,20 @@ class B2cConsultantSync
 
         // Deactivate: konsultan B2C yang berhenti (bukan accept/active lagi).
         $activeB2cIds = $rows->keys()->map(fn ($k) => (int) $k)->all();
-        $count['deactivated'] = Consultant::whereNotNull('b2c_consultant_id')
+        $dropped = Consultant::whereNotNull('b2c_consultant_id')
             ->whereNotIn('b2c_consultant_id', $activeB2cIds)
             ->where('is_active', 1)
-            ->get()
-            ->each(function (Consultant $c) {
-                $c->update(['is_active' => 0]);
-                \App\Models\User::where('id', $c->user_id)->update(['is_active' => 0]);
-            })
-            ->count();
+            ->get();
+        // Konsultan dengan sesi terjadwal di masa depan tetap aktif sampai sesinya selesai
+        // (tidak ada pembatalan mendadak ke karyawan); sync malam berikutnya mencoba lagi.
+        [$deferred, $toDeactivate] = $dropped->partition(fn (Consultant $c) => \App\Models\Perusahaan\PerusahaanSession::where('consultant_id', $c->id)
+            ->where('status', 'scheduled')->where('scheduled_at', '>=', now())->exists());
+        $toDeactivate->each(function (Consultant $c) {
+            $c->update(['is_active' => 0]);
+            \App\Models\User::where('id', $c->user_id)->update(['is_active' => 0]);
+        });
+        $count['deactivated'] = $toDeactivate->count();
+        $count['deferred'] = $deferred->count();
 
         return $count;
     }
