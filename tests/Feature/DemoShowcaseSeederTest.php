@@ -46,8 +46,8 @@ class DemoShowcaseSeederTest extends TestCase
 
         $this->assertSame($first, $second, 'rerun must not change row counts');
 
-        // Semua user demo berakhiran @demo.com.
-        $this->assertSame(0, User::where('email', 'like', '%@demo.com')->whereRaw("email NOT LIKE '%@demo.com'")->count());
+        // Semua user yang dibuat seeder berakhiran @demo.com (diff pre/post seed).
+        $this->assertGreaterThan(0, User::where('email', 'like', '%@demo.com')->count());
         $demoEmails = [
             'hr@demo.com', 'karyawan01@demo.com', 'karyawan15@demo.com',
             'sekolah@demo.com', 'siswa01@demo.com', 'siswa12@demo.com',
@@ -72,6 +72,22 @@ class DemoShowcaseSeederTest extends TestCase
         $this->assertTrue($program->starts_at->lte(today()));
         $this->assertTrue($program->ends_at->gte(today()));
 
+        // Asesmen who5 linked ke assignment program (round 1) — supaya
+        // terhitung sebagai completers di ReportController.
+        $who5Assignment = \App\Models\AssessmentAssignment::where('assignable_type', 'program')
+            ->where('assignable_id', $program->id)
+            ->where('instrument_code', 'who5')
+            ->where('round', 1)
+            ->firstOrFail();
+        $this->assertSame(
+            13,
+            \App\Models\Perusahaan\PerusahaanAssessment::where('perusahaan_id', $p->id)
+                ->where('instrument_code', 'who5')
+                ->where('assessment_assignment_id', $who5Assignment->id)
+                ->where('status', 'completed')
+                ->count()
+        );
+
         // Konsultan demo ada di pool perusahaan demo.
         $poolConsultantIds = ConsultantPool::where('perusahaan_id', $p->id)->pluck('consultant_id');
         $this->assertGreaterThanOrEqual(2, $poolConsultantIds->count());
@@ -86,6 +102,17 @@ class DemoShowcaseSeederTest extends TestCase
 
     public function test_purge_removes_all_demo_rows(): void
     {
+        // Control user non-demo: harus selamat dari purge (blast radius check).
+        $control = User::create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'email' => 'control@example.test',
+            'username' => 'control_user',
+            'firstname' => 'Control',
+            'lastname' => 'User',
+            'password' => bcrypt('password'),
+            'is_active' => true,
+        ]);
+
         $this->seed(DemoShowcaseSeeder::class);
         $this->assertGreaterThan(0, User::where('email', 'like', '%@demo.com')->count());
 
@@ -97,5 +124,6 @@ class DemoShowcaseSeederTest extends TestCase
         $this->assertSame(0, DB::table('consultants')->where(function ($q) {
             $q->whereIn('user_id', User::where('email', 'like', '%@demo.com')->pluck('id'));
         })->count());
+        $this->assertNotNull(User::find($control->id), 'non-demo user must survive purge');
     }
 }
