@@ -126,4 +126,59 @@ class DemoShowcaseSeederTest extends TestCase
         })->count());
         $this->assertNotNull(User::find($control->id), 'non-demo user must survive purge');
     }
+
+    /** app()->isProduction() baca binding container 'env', bukan config('app.env'). */
+    private function asProduction(): void
+    {
+        app()->forgetInstance('env');
+        app()->instance('env', 'production');
+    }
+
+    private function asTesting(): void
+    {
+        app()->forgetInstance('env');
+        app()->instance('env', 'testing');
+    }
+
+    /**
+     * expectOutputString-style helper: PHPUnit fail() melempar Exception yang
+     * extends RuntimeException, jadi catch harus exclude PHPUnit Failure.
+     */
+    private function assertSeederGuarded(callable $fn): void
+    {
+        try {
+            $fn();
+            $this->fail('must throw RuntimeException in production without DEMO_SEED_ALLOW_PROD');
+        } catch (\RuntimeException $e) {
+            if ($e instanceof \PHPUnit\Framework\Exception) {
+                throw $e;
+            }
+            $this->assertStringContainsString('DEMO_SEED_ALLOW_PROD', $e->getMessage());
+        }
+    }
+
+    public function test_run_and_purge_throw_in_production_without_flag(): void
+    {
+        $this->asProduction();
+
+        // call langsung, bukan $this->seed() (artisan db:seed menelan hasil).
+        $this->assertSeederGuarded(fn () => (new DemoShowcaseSeeder())->setContainer(app())->run());
+        $this->assertSeederGuarded(fn () => DemoShowcaseSeeder::purge());
+
+        $this->assertSame(0, User::where('email', 'like', '%@demo.com')->count(), 'no demo rows may be created');
+    }
+
+    public function test_run_allowed_in_production_with_flag(): void
+    {
+        $this->asProduction();
+        config(['demo_seed.allow_prod' => true]);
+
+        try {
+            (new DemoShowcaseSeeder())->setContainer(app())->run();
+            $this->assertGreaterThan(0, User::where('email', 'like', '%@demo.com')->count());
+        } finally {
+            $this->asTesting();
+            DemoShowcaseSeeder::purge();
+        }
+    }
 }
