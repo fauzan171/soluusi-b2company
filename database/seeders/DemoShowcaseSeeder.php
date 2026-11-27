@@ -45,10 +45,6 @@ class DemoShowcaseSeeder extends Seeder
 
     public function run(): void
     {
-        if (app()->isProduction()) {
-            $this->command?->error('DemoShowcaseSeeder refused: APP_ENV=production.');
-            return;
-        }
         $this->seedPerusahaan();
         $this->seedSekolah();
         $this->seedKlinik();
