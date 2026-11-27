@@ -9,7 +9,11 @@
             <h1 class="text-xl font-bold">Hasil {{ $instrument?->name ?? 'Asesmen' }}</h1>
             <p class="text-sm text-gray-500">{{ $assessment->taken_at->translatedFormat('d F Y') }}</p>
         </div>
-        <a href="{{ route('perusahaan.assessment.instruments') }}" class="text-sm text-pine-700 hover:underline">← Kembali</a>
+        <div class="flex items-center gap-4">
+            {{-- T3: unduh/print PDF (halaman owner-only). --}}
+            <a href="{{ route('perusahaan.assessment.print', $assessment) }}" class="text-sm text-pine-700 hover:underline">Unduh / Print PDF</a>
+            <a href="{{ route('perusahaan.assessment.instruments') }}" class="text-sm text-pine-700 hover:underline">← Kembali</a>
+        </div>
     </div>
 
     <div class="portal-card p-6 text-center">
@@ -65,10 +69,27 @@
     </div>
     @endif
 
+    @if($assessment->free_text)
+    <div class="portal-card p-4 mt-4">
+        <h2 class="text-sm font-bold mb-2">Apa yang Paling Menekan Kamu</h2>
+        <p class="text-sm text-gray-700">{{ $assessment->free_text }}</p>
+        <p class="text-xs text-gray-400 mt-2">Jawaban ini hanya kamu yang melihatnya — HR tidak melihat isinya.</p>
+    </div>
+    @endif
+
     @if($escalated)
     <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
         <p class="font-semibold">Penting: salah satu jawaban kamu menandakan kesulitan serius.</p>
         <p class="mt-1">Kami sangat menyarankan kamu bicara dengan profesional sesegera mungkin. Hubungi konsultan lewat fitur <a href="{{ route('perusahaan.booking') }}" class="underline font-semibold">booking</a> atau hotline krisis <b>119 ext. 8</b> (24 jam). Kamu tidak sendirian.</p>
+    </div>
+    @endif
+
+    {{-- T3: CTA konsultan saat band sedang/tinggi (reference KKP). --}}
+    @if(in_array($bandLabel, ['Sedang', 'Berat', 'Sangat Berat', 'Agak Berat', 'Tinggi', 'Perlu Perhatian', 'Perlu Intervensi', 'Berisiko Tinggi']))
+    <div class="mt-4 rounded-xl border border-terra-200 bg-terra-50 p-4 text-sm text-terra-900">
+        <p class="font-semibold">Mau bicara dengan konsultan?</p>
+        <p class="mt-1">Skor kamu di rentang {{ strtolower($bandLabel) }} — bicara dengan konsultan bisa membantu. Pilih konsultan yang cocok, semuanya rahasia.</p>
+        <a href="{{ route('perusahaan.consultants') }}" class="mt-2 inline-block bg-terra-500 text-white text-sm font-semibold rounded px-4 py-2.5 hover:bg-terra-600">Lihat Konsultan</a>
     </div>
     @endif
 
