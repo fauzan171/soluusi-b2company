@@ -23,6 +23,68 @@ class ReportController extends Controller
      */
     public function assessment()
     {
+        [$perusahaan, $program, $sections] = $this->assessmentData();
+
+        return view('perusahaan.report-assessment', [
+            'perusahaan' => $perusahaan,
+            'program' => $program,
+            'sections' => $sections,
+        ]);
+    }
+
+    /**
+     * T3: CSV export agregat asesmen — baris per (instrumen, round): completion,
+     * mean, band counts, top items, free-text fill count. TANPA baris per orang,
+     * tanpa nama/email/free_text (D10). Suppression n≥10 sama dgn halaman.
+     */
+    public function assessmentExport()
+    {
+        [, , $sections] = $this->assessmentData();
+
+        $stream = fopen('php://temp', 'r+');
+        fputcsv($stream, ['Instrumen', 'Round', 'Penyelesaian', 'Terdaftar', 'Rata-rata skor', 'Distribusi band', 'Top item', 'Top item mean', 'Mengisi free-text'], ',', '"', '');
+        foreach ($sections as $section) {
+            foreach ($section['rounds'] as $row) {
+                $agg = $row['aggregate'];
+                $bands = $agg['bands'] ? collect($agg['bands'])->map(fn ($c, $l) => $l.':'.$c)->implode('; ') : '—';
+                $topItems = $agg['topItems'] ?: [];
+                $baseRow = [
+                    $section['instrument']->name,
+                    $row['round'],
+                    $section['completers'],
+                    $section['registered'],
+                    $agg['mean'] ?? '—',
+                    $bands,
+                ];
+                if ($topItems) {
+                    foreach ($topItems as $item) {
+                        fputcsv($stream, array_merge($baseRow, [
+                            \App\Support\AggregatePrivacy::csvText($item['text']),
+                            $item['mean'],
+                            $agg['freeTextCount'],
+                        ]), ',', '"', '');
+                    }
+                } else {
+                    fputcsv($stream, array_merge($baseRow, ['—', '—', $agg['bands'] !== null ? $agg['freeTextCount'] : '—']), ',', '"', '');
+                }
+            }
+        }
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="agregat-asesmen-'.now()->format('Y-m').'.csv"',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    /**
+     * @return array{0: \App\Models\Perusahaan\Perusahaan, 1: ?\App\Models\CompanyWellbeingProgram, 2: \Illuminate\Support\Collection}
+     */
+    private function assessmentData(): array
+    {
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
 
@@ -110,10 +172,6 @@ class ReportController extends Controller
             ];
         })->filter()->values();
 
-        return view('perusahaan.report-assessment', [
-            'perusahaan' => $perusahaan,
-            'program' => $program,
-            'sections' => $sections,
-        ]);
+        return [$perusahaan, $program, $sections];
     }
 }

@@ -11,7 +11,11 @@
             <h1 class="text-xl font-bold">Agregat Asesmen Kesejahteraan</h1>
             <p class="text-sm text-gray-500">Per assignment {{ $program?->wellbeingPackage?->name ?? 'perusahaan' }} — data individu tidak pernah ditampilkan (n&lt;10 disembunyikan).</p>
         </div>
-        <a href="{{ route('perusahaan.report') }}" class="text-sm text-pine-700 hover:underline">← Laporan utama</a>
+        <div class="flex items-center gap-4">
+            {{-- T3: CSV export agregat saja (tanpa row per orang). --}}
+            <a href="{{ route('perusahaan.report.assessment.export') }}" class="text-sm text-pine-700 hover:underline">Export CSV</a>
+            <a href="{{ route('perusahaan.report') }}" class="text-sm text-pine-700 hover:underline">← Laporan utama</a>
+        </div>
     </div>
 
     @if($sections->isEmpty())
@@ -69,6 +73,29 @@
                             <span class="text-gray-500">Butuh eskalasi (item khusus){{ $roundLabel }}</span>
                             <span class="font-semibold {{ $agg['escalatedCount'] > 0 ? 'text-red-600' : 'text-gray-700' }}">Eskalasi: {{ $agg['escalatedCount'] ?? '<10 (disembunyikan)' }}</span>
                         </div>
+
+                        {{-- T3: top-3 item mean tertinggi (gate n≥10, agregat). --}}
+                        @if(!empty($agg['topItems']))
+                        <div class="mt-3">
+                            <p class="text-xs font-semibold text-gray-500 mb-1.5">Item paling menekan (rata-rata tertinggi){{ $roundLabel }}</p>
+                            <div class="space-y-1">
+                                @foreach($agg['topItems'] as $item)
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-700">{{ $item['text'] }}</span>
+                                    <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700">{{ $item['mean'] }}</span>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- T3: count pengisi free-text (isi per ORANG tidak pernah tampil). --}}
+                        @if($agg['freeTextCount'] !== null && $agg['bands'] !== null)
+                        <div class="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
+                            <span class="text-gray-500">Mengisi "apa yang paling menekan"{{ $roundLabel }}</span>
+                            <span class="font-semibold text-gray-700">{{ $agg['freeTextCount'] }} orang</span>
+                        </div>
+                        @endif
                     @endif
                 @endforeach
 

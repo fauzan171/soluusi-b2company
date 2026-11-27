@@ -165,6 +165,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/dashboard/ai-insight', [\App\Http\Controllers\Perusahaan\DashboardController::class, 'aiInsight']);
         Route::get('/report', [\App\Http\Controllers\Perusahaan\ReportController::class, 'index'])->name('report');
         Route::get('/report/assessment', [\App\Http\Controllers\Perusahaan\ReportController::class, 'assessment'])->name('report.assessment');
+        // T3: CSV export agregat asesmen (tanpa row per orang).
+        Route::get('/report/assessment/export', [\App\Http\Controllers\Perusahaan\ReportController::class, 'assessmentExport'])->name('report.assessment.export');
         Route::get('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'index'])->name('employees');
         Route::post('/employees', [\App\Http\Controllers\Perusahaan\RosterController::class, 'store'])->name('employees.store');
         Route::post('/employees/{employee}/consent', [\App\Http\Controllers\Perusahaan\RosterController::class, 'consent'])->name('employees.consent');
@@ -206,6 +208,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::get('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'form'])->name('assessment.instrument.form');
         Route::post('/employee/assessments/{code}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'store'])->name('assessment.instrument.store');
         Route::get('/employee/assessments/result/{assessment}', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'result'])->name('assessment.result');
+        // T3: print/PDF halaman hasil — owner-only (403 di controller).
+        Route::get('/employee/assessments/result/{assessment}/print', [\App\Http\Controllers\Perusahaan\AssessmentController::class, 'print'])->name('assessment.print');
         Route::get('/employee/consultants', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'consultants'])->name('consultants');
     Route::get('/employee/consultants/{consultant}', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'consultantShow'])->name('consultants.show');
         Route::post('/employee/consultants/{consultant}/start-chat', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'startChat'])->name('consultants.start-chat');

@@ -111,6 +111,16 @@ class EmployeeController extends Controller
         $trend = $employee->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
 
+        // T3: hasil TERBARU tiap instrumen yang pernah dikerjakan (bukan cuma WHO-5).
+        $latestPerInstrument = $employee->assessments()
+            ->whereNotNull('instrument_code')
+            ->with('instrument')
+            ->get()
+            ->groupBy('instrument_code')
+            ->map(fn ($group) => $group->sortByDesc('taken_at')->first())
+            ->filter(fn ($a) => $a->instrument?->is_active)
+            ->values();
+
         // A4: kartu rekomendasi dari hasil asesmen TERBARU (instrumen apapun),
         // deskriptif — bukan diagnosis.
         $latestAny = $employee->assessments()->whereNotNull('instrument_code')
@@ -163,6 +173,7 @@ class EmployeeController extends Controller
             'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
+            'latestPerInstrument' => $latestPerInstrument,
             'suggestion' => $suggestion,
             'suggestionAssessment' => $latestAny,
             'pendingProposals' => $pendingProposals,
