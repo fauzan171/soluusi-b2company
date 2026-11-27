@@ -335,6 +335,17 @@ class AssessmentEnhancementTest extends TestCase
         $this->assertStringNotContainsString('terganggu oleh sesuatu', $res->getContent());
     }
 
+    public function test_csv_export_shows_dash_not_zero_mean_without_completers()
+    {
+        $this->assign('pss10');
+
+        $csv = $this->actingAs($this->hr)->get(route('perusahaan.report.assessment.export'))->getContent();
+        $rows = array_map(fn ($l) => str_getcsv($l, ',', '"', ''), array_filter(explode("\n", $csv)));
+        $cols = collect($rows)->first(fn ($r) => str_starts_with($r[0], 'PSS-10'));
+        $this->assertNotNull($cols);
+        $this->assertSame('—', $cols[4]);
+    }
+
     public function test_free_text_count_hidden_between_1_and_9()
     {
         $a = $this->assign('pss10');
