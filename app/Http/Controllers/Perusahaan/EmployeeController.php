@@ -111,6 +111,15 @@ class EmployeeController extends Controller
         $trend = $employee->assessments()->where('instrument_code', 'who5')->orderBy('taken_at')->limit(6)->get()
             ->map(fn ($a) => ['label' => $a->taken_at->translatedFormat('d M'), 'score' => $a->score]);
 
+        // A4: kartu rekomendasi dari hasil asesmen TERBARU (instrumen apapun),
+        // deskriptif — bukan diagnosis.
+        $latestAny = $employee->assessments()->whereNotNull('instrument_code')
+            ->whereIn('instrument_code', \App\Models\AssessmentInstrument::whereNotNull('domain')->select('code')) // DISC/BigFive (tanpa domain) tak menurunkan saran
+            ->latest('taken_at')->first();
+        $suggestion = $latestAny
+            ? \App\Support\AssessmentConsultationSuggestion::from($latestAny)
+            : null;
+
         // F1.3: pending slot proposals dari konsultan, menunggu pilihan karyawan.
         $pendingProposals = \App\Models\SessionSlotProposal::where('status', 'pending')
             ->whereHas('session', fn ($q) => $q->where('employee_id', $employee->id)
@@ -154,6 +163,8 @@ class EmployeeController extends Controller
             'mySessions' => $mySessions,
             'assessment' => $latest,
             'assessmentTrend' => $trend,
+            'suggestion' => $suggestion,
+            'suggestionAssessment' => $latestAny,
             'pendingProposals' => $pendingProposals,
             'pendingRequest' => $pendingRequest,
             'advices' => $advices,
@@ -231,21 +242,8 @@ class EmployeeController extends Controller
                 ->update(['status' => 'rejected']);
         });
 
-        // Audit UX item 6 + calendar invite: karyawan & konsultan dapat email + .ics.
-        // Cukup waktu sesi + nama karyawan, tanpa data assessment/klinis (privacy).
-        // Konsultan hasil sync B2C pakai email placeholder *@b2b.local → di-skip.
-        $recipients = array_filter([$employee->email, $session->consultant?->user?->email],
-            fn ($e) => $e && !str_ends_with($e, '@b2b.local'));
-        foreach (array_unique($recipients) as $to) {
-            \Illuminate\Support\Facades\Mail::to($to)->send(new \App\Mail\Perusahaan\SlotConfirmedMail(
-                $employee->name,
-                $session->perusahaan->brand,
-                \Illuminate\Support\Carbon::parse($slot['start']),
-                \Illuminate\Support\Carbon::parse($slot['end']),
-                $session->id,
-                $to,
-            ));
-        }
+        // B2B-notify: konfirmasi + invite.ics via SessionStateMachine::schedule hook
+        // (kedua pihak, no health detail — konsultan @b2b.local di-skip).
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Jadwal dipilih. Sampai jumpa di sesi konsultasi!');
@@ -270,6 +268,12 @@ class EmployeeController extends Controller
         $category = $request->string('category')->trim()->toString();
         $consultantId = $request->integer('consultant_id') ?: null;
 
+        // A4: prefill mode konsultasi dari kartu rekomendasi (?consultation_type=…).
+        $prefillType = $request->string('consultation_type')->trim()->toString();
+        $prefillConsultationType = in_array($prefillType, \App\Services\RoomService::TYPES, true)
+            ? $prefillType
+            : null;
+
         $selectedConsultant = null;
         if ($consultantId) {
             $selectedConsultant = $pool->firstWhere('id', $consultantId);
@@ -282,6 +286,29 @@ class EmployeeController extends Controller
             ->values();
 
         $slots = \App\Services\BookingService::available('perusahaan', $perusahaan->id);
+
+        // SLOTS: slot konkret dari jam kerja mingguan konsultan (14 hari ke depan),
+        // compute-on-read — jadwal = jam kerja pool − sudah dibook.
+        $hoursSlots = collect();
+        $consultants = \App\Models\Consultant::whereIn('id', $pool->pluck('id'))->get()->keyBy('id');
+        foreach ($consultants as $consultant) {
+            if ($selectedConsultant && (int) $selectedConsultant['id'] !== (int) $consultant->id) {
+                continue;
+            }
+            foreach (\App\Services\AvailabilityService::slotsFor($consultant, $perusahaan, now(), now()->addDays(14)) as $s) {
+                $hoursSlots->push((object) [
+                    'id' => null,
+                    'consultant_id' => (int) $consultant->id,
+                    'started_at' => $s->start,
+                    'ended_at' => $s->end,
+                    'consultant' => $consultant,
+                    // Mode ditentukan tipe konsultasi pilihan karyawan, bukan slot.
+                    'mode' => null,
+                ]);
+            }
+        }
+        $slots = $slots->concat($hoursSlots)
+            ->sortBy(fn ($s) => $s->started_at->getTimestamp())->values();
 
         // Audit UX item 10: halaman booking memakai saldo ledger-aware —
         // konsisten dengan dashboard; monthQuotaUsed lama mengabaikan
@@ -304,6 +331,7 @@ class EmployeeController extends Controller
             'selectedConsultant' => $selectedConsultant,
             'slots' => $visibleSlots,
             'quotaLeft' => $quotaLeft,
+            'prefillConsultationType' => $prefillConsultationType,
         ]);
     }
 
@@ -352,9 +380,22 @@ class EmployeeController extends Controller
             'konsultan_type' => ['required', 'in:psikolog,nutrisionis,fisioterapis,karir'],
             // W5 (K9): tipe konsultasi — TERPISAH dari jenis profesional.
             'consultation_type' => ['nullable', 'in:online_meeting,chat,one_on_one'],
-            // Audit UX item 15: consultant_id/scheduled_at tidak pernah dipakai —
-            // konsultan & jam slot diputuskan via schedule_id di BookingService::book().
         ]);
+
+        // SLOTS: dua jalur — legacy schedule_id (slot Schedule existing) ATAU
+        // jam kerja mingguan (starts_at [+ consultant_id] → bookFromHours).
+        if ($r->filled('starts_at')) {
+            $r->validate([
+                'consultant_id' => ['nullable', 'integer'],
+                'starts_at' => ['required', 'date', 'after:now'],
+            ]);
+            \App\Services\BookingService::bookFromHours('perusahaan', $employee, $r->only(
+                'consultant_id', 'starts_at', 'konsultan_type', 'consultation_type'
+            ));
+
+            return redirect()->route('perusahaan.employee')
+                ->with('success', 'Sesi berhasil dijadwalkan! Detail konsultan akan dikirim mendekati jadwal.');
+        }
 
         $r->validate(['schedule_id' => ['required', 'integer', 'exists:schedules,id']]);
         \App\Services\BookingService::book('perusahaan', $employee, $r->only('schedule_id', 'konsultan_type', 'consultation_type'));
@@ -539,6 +580,8 @@ class EmployeeController extends Controller
             }
             return $session;
         });
+        // B2B-notify: konfirmasi email ke karyawan (waktu+mode+link, no health detail).
+        \App\Services\SessionNotify::requested($session->withoutRelations());
 
         return redirect()->route('perusahaan.employee')
             ->with('success', 'Permintaan terkirim. Menunggu review HR — kamu dapat kabar setelah disetujui.');

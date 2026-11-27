@@ -72,6 +72,38 @@
         </a>
         @endif
 
+        {{-- A4: kartu rekomendasi konsultasi (deskriptif, bukan diagnosis). --}}
+        @if($suggestion ?? null)
+        <div class="portal-card p-5 flex flex-col">
+            <h2 class="font-semibold text-sm">Rekomendasi untuk Kamu</h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+                Dari asesmen terakhirmu ({{ $suggestionAssessment->taken_at->translatedFormat('d M Y') }}) — deskriptif, <b>bukan diagnosis</b>.
+            </p>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-pine-100 text-pine-800 font-semibold">{{ $suggestion['sessions'] }}</span>
+                <span class="text-xs text-gray-600">dengan {{ $suggestion['consultant'] }}</span>
+            </div>
+            <p class="text-xs text-gray-600 mt-2 leading-relaxed">{{ $suggestion['note'] }}</p>
+            <div class="mt-3 space-y-1">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Pilih mode konsultasi:</p>
+                <div class="grid grid-cols-3 gap-1.5">
+                    @foreach([
+                        'chat' => ['chat', 'Chat'],
+                        'online_meeting' => ['online', 'Online'],
+                        'one_on_one' => ['offline', 'Tatap Muka'],
+                    ] as $mode => [$short, $label])
+                    <a href="{{ route('perusahaan.booking', ['consultation_type' => $mode]) }}"
+                       class="text-xs font-semibold text-center rounded-lg border border-[#e7e2d9] px-2 py-2 hover:border-pine-600 hover:bg-pine-50 transition">
+                        <span class="block">{{ $label }}</span>
+                        <span class="block text-[10px] font-normal text-gray-400">{{ $short }}</span>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+            <span class="mt-auto pt-3 text-xs text-pine-700 font-semibold">Lanjut ke booking →</span>
+        </div>
+        @endif
+
         <div class="rounded-2xl p-5 flex flex-col justify-between text-white transition hover:shadow-lg" style="background: linear-gradient(135deg, #0c3b2e, #007648);">
             <div>
                 <h2 class="font-semibold text-sm">Butuh cerita? Konsultan siap dengerin.</h2>
@@ -146,6 +178,14 @@
                 <a href="{{ route('perusahaan.chat', $s) }}"
                     class="mt-auto text-xs font-semibold bg-pine-700 text-white rounded-lg px-3 py-2 text-center hover:bg-pine-800">Masuk Chat</a>
                 @endif
+                {{-- B2B-notify: simpan sesi ke kalender (offline/online/chat room). --}}
+                <div class="flex gap-2 mt-auto pt-1">
+                    <a href="{{ route('perusahaan.sessions.calendar', $s) }}"
+                        class="flex-1 text-xs font-semibold border border-pine-300 text-pine-700 rounded-lg px-3 py-1.5 text-center hover:bg-pine-50">Tambah ke kalender (.ics)</a>
+                    <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi Soluusi', $s->scheduled_at) }}"
+                        target="_blank" rel="noopener"
+                        class="text-xs font-semibold border border-blue-300 text-blue-700 rounded-lg px-3 py-1.5 hover:bg-blue-50">Google Calendar</a>
+                </div>
             </div>
             @endforeach
         </div>
@@ -334,12 +374,16 @@
                         @if($s->consultant?->user) · {{ $s->consultant->user->fullname }}@endif
                     </p>
                 </div>
-                <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi — ' . ($typeLabels[$s->konsultan_type] ?? $s->konsultan_type), $s->scheduled_at, 'Sesi konseling rahasia via program ' . $perusahaan->brand . '. Link online dikirim mendekati jadwal.') }}"
-                    target="_blank" rel="noopener"
-                    class="shrink-0 text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
-                    Google Calendar
-                </a>
+                <div class="shrink-0 flex items-center gap-2">
+                    <a href="{{ route('perusahaan.sessions.calendar', $s) }}"
+                        class="text-xs font-semibold border border-pine-300 text-pine-700 rounded-lg px-3 py-1.5 hover:bg-pine-50">Tambah ke kalender (.ics)</a>
+                    <a href="{{ \App\Support\GCalLink::addLink('Sesi Konsultasi — ' . ($typeLabels[$s->konsultan_type] ?? $s->konsultan_type), $s->scheduled_at, 'Sesi konseling rahasia via program ' . $perusahaan->brand . '. Link online dikirim mendekati jadwal.') }}"
+                        target="_blank" rel="noopener"
+                        class="text-xs font-semibold bg-blue-600 text-white rounded-lg px-3 py-1.5 hover:bg-blue-700 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5V9h14v10Zm0-12H5V5h14v2Z"/></svg>
+                        Google Calendar
+                    </a>
+                </div>
             </div>
             @endforeach
         </div>

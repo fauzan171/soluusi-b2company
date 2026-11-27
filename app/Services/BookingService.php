@@ -73,9 +73,9 @@ class BookingService
                 ->orWhere(fn ($q) => $q->whereIn('status', ['cancelled', 'no_show'])->where('quota_consumed', true)))->count();
     }
 
-    public static function cancel(string $vertical, $session, string $reason): bool
+    public static function cancel(string $vertical, $session, string $reason, bool $notify = true): bool
     {
-        return DB::transaction(function () use ($vertical, $session, $reason) {
+        $restored = DB::transaction(function () use ($vertical, $session, $reason) {
             if ($session->consultant_id) {
                 Consultant::whereKey($session->consultant_id)->lockForUpdate()->firstOrFail();
             }
@@ -96,6 +96,14 @@ class BookingService
             }
             return !$late;
         });
+        // B2B-notify: raw update() di atas — jalan lewat state machine — hook mail
+        // di sini (single place untuk cancel lintas vertical). reschedule suppress.
+        if ($restored !== null && $notify && $vertical === 'perusahaan'
+            && $session instanceof \App\Models\Perusahaan\PerusahaanSession) {
+            \App\Services\SessionNotify::cancelled($session->withoutRelations());
+        }
+
+        return $restored ?? false;
     }
 
     public static function reschedule(string $vertical, $row, $session, int $scheduleId)
@@ -109,7 +117,9 @@ class BookingService
             // ADR 001: version jadwal lanjut ke sesi pengganti (cancel+book = reschedule).
             $nextVersion = (int) ($session->schedule_version ?? 0) + 1;
             $mode = $session->mode;
-            self::cancel($vertical, $session, 'Perubahan jadwal');
+            // Cancel+book = sesi baru (UID baru): kirim CANCEL untuk UID lama agar event
+            // lama hilang dari kalender; hook book() mengirim undangan UID baru.
+            self::cancel($vertical, $session, 'Perubahan jadwal', notify: true);
             return self::book($vertical, $row, [
                 'schedule_id' => $scheduleId, 'konsultan_type' => $session->konsultan_type,
                 // Mode pilihan karyawan dipertahankan saat ganti jadwal — jangan
@@ -120,6 +130,62 @@ class BookingService
                 'consultation_type' => $session->consultation_type,
                 ...($vertical === 'sekolah' ? ['origin' => $session->origin] : []),
             ] + ($vertical === 'perusahaan' ? ['schedule_version' => $nextVersion] : []));
+        });
+    }
+
+    /**
+     * SLOTS: booking dari jam kerja mingguan (consultant_work_hours) —
+     * tanpa schedule row existing. Schedule dibuat on-the-fly lalu didelegasikan
+     * ke book() supaya kuota/claims/room/validasi pool semuanya terpakai.
+     * Race-safe: claims PK schedule_id + SlotOverlap check dalam transaksi book().
+     */
+    public static function bookFromHours(string $vertical, $row, array $data)
+    {
+        $data = array_merge(['consultation_type' => 'chat'], $data);
+        $start = \Illuminate\Support\Carbon::parse($data['starts_at']);
+
+        return DB::transaction(function () use ($vertical, $row, $data, $start) {
+            // consultant_id opsional dari form: tanpa itu, infer konsultan satu-satunya
+            // di pool tenant ini yang punya template jam cocok dengan starts_at.
+            $pools = \App\Models\ConsultantPool::query()
+                ->where('perusahaan_id', $row->perusahaan_id)
+                ->where('status', 'active')
+                ->when($data['consultant_id'] ?? null, fn ($q, $cid) => $q->where('consultant_id', $cid))
+                ->whereHas('consultant', fn ($q) => $q->where('status', \App\Models\Consultant::ACCEPT)->where('is_active', true))
+                ->with('workHours')
+                ->get();
+            // Satu sumber kebenaran: AvailabilityService (grid, batas jam, exception, sudah ter-book).
+            $slot = null;
+            $consultantId = null;
+            foreach ($pools as $p) {
+                $slot = \App\Services\AvailabilityService::slotsFor($p->consultant, $row->perusahaan, $start, $start->copy()->addMinute())
+                    ->first(fn ($x) => $x->start->eq($start));
+                if ($slot) {
+                    $consultantId = (int) $p->consultant_id;
+                    break;
+                }
+            }
+            if (! $slot) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['starts_at' => 'Slot tidak tersedia.']);
+            }
+            $end = $slot->end->copy();
+
+            // Bebas cross-tenant untuk konsultan ini? (kunci + cek dalam transaksi)
+            Consultant::whereKey($consultantId)->lockForUpdate()->firstOrFail();
+            if (\App\Support\SlotOverlap::exists($consultantId, $start, $end)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['starts_at' => 'Slot sudah tidak tersedia.']);
+            }
+
+            $schedule = Schedule::create([
+                'perusahaan_id' => $row->perusahaan_id,
+                'consultant_id' => $consultantId,
+                'started_at' => $start, 'ended_at' => $end,
+                'status' => Schedule::STATUS_CONFIRMED,
+                // Mode dari tipe konsultasi pilihan karyawan.
+                'mode' => ($data['consultation_type'] ?? 'chat') === 'one_on_one' ? 'offline' : 'online',
+            ]);
+
+            return self::book($vertical, $row, $data + ['schedule_id' => $schedule->id, 'consultant_id' => $consultantId]);
         });
     }
 
@@ -215,6 +281,13 @@ class BookingService
                 }
             }
             DB::table('booking_claims')->insert(['schedule_id' => $slot->id, 'owner_type' => $vertical, 'owner_id' => $session->id, 'created_at' => now(), 'updated_at' => now()]);
+            if ($vertical === 'perusahaan') {
+                // B2B-notify: booking baru / hasil reschedule (version > 1) →
+                // kedua pihak, ICS UID stabil + SEQUENCE.
+                $notified = $session->withoutRelations();
+                $seq = (int) ($data['schedule_version'] ?? 1);
+                DB::afterCommit(fn () => \App\Services\SessionNotify::scheduled($notified, sequence: $seq)); // jangan kirim SMTP di dalam transaksi
+            }
             return $session;
         });
     }

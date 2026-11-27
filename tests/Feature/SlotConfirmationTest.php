@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Mail\Perusahaan\SlotConfirmedMail;
 use App\Models\Consultant;
 use App\Models\Perusahaan\Perusahaan;
 use App\Models\Perusahaan\PerusahaanEmployee;
@@ -145,6 +144,7 @@ class SlotConfirmationTest extends TestCase
 
     // Audit UX item 6: konsultan menerima email konfirmasi (waktu sesi saja,
     // tanpa data assessment/klinis) saat karyawan mengonfirmasi slot proposal.
+    // B2B-notify: kirim via SessionNotify (SessionStateMachine::schedule hook).
     public function test_confirming_slot_notifies_consultant_by_mail()
     {
         [$empUser, $emp, $session, $proposal] = $this->fixture();
@@ -154,7 +154,7 @@ class SlotConfirmationTest extends TestCase
             'slot_index' => 0,
         ])->assertRedirect();
 
-        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('doc@test.local'));
+        Mail::assertSent(\App\Mail\Perusahaan\SessionScheduledMail::class, fn ($m) => $m->hasTo('doc@test.local'));
     }
 
     // Calendar invite: karyawan + konsultan dapat .ics (METHOD:REQUEST) supaya
@@ -168,17 +168,17 @@ class SlotConfirmationTest extends TestCase
             'slot_index' => 0,
         ])->assertRedirect();
 
-        Mail::assertSent(SlotConfirmedMail::class, 2);
-        Mail::assertSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('emp@test.local'));
+        Mail::assertSent(\App\Mail\Perusahaan\SessionScheduledMail::class, 2);
+        Mail::assertSent(\App\Mail\Perusahaan\SessionScheduledMail::class, fn ($m) => $m->hasTo('emp@test.local'));
 
         $start = now()->addDay()->setTime(9, 0)->utc()->format('Ymd\THis\Z');
         $end = now()->addDay()->setTime(10, 0)->utc()->format('Ymd\THis\Z');
-        Mail::assertSent(SlotConfirmedMail::class, function ($m) use ($start, $end, $session) {
+        Mail::assertSent(\App\Mail\Perusahaan\SessionScheduledMail::class, function ($m) use ($start, $end, $session) {
             $ics = $m->ics;
             return str_contains($ics, 'METHOD:REQUEST')
                 && str_contains($ics, "DTSTART:$start")
                 && str_contains($ics, "DTEND:$end")
-                && str_contains($ics, "UID:perusahaan-session-{$session->id}@")
+                && str_contains($ics, "UID:session-{$session->id}@wellbeing.soluusi.com")
                 && str_contains($ics, "\r\nEND:VCALENDAR\r\n");
         });
     }
@@ -193,8 +193,8 @@ class SlotConfirmationTest extends TestCase
             'slot_index' => 0,
         ])->assertRedirect();
 
-        Mail::assertSent(SlotConfirmedMail::class, 1);
-        Mail::assertNotSent(SlotConfirmedMail::class, fn ($m) => $m->hasTo('b2c-7@b2b.local'));
+        Mail::assertSent(\App\Mail\Perusahaan\SessionScheduledMail::class, 1);
+        Mail::assertNotSent(\App\Mail\Perusahaan\SessionScheduledMail::class, fn ($m) => $m->hasTo('b2c-7@b2b.local'));
     }
 
     public function test_confirm_rejects_past_slot()

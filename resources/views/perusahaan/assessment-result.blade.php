@@ -57,6 +57,14 @@
     </div>
     @endif
 
+    @if($assessment->notes)
+    <div class="portal-card p-4 mt-4">
+        <h2 class="text-sm font-bold mb-2">Catatan Diskusi Kamu</h2>
+        <p class="text-sm text-gray-700">{{ $assessment->notes }}</p>
+        <p class="text-xs text-gray-400 mt-2">Topik ini hanya kamu dan konsultan yang melihatnya saat sesi dimulai.</p>
+    </div>
+    @endif
+
     @if($escalated)
     <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
         <p class="font-semibold">Penting: salah satu jawaban kamu menandakan kesulitan serius.</p>

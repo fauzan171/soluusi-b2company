@@ -215,6 +215,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
         Route::post('/employee/request/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'cancelPendingRequest'])->middleware('throttle:10,1')->name('request.cancel');
         Route::post('/employee/slot-proposals/{proposal}/confirm', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'confirmSlot'])->middleware('throttle:10,1')->name('slots.confirm');
         Route::post('/employee/sessions/{session}/cancel', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingCancel'])->middleware('throttle:10,1')->name('booking.cancel');
+        // B2B-notify: undangan kalender .ics (owner-only).
+        Route::get('/employee/sessions/{session}/calendar.ics', [\App\Http\Controllers\Perusahaan\SessionCalendarController::class, 'show'])->name('sessions.calendar');
         Route::post('/employee/sessions/{session}/reschedule', [\App\Http\Controllers\Perusahaan\EmployeeController::class, 'bookingReschedule'])->middleware('throttle:10,1')->name('booking.reschedule');
         Route::get('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employee'])->name('chat');
         Route::post('/employee/sessions/{session}/chat', [\App\Http\Controllers\ChatController::class, 'employeeStore'])->middleware('throttle:60,1')->name('chat.store');
@@ -230,6 +232,8 @@ Route::prefix('perusahaan')->as('perusahaan.')->middleware(['auth', 'force.passw
 // superadmin tidak bisa masuk; superadmin butuh preview kalender konsultan.
 Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consultant,admin', 'force.password'])->group(function () {
     Route::get('/sessions', [\App\Http\Controllers\Klinik\SessionController::class, 'index'])->name('sessions');
+    // B2B-notify: undangan kalender .ics (konsultan pemilik sesi saja).
+    Route::get('/sessions/{session}/calendar.ics', [\App\Http\Controllers\Perusahaan\SessionCalendarController::class, 'show'])->name('sessions.calendar');
     Route::get('/calendar', [\App\Http\Controllers\ConsultantCalendarController::class, 'index'])->name('calendar');
     Route::post('/sessions/{session}/check-in', [\App\Http\Controllers\Klinik\SessionController::class, 'checkIn'])->name('sessions.checkIn');
     Route::post('/sessions/{session}/mark-done', [\App\Http\Controllers\Klinik\SessionController::class, 'markDone'])->name('sessions.markDone');
@@ -251,6 +255,9 @@ Route::prefix('consultant')->as('consultant.')->middleware(['auth', 'role:consul
     // W7 (K14): catatan klinis (encrypted + audit) & hasil sesi — konsultan pemilik sesi saja.
     Route::post('/sessions/{session}/note', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeNote'])->name('notes.store');
     Route::post('/sessions/{session}/result', [\App\Http\Controllers\Perusahaan\ConsultationRecordController::class, 'storeResult'])->name('results.store');
+    // SLOTS: jam kerja mingguan konsultan (sumber slot booking karyawan).
+    Route::get('/work-hours', [\App\Http\Controllers\Consultant\WorkHourController::class, 'hours'])->name('work-hours');
+    Route::post('/work-hours', [\App\Http\Controllers\Consultant\WorkHourController::class, 'store'])->middleware('throttle:10,1')->name('work-hours.store');
 });
 
 // --- Associate (HAP) dashboard — see own clinics + commission tracking ---
@@ -442,4 +449,11 @@ Route::prefix('admin/tenants')->as('admin.tenants.')->middleware(['auth', 'force
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'close'])->name('sekolahs.assignments.close');
     Route::post('/sekolahs/{sekolah}/assignments/{assignment}/reopen', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'reopen'])->name('sekolahs.assignments.reopen');
     Route::put('/sekolahs/{sekolah}/assignments/{assignment}', [\App\Http\Controllers\Admin\Tenant\SekolahAssessmentAssignmentController::class, 'update'])->name('sekolahs.assignments.update');
+
+    Route::middleware('role:admin')->group(function () { // admin only: memuat alasan grant klinis
+        // A2: alokasi instrumen langsung per perusahaan (independen program wellbeing).
+        Route::get('/perusahaans/{perusahaan}/assessments', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'index'])->name('perusahaans.assessments');
+        Route::post('/perusahaans/{perusahaan}/assessments', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'store'])->name('perusahaans.assessments.store');
+        Route::post('/perusahaans/{perusahaan}/assessments/{assignment}/close', [\App\Http\Controllers\Admin\Tenant\PerusahaanAssessmentAllocationController::class, 'close'])->name('perusahaans.assessments.close');
+    });
 });
