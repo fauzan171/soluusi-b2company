@@ -56,8 +56,8 @@
                     <td class="p-3">
                         <div class="flex items-center gap-3">
                             @if($row['photo_url'])
-                            <img src="{{ $row['photo_url'] }}" alt="Foto {{ $row['name'] }}" class="w-10 h-10 rounded-full object-cover bg-pine-100 shrink-0"
-                                onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-10 h-10 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-sm shrink-0',textContent:'{{ strtoupper(substr($row['name'], 0, 1)) }}'}))">
+                            <img src="{{ $row['photo_url'] }}" alt="Foto {{ $row['name'] }}" data-initial="{{ mb_strtoupper(mb_substr($row['name'], 0, 1)) }}" class="w-10 h-10 rounded-full object-cover bg-pine-100 shrink-0"
+                                onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-10 h-10 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-sm shrink-0',textContent:this.dataset.initial}))">
                             @else
                             <div class="w-10 h-10 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-sm shrink-0">
                                 {{ strtoupper(substr($row['name'], 0, 1)) }}

@@ -34,7 +34,7 @@
             @if($bandNote)<p class="mt-3 text-sm text-gray-600">{{ $bandNote }}</p>@endif
         </div>
 
-        @if($assessment->free_text)
+        @if($assessment->free_text && ! ($isPreview ?? false))
         <div class="mt-4 border-t border-gray-100 pt-4">
             <p class="text-xs font-semibold text-gray-500 mb-1">Apa yang paling menekan Anda saat ini</p>
             <p class="text-sm text-gray-700">{{ $assessment->free_text }}</p>

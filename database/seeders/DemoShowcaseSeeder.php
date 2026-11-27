@@ -46,9 +46,9 @@ class DemoShowcaseSeeder extends Seeder
     /** Guard produksi: demo data tidak boleh tersebar ke DB live tanpa opt-in eksplisit. */
     private static function guardProduction(): void
     {
-        if (app()->isProduction() && !filter_var(env('DEMO_SEED_ALLOW_PROD', config('demo_seed.allow_prod', false)), FILTER_VALIDATE_BOOLEAN)) {
+        if (! app()->environment(['local', 'testing']) && !filter_var(env('DEMO_SEED_ALLOW_PROD', config('demo_seed.allow_prod', false)), FILTER_VALIDATE_BOOLEAN)) {
             throw new \RuntimeException(
-                'DemoShowcaseSeeder ditolak di production (data demo fiktif). Set DEMO_SEED_ALLOW_PROD=true untuk override sadar.'
+                'DemoShowcaseSeeder ditolak di luar local/testing (data demo fiktif). Set DEMO_SEED_ALLOW_PROD=true untuk override sadar.'
             );
         }
     }

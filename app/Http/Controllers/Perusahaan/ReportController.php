@@ -47,7 +47,7 @@ class ReportController extends Controller
             foreach ($section['rounds'] as $row) {
                 $agg = $row['aggregate'];
                 $bands = $agg['bands'] ? collect($agg['bands'])->map(fn ($c, $l) => $l.':'.$c)->implode('; ') : '—';
-                $topItems = $agg['topItems'] ?: [];
+                $topItems = $agg['topItems'] ?? [];
                 $baseRow = [
                     $section['instrument']->name,
                     $row['round'],

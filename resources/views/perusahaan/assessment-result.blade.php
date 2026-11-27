@@ -69,7 +69,7 @@
     </div>
     @endif
 
-    @if($assessment->free_text)
+    @if($assessment->free_text && ! ($isPreview ?? false))
     <div class="portal-card p-4 mt-4">
         <h2 class="text-sm font-bold mb-2">Apa yang Paling Menekan Kamu</h2>
         <p class="text-sm text-gray-700">{{ $assessment->free_text }}</p>

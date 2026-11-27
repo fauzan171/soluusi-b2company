@@ -30,8 +30,16 @@
                 @endforeach
             </select>
         </div>
+        @if($scopeAll)<input type="hidden" name="scope" value="all">@endif
         <button type="submit" class="rounded-lg bg-pine-700 text-white text-sm font-semibold px-4 py-2.5 transition hover:bg-pine-800 focus:outline-none focus:ring-2 focus:ring-pine-500 focus:ring-offset-2">Filter</button>
     </div>
+    <p class="mt-2 text-sm">
+        @if($scopeAll)
+            Menampilkan semua konsultan Soluusi. <a href="{{ route('perusahaan.consultants.catalog') }}" class="text-pine-700 font-semibold hover:underline">Hanya pool perusahaan</a>
+        @else
+            Menampilkan konsultan di pool perusahaan. <a href="{{ route('perusahaan.consultants.catalog', ['scope' => 'all']) }}" class="text-pine-700 font-semibold hover:underline">Lihat semua konsultan</a>
+        @endif
+    </p>
 </form>
 
 @if($consultants->isEmpty())

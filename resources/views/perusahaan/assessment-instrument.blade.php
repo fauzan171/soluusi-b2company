@@ -13,7 +13,7 @@
         <a href="{{ route('perusahaan.assessment.instruments') }}" class="text-sm text-pine-700 hover:underline">← Pilih instrumen lain</a>
     </div>
 
-    <form method="POST" action="{{ route('perusahaan.assessment.instrument.store', $instrument->code) }}" class="space-y-4" data-autosave-key="assessment:{{ $employee->id }}:{{ $instrument->code }}">
+    <form method="POST" action="{{ route('perusahaan.assessment.instrument.store', $instrument->code) }}" class="space-y-4" data-autosave-key="assessment:{{ $employee->id }}:{{ $instrument->code }}:{{ $assignment?->id ?? 'grant' }}">
         @csrf
 
         {{-- Progress bar + counter (wizard shell; tanpa JS tetap dirender, statis). --}}
@@ -182,7 +182,7 @@
         render();
     });
 
-    // --- T3: autosave localStorage (assignment+instrument keyed) ---
+    // --- T3: autosave sessionStorage (hilang saat tab ditutup; dibersihkan saat logout) (assignment+instrument keyed) ---
     // Restore on load, save on change, clear on submit. try/catch —
     // private mode / quota / disabled storage jangan mematahkan form.
     var form = root.querySelector('form[data-autosave-key]');
@@ -192,7 +192,7 @@
     function loadDraft() {
         if (!storageKey) return;
         try {
-            var draft = JSON.parse(localStorage.getItem(storageKey) || '{}');
+            var draft = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
             Object.keys(draft.answers || {}).forEach(function (name) {
                 var inputs = form.querySelectorAll('input[name="answers[' + name + ']"]');
                 Array.prototype.forEach.call(inputs, function (el) {
@@ -213,7 +213,7 @@
                     if (m) draft.answers[m[1]] = el.value;
                 }
             });
-            localStorage.setItem(storageKey, JSON.stringify(draft));
+            sessionStorage.setItem(storageKey, JSON.stringify(draft));
         } catch (e) { /* storage penuh/blocked — autosave off, form tetap jalan */ }
     }
 
@@ -222,7 +222,7 @@
         answerInputs.forEach(function (el) { el.addEventListener('change', saveDraft); });
         if (freeTextField) freeTextField.addEventListener('input', saveDraft);
         form.addEventListener('submit', function () {
-            try { localStorage.removeItem(storageKey); } catch (e) { /* noop */ }
+            try { sessionStorage.removeItem(storageKey); } catch (e) { /* noop */ }
         });
         updateProgress();
     }

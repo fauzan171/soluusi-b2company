@@ -141,7 +141,7 @@
             @foreach($latestPerInstrument as $a)
             @php
                 $band = $a->instrument ? $a->instrument->bandLabelFor((int) $a->score) : $a->band();
-                $bandClass = in_array($band, ['Sehat', 'Minimal', 'Rendah', 'Baik']) ? 'bg-pine-100 text-pine-800'
+                $bandClass = in_array($band, ['Sehat', 'Minimal', 'Rendah', 'Baik', 'Normal', 'Selesai']) ? 'bg-pine-100 text-pine-800'
                     : (in_array($band, ['Perlu Perhatian', 'Ringan', 'Sedang']) ? 'bg-terra-100 text-terra-800' : 'bg-red-100 text-red-800');
             @endphp
             <a href="{{ route('perusahaan.assessment.result', $a) }}" class="portal-card p-4 flex items-center justify-between transition hover:shadow-md hover:border-pine-300">

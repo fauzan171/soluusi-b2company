@@ -132,6 +132,15 @@ class T2ConsultantProfileTest extends TestCase
             ->assertSee('Anak & remaja');
     }
 
+    public function test_hr_catalog_scope_all_shows_non_pool_consultants(): void
+    {
+        $this->actingAs($this->hr)
+            ->get(route('perusahaan.consultants.catalog', ['scope' => 'all']))
+            ->assertOk()
+            ->assertSee('Sinta')
+            ->assertSee('Eksternal');
+    }
+
     public function test_hr_detail_shows_full_profile(): void
     {
         $this->actingAs($this->hr)

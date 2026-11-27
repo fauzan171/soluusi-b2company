@@ -46,8 +46,8 @@
         <div class="portal-card p-5 flex flex-col">
             <div class="flex-1">
                 @if($c['photo_url'])
-                <img src="{{ $c['photo_url'] }}" alt="Foto {{ $c['name'] }}" class="w-12 h-12 rounded-full object-cover bg-pine-100 mb-3"
-                    onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-12 h-12 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-lg mb-3',textContent:'{{ strtoupper(substr($c['name'], 0, 1)) }}'}))">
+                <img src="{{ $c['photo_url'] }}" alt="Foto {{ $c['name'] }}" data-initial="{{ mb_strtoupper(mb_substr($c['name'], 0, 1)) }}" class="w-12 h-12 rounded-full object-cover bg-pine-100 mb-3"
+                    onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-12 h-12 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-lg mb-3',textContent:this.dataset.initial}))">
                 @else
                 <div class="w-12 h-12 rounded-full bg-pine-100 flex items-center justify-center text-pine-700 font-bold text-lg mb-3">
                     {{ strtoupper(substr($c['name'], 0, 1)) }}

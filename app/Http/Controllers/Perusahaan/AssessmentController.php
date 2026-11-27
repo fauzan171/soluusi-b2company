@@ -192,6 +192,7 @@ class AssessmentController extends Controller
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'instrument' => $instrument,
+            'assignment' => $assignment,
             'items' => InstrumentScoring::items($instrument),
         ]);
     }
@@ -337,7 +338,7 @@ class AssessmentController extends Controller
             $dimensions = $scoring['dimensions'];
         }
 
-        return view('perusahaan.assessment-result', [
+        return response()->view('perusahaan.assessment-result', [
             'employee' => $employee,
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
@@ -347,7 +348,7 @@ class AssessmentController extends Controller
             'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
             'escalated' => (bool) $assessment->escalated,
             'dimensions' => $dimensions,
-        ]);
+        ], 200, ['Cache-Control' => 'private, no-store']);
     }
 
     /**
@@ -361,13 +362,14 @@ class AssessmentController extends Controller
 
         $instrument = AssessmentInstrument::where('code', $assessment->instrument_code)->first();
 
-        return view('perusahaan.assessment-print', [
+        return response()->view('perusahaan.assessment-print', [
             'employee' => $employee,
             'perusahaan' => $employee->perusahaan,
+            'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'assessment' => $assessment,
             'instrument' => $instrument,
             'bandLabel' => $instrument ? $instrument->bandLabelFor((int) $assessment->score) : $assessment->band(),
             'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
-        ]);
+        ], 200, ['Cache-Control' => 'private, no-store']);
     }
 }

@@ -324,4 +324,55 @@ class AssessmentEnhancementTest extends TestCase
         $this->assertStringNotContainsString('T3Agg 1', $csv);
         $this->assertStringNotContainsString('secret free text', $csv);
     }
+
+    public function test_csv_export_ok_when_round_below_10()
+    {
+        $a = $this->assign('pss10');
+        $this->submitRows($this->employees(9), 'pss10', $this->pssAnswers(['PS1' => 4]), $a->id);
+
+        $res = $this->actingAs($this->hr)->get(route('perusahaan.report.assessment.export'));
+        $res->assertOk();
+        $this->assertStringNotContainsString('terganggu oleh sesuatu', $res->getContent());
+    }
+
+    public function test_free_text_count_hidden_between_1_and_9()
+    {
+        $a = $this->assign('pss10');
+        $emps = $this->employees(10);
+        $this->submitRows(array_slice($emps, 0, 3), 'pss10', $this->pssAnswers(), $a->id);
+        foreach (array_slice($emps, 3) as $emp) {
+            PerusahaanAssessment::create([
+                'perusahaan_id' => $this->company->id, 'employee_id' => $emp->id,
+                'instrument_code' => 'pss10', 'answers' => $this->pssAnswers(), 'score' => 16,
+                'section' => 'mental_health', 'status' => 'completed', 'taken_at' => now(),
+                'assessment_assignment_id' => $a->id,
+            ]);
+        }
+
+        $agg = \App\Services\Screening\InstrumentScoring::aggregate(
+            $this->company, \App\Models\AssessmentInstrument::where('code', 'pss10')->first()
+        );
+        $this->assertNull($agg['freeTextCount']);
+    }
+
+    public function test_preview_hides_free_text_and_pages_are_no_store()
+    {
+        $this->assign('pss10');
+        $this->actingAs($this->user)->post(route('perusahaan.assessment.instrument.store', 'pss10'), [
+            'answers' => $this->pssAnswers(), 'free_text' => 'private worry (fake)',
+        ]);
+        $row = PerusahaanAssessment::latest('id')->first();
+
+        $res = $this->actingAs($this->user)->get(route('perusahaan.assessment.result', $row));
+        $res->assertSee('private worry (fake)');
+        $this->assertStringContainsString('no-store', $res->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store', $this->actingAs($this->user)
+            ->get(route('perusahaan.assessment.print', $row))->headers->get('Cache-Control'));
+
+        $html = view('perusahaan.assessment-print', [
+            'employee' => $this->emp, 'perusahaan' => $this->company, 'assessment' => $row,
+            'instrument' => null, 'bandLabel' => '', 'bandNote' => '', 'isPreview' => true,
+        ])->render();
+        $this->assertStringNotContainsString('private worry (fake)', $html);
+    }
 }
