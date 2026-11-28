@@ -346,6 +346,19 @@ class AssessmentEnhancementTest extends TestCase
         $this->assertSame('—', $cols[4]);
     }
 
+    public function test_dashboard_shows_dash_not_zero_when_rating_is_privacy_suppressed()
+    {
+        $emp = $this->employees(1)[0];
+        \App\Models\Perusahaan\PerusahaanSession::create([
+            'perusahaan_id' => $this->company->id, 'employee_id' => $emp->id,
+            'status' => 'done', 'rating' => 5, 'scheduled_at' => now()->subDay(),
+        ]);
+
+        $res = $this->actingAs($this->hr)->get(route('perusahaan.dashboard'));
+        $res->assertOk();
+        $res->assertDontSee('0.0 / 5');
+    }
+
     public function test_free_text_count_hidden_between_1_and_9()
     {
         $a = $this->assign('pss10');
