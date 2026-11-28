@@ -54,6 +54,7 @@
     </form>
 @endif
 <a href="{{ route('admin.wellbeing-programs.index') }}" class="inline-block ml-2 text-sm text-emerald-700 font-semibold hover:underline">Program Wellbeing →</a>
+<a href="{{ route('admin.tenants.perusahaans.assessments', $perusahaan) }}" class="inline-block ml-2 text-sm text-emerald-700 font-semibold hover:underline">Alokasi Asesmen →</a>
 
 @php($v = 'perusahaans')
 @include('admin.tenants._lifecycle-actions', ['tenant' => $perusahaan, 'vertical' => $v])

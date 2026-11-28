@@ -45,6 +45,7 @@ class B2cConsultantSyncTest extends TestCase
             $t->string('email');
             $t->string('firstname');
             $t->string('lastname');
+            $t->string('avatar')->nullable();
         });
         $b2c->getSchemaBuilder()->create('consultants', function ($t) {
             $t->increments('id');
@@ -70,6 +71,67 @@ class B2cConsultantSyncTest extends TestCase
             $t->increments('id');
             $t->string('code_category');
             $t->string('name');
+        });
+        // Tabel profil kaya (sync select semua tabel ini; kosong cukup di sini —
+        // isi lengkap di-cover B2cConsultantProfileSyncTest).
+        $b2c->getSchemaBuilder()->create('education', function ($t) {
+            $t->increments('id');
+            $t->string('name');
+        });
+        $b2c->getSchemaBuilder()->create('departements', function ($t) {
+            $t->increments('id');
+            $t->string('name');
+        });
+        $b2c->getSchemaBuilder()->create('consultant_education', function ($t) {
+            $t->increments('id');
+            $t->unsignedInteger('consultant_id');
+            $t->unsignedInteger('education_id');
+            $t->unsignedInteger('departement_id')->nullable();
+            $t->string('degree')->nullable();
+            $t->timestampTz('start_date')->nullable();
+            $t->timestampTz('end_date')->nullable();
+            $t->text('description')->nullable();
+        });
+        $b2c->getSchemaBuilder()->create('certificates', function ($t) {
+            $t->increments('id');
+            $t->unsignedInteger('consultant_id');
+            $t->string('name');
+            $t->string('number');
+            $t->string('url')->nullable();
+            $t->integer('year');
+            $t->timestampTz('expired_at')->nullable();
+        });
+        $b2c->getSchemaBuilder()->create('skills', function ($t) {
+            $t->increments('id');
+            $t->string('name');
+        });
+        $b2c->getSchemaBuilder()->create('consultant_skills', function ($t) {
+            $t->increments('id');
+            $t->unsignedInteger('consultant_id');
+            $t->unsignedInteger('skill_id');
+        });
+        $b2c->getSchemaBuilder()->create('consultant_packages', function ($t) {
+            $t->increments('id');
+            $t->unsignedInteger('consultant_id');
+            $t->string('name');
+            $t->integer('price');
+            $t->integer('duration');
+            $t->integer('quota')->nullable();
+            $t->softDeletes();
+        });
+        $b2c->getSchemaBuilder()->create('companies', function ($t) {
+            $t->increments('id');
+            $t->string('name');
+        });
+        $b2c->getSchemaBuilder()->create('consultant_companies', function ($t) {
+            $t->increments('id');
+            $t->unsignedInteger('consultant_id');
+            $t->unsignedInteger('company_id');
+            $t->timestampTz('start_at')->nullable();
+            $t->timestampTz('end_at')->nullable();
+            $t->string('position')->nullable();
+            $t->string('location')->nullable();
+            $t->text('description')->nullable();
         });
 
         foreach ($rows as $r) {
@@ -143,6 +205,32 @@ class B2cConsultantSyncTest extends TestCase
         $this->assertSame(1, $out['deactivated']);
         $this->assertFalse((bool) $alpha->is_active);
         $this->assertSame(0, User::where('email', 'b2c-'.$this->b2cIds['Alpha'].'@b2b.local')->value('is_active'));
+    }
+
+    public function test_sync_defers_deactivation_while_future_sessions_exist(): void
+    {
+        $this->seedB2c([['email' => 'a@b2c.local', 'name' => 'Alpha', 'uuid' => (string) Str::uuid()]]);
+        \App\Services\B2cConsultantSync::sync();
+        $alpha = Consultant::where('b2c_consultant_id', $this->b2cIds['Alpha'])->first();
+
+        $p = \App\Models\Perusahaan\Perusahaan::create(['name' => 'PT Fake', 'brand' => 'Fake', 'employee_count' => 10, 'is_active' => true]);
+        $e = \App\Models\Perusahaan\PerusahaanEmployee::create(['perusahaan_id' => $p->id, 'name' => 'Emp', 'email' => 'emp@fake.test']);
+        $s = \App\Models\Perusahaan\PerusahaanSession::create([
+            'perusahaan_id' => $p->id, 'employee_id' => $e->id, 'consultant_id' => $alpha->id,
+            'status' => 'scheduled', 'scheduled_at' => now()->addDays(3),
+        ]);
+
+        DB::connection('b2c')->table('consultants')->where('id', $this->b2cIds['Alpha'])->update(['status' => 'reject']);
+        $out = \App\Services\B2cConsultantSync::sync();
+        $this->assertSame(0, $out['deactivated']);
+        $this->assertSame(1, $out['deferred']);
+        $this->assertTrue((bool) $alpha->fresh()->is_active);
+
+        // Sesi selesai → sync berikut menonaktifkan.
+        $s->update(['status' => 'done']);
+        $out = \App\Services\B2cConsultantSync::sync();
+        $this->assertSame(1, $out['deactivated']);
+        $this->assertFalse((bool) $alpha->fresh()->is_active);
     }
 
     public function test_command_runs_and_reports(): void

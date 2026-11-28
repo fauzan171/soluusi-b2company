@@ -29,6 +29,8 @@ class PerusahaanAssessment extends Model
         'status',
         'consultant_id',
         'notes',
+        // T3: free-text opsional "apa yang paling menekan" — private, HR count-only.
+        'free_text',
         'conclusion',
         'concluded_at',
         'assessment_assignment_id',

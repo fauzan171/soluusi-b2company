@@ -226,12 +226,16 @@ class ChatController extends Controller
         ]);
 
         // ponytail: notif email ke pihak lawan saat pesan pertama sesi. Upgrade: queue + digest.
+        // B2B-notify: konsultan sync B2B pakai placeholder @b2b.local → notificationEmail() null → skip.
         if ($session->chatMessages()->count() === 1) {
             $recipient = $senderIsEmployee
-                ? $session->consultant?->user
+                ? $session->consultant
                 : $session->employee?->user;
-            if ($recipient?->email) {
-                \Illuminate\Support\Facades\Mail::to($recipient->email)->send(
+            $email = $senderIsEmployee
+                ? $recipient?->notificationEmail()
+                : $recipient?->email;
+            if ($email && ! str_ends_with($email, '@b2b.local')) {
+                \Illuminate\Support\Facades\Mail::to($email)->send(
                     new \App\Mail\ChatNewMessage(
                         $session->konsultan_type,
                         route($senderIsEmployee ? 'consultant.chat' : 'perusahaan.chat', $session)

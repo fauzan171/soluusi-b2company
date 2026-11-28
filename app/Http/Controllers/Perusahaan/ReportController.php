@@ -23,19 +23,91 @@ class ReportController extends Controller
      */
     public function assessment()
     {
+        [$perusahaan, $program, $sections] = $this->assessmentData();
+
+        return view('perusahaan.report-assessment', [
+            'perusahaan' => $perusahaan,
+            'program' => $program,
+            'sections' => $sections,
+        ]);
+    }
+
+    /**
+     * T3: CSV export agregat asesmen — baris per (instrumen, round): completion,
+     * mean, band counts, top items, free-text fill count. TANPA baris per orang,
+     * tanpa nama/email/free_text (D10). Suppression n≥10 sama dgn halaman.
+     */
+    public function assessmentExport()
+    {
+        [, , $sections] = $this->assessmentData();
+
+        $stream = fopen('php://temp', 'r+');
+        fputcsv($stream, ['Instrumen', 'Round', 'Penyelesaian', 'Terdaftar', 'Rata-rata skor', 'Distribusi band', 'Top item', 'Top item mean', 'Mengisi free-text'], ',', '"', '');
+        foreach ($sections as $section) {
+            foreach ($section['rounds'] as $row) {
+                $agg = $row['aggregate'];
+                $bands = $agg['bands'] ? collect($agg['bands'])->map(fn ($c, $l) => $l.':'.$c)->implode('; ') : '—';
+                $topItems = $agg['topItems'] ?? [];
+                $baseRow = [
+                    $section['instrument']->name,
+                    $row['round'],
+                    $section['completers'],
+                    $section['registered'],
+                    $section['completers'] > 0 ? ($agg['mean'] ?? '—') : '—',
+                    $bands,
+                ];
+                if ($topItems) {
+                    foreach ($topItems as $item) {
+                        fputcsv($stream, array_merge($baseRow, [
+                            \App\Support\AggregatePrivacy::csvText($item['text']),
+                            $item['mean'],
+                            $agg['freeTextCount'],
+                        ]), ',', '"', '');
+                    }
+                } else {
+                    fputcsv($stream, array_merge($baseRow, ['—', '—', $agg['bands'] !== null ? $agg['freeTextCount'] : '—']), ',', '"', '');
+                }
+            }
+        }
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="agregat-asesmen-'.now()->format('Y-m').'.csv"',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    /**
+     * @return array{0: \App\Models\Perusahaan\Perusahaan, 1: ?\App\Models\CompanyWellbeingProgram, 2: \Illuminate\Support\Collection}
+     */
+    private function assessmentData(): array
+    {
         $perusahaan = PerusahaanContext::current();
         abort_unless($perusahaan && $perusahaan->is_active, 403);
 
         $program = \App\Services\WellbeingQuotaService::activeProgram($perusahaan);
-        $assignable = $program
-            ? $program
-            : $perusahaan;
 
+        // A2 (union): program aktif → assignment program + direct perusahaan
+        // (non-legacy); tanpa program → semua assignment perusahaan. Closed
+        // tetap tampil: hasil putaran lama dibutuhkan utk trend.
         $assignments = \App\Models\AssessmentAssignment::query()
-            ->where('assignable_type', $assignable->getMorphClass())
-            ->where('assignable_id', $assignable->id)
             ->where('audience', \App\Models\AssessmentAssignment::AUDIENCE_EMPLOYEE)
-            // closed tetap tampil: hasil putaran lama dibutuhkan utk trend.
+            ->where(function ($q) use ($program, $perusahaan) {
+                $q->where(function ($pq) use ($program) {
+                    $pq->where('assignable_type', $program?->getMorphClass() ?? 'program')
+                        ->where('assignable_id', $program?->id ?? 0);
+                })->orWhere(function ($dq) use ($program, $perusahaan) {
+                    $dq->where('assignable_type', $perusahaan->getMorphClass())
+                        ->where('assignable_id', $perusahaan->id);
+                    if ($program) {
+                        // legacy suppressed saat program aktif (D8 parity dgn AssessmentAccess).
+                        $dq->where('source', '!=', \App\Models\AssessmentAssignment::SOURCE_LEGACY);
+                    }
+                });
+            })
             ->orderBy('instrument_code')->orderBy('round')
             ->get();
 
@@ -100,10 +172,6 @@ class ReportController extends Controller
             ];
         })->filter()->values();
 
-        return view('perusahaan.report-assessment', [
-            'perusahaan' => $perusahaan,
-            'program' => $program,
-            'sections' => $sections,
-        ]);
+        return [$perusahaan, $program, $sections];
     }
 }

@@ -50,6 +50,20 @@ class AssessmentController extends Controller
         return [$instrument, $assignment];
     }
 
+    /**
+     * T3: section hasil = domain instrumen (parity dgn screening_questions.section).
+     * mh/wellbeing/clinical → mental_health; nutrition → nutrition_lifestyle;
+     * ergonomic → ergonomic; null domain (Big Five/DISC) → mental_health.
+     */
+    private static function sectionFor(AssessmentInstrument $instrument): string
+    {
+        return match ($instrument->domain) {
+            'nutrition' => 'nutrition_lifestyle',
+            'ergonomic' => 'ergonomic',
+            default => 'mental_health',
+        };
+    }
+
     /** Redirect kalau employee sudah submit utk assignment ini (D6). */
     private function submittedRedirect(PerusahaanEmployee $employee, AssessmentAssignment $assignment): ?\Illuminate\Http\RedirectResponse
     {
@@ -106,8 +120,12 @@ class AssessmentController extends Controller
         $employee = app(EmployeeController::class)->resolveEmployeePublic();
 
         // kartu assignment: instrument eager-load utk name/domain/is_addon.
+        // (forEmployee mengembalikan base Collection hasil union → load manual.)
         $assignments = AssessmentAccess::forEmployee($employee)
-            ->load('instrument')
+            ->each(fn (AssessmentAssignment $a) => $a->setRelation(
+                'instrument',
+                AssessmentInstrument::where('code', $a->instrument_code)->first()
+            ))
             ->map(function (AssessmentAssignment $a) use ($employee) {
                 $instrument = $a->instrument;
                 if (! $instrument) {
@@ -174,6 +192,7 @@ class AssessmentController extends Controller
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
             'instrument' => $instrument,
+            'assignment' => $assignment,
             'items' => InstrumentScoring::items($instrument),
         ]);
     }
@@ -188,13 +207,42 @@ class AssessmentController extends Controller
         }
         $items = InstrumentScoring::items($instrument);
 
-        $rules = ['answers' => ['required', 'array', 'size:'.$items->count()]];
+        // ac1: forced-choice (disc24) → jawaban {DSnp, DSnk} per item (p≠k);
+        // bool → 0..1; sisanya likert 0..weight.
+        $forced = $items->firstWhere('type', 'forced-choice') !== null;
+        $rules = ['answers' => ['required', 'array', 'size:'.$items->count() * ($forced ? 2 : 1)]];
         foreach ($items as $item) {
-            $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:'.(int) $item->weight];
+            if ($item->type === 'forced-choice') {
+                $rules["answers.{$item->code}p"] = ['required', 'integer', 'min:0', 'max:3'];
+                $rules["answers.{$item->code}k"] = ['required', 'integer', 'min:0', 'max:3'];
+            } elseif ($item->type === 'bool') {
+                $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:1'];
+            } else {
+                $rules["answers.{$item->code}"] = ['required', 'integer', 'min:0', 'max:'.(int) $item->weight];
+            }
         }
-        $r->validate($rules);
+        $r->validate($rules + [
+            // A3: catatan diskusi opsional dari step akhir wizard.
+            'discussion_note' => ['nullable', 'string', 'max:1000'],
+            // T3: free-text opsional "apa yang paling menekan" — HR hanya lihat COUNT.
+            'free_text' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $answers = collect($r->input('answers'))->only(
+            $items->flatMap(fn ($i) => $i->type === 'forced-choice' ? [$i->code.'p', $i->code.'k'] : [$i->code])
+        )->all();
 
-        $answers = collect($r->input('answers'))->only($items->pluck('code'))->all();
+        if ($forced) {
+            // p≠k: paling cocok dan paling tidak cocok tidak boleh sama.
+            $errors = [];
+            foreach ($items->where('type', 'forced-choice') as $item) {
+                if ($answers[$item->code.'p'] === $answers[$item->code.'k']) {
+                    $errors["answers.{$item->code}p"] = 'Pilihan paling cocok dan paling tidak cocok tidak boleh sama.';
+                }
+            }
+            if ($errors) {
+                throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            }
+        }
         $result = InstrumentScoring::score($instrument, $answers);
 
         // Serialisasi submit per orang+instrumen: legacy/grant tidak punya unique
@@ -216,7 +264,7 @@ class AssessmentController extends Controller
             try {
                 // QA8-F1: lock + create dalam satu transaksi — cap Discovery
                 // ter-serialisasi, unique (assignment, employee) ditangkap.
-                $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result) {
+                $row = \Illuminate\Support\Facades\DB::transaction(function () use ($employee, $instrument, $assignment, $answers, $result, $r) {
                     // WB: R3 cap — program wellbeing aktif membatasi peserta assessment
                     // distinct employee (retake employee sama tidak menambah count).
                     // Scope ke window program (taken_at >= starts_at).
@@ -239,10 +287,15 @@ class AssessmentController extends Controller
                         'answers' => $answers,
                         'score' => $result['score'],
                         'escalated' => $result['escalated'],
-                        'section' => 'mental_health',
+                        // T3: section dari domain instrumen, bukan hardcode.
+                        'section' => self::sectionFor($instrument),
                         'status' => 'completed',
                         'taken_at' => now(),
                         'assessment_assignment_id' => AssessmentAccess::storedAssignmentId($assignment),
+                        // A3: free-text "apa yang ingin kamu diskusikan" (opsional).
+                        'notes' => $r->input('discussion_note') ?: null,
+                        // T3: free-text "apa yang paling menekan" (opsional, private).
+                        'free_text' => $r->input('free_text') ?: null,
                     ]);
 
                     foreach ($answers as $qCode => $value) {
@@ -285,7 +338,7 @@ class AssessmentController extends Controller
             $dimensions = $scoring['dimensions'];
         }
 
-        return view('perusahaan.assessment-result', [
+        return response()->view('perusahaan.assessment-result', [
             'employee' => $employee,
             'perusahaan' => $employee->perusahaan,
             'isPreview' => optional(auth()->user()->role)->name !== 'employee',
@@ -295,6 +348,28 @@ class AssessmentController extends Controller
             'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
             'escalated' => (bool) $assessment->escalated,
             'dimensions' => $dimensions,
-        ]);
+        ], 200, ['Cache-Control' => 'private, no-store']);
+    }
+
+    /**
+     * T3: print/PDF page — owner-only (403 utk user lain). Tanpa dependency
+     * PDF: HTML print-friendly + window.print() (keputusan #3).
+     */
+    public function print(PerusahaanAssessment $assessment)
+    {
+        $employee = app(EmployeeController::class)->resolveEmployeePublic();
+        abort_unless($assessment->employee_id === $employee->id, 403);
+
+        $instrument = AssessmentInstrument::where('code', $assessment->instrument_code)->first();
+
+        return response()->view('perusahaan.assessment-print', [
+            'employee' => $employee,
+            'perusahaan' => $employee->perusahaan,
+            'isPreview' => optional(auth()->user()->role)->name !== 'employee',
+            'assessment' => $assessment,
+            'instrument' => $instrument,
+            'bandLabel' => $instrument ? $instrument->bandLabelFor((int) $assessment->score) : $assessment->band(),
+            'bandNote' => $instrument ? $instrument->bandNoteFor((int) $assessment->score) : '',
+        ], 200, ['Cache-Control' => 'private, no-store']);
     }
 }

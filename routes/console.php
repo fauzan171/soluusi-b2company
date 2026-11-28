@@ -26,3 +26,9 @@ Artisan::command('inspire', function () {
 Schedule::command('wellbeing:send-campaigns')->daily()->withoutOverlapping();
 // Kontrak ends_at < 30 hari → email HR admin (renewal reminder).
 Schedule::command('wellbeing:renewal-notice')->daily()->withoutOverlapping();
+// G2: tarik konsultan B2C (read-only) tiap malam — sumber identitas konsultan.
+Schedule::command('consultants:sync-b2c')->dailyAt('02:00')->withoutOverlapping();
+// Email notifikasi real konsultan (B2C) — refresh right after nightly sync.
+Schedule::command('consultants:refresh-notify-emails')->dailyAt('02:10')->withoutOverlapping();
+// B2B-notify: reminder sesi H-1 hari & H-1 jam (idempotent per flag sesi).
+Schedule::command('sessions:send-reminders')->everyFiveMinutes()->withoutOverlapping();

@@ -96,11 +96,12 @@
         default => [],
     };
 @endphp
+@php($bare = $bare ?? false)
 <body class="bg-paper text-ink min-h-screen">
     <div class="flex min-h-screen">
         @if(count($navItems))
-        <aside class="portal-sidebar hidden md:flex w-60 shrink-0 flex-col p-4 text-white sticky top-0 h-screen">
-            <div class="flex items-center gap-3 border-b border-white/10 pb-4 px-2">
+        <aside class="portal-sidebar hidden md:flex w-60 shrink-0 flex-col p-4 text-white sticky top-0 h-screen overflow-hidden">
+            <div class="flex shrink-0 items-center gap-3 border-b border-white/10 pb-4 px-2">
                 <div class="grid h-10 w-10 place-items-center rounded-2xl bg-white/12 text-base font-bold">
                     {{ strtoupper(substr($pageBrand, 0, 1)) }}
                 </div>
@@ -109,7 +110,7 @@
                     <h1 class="text-sm font-semibold leading-tight truncate">{{ $pageBrand }}</h1>
                 </div>
             </div>
-            <nav class="mt-4 space-y-1 flex-1">
+            <nav class="portal-nav mt-4 space-y-1 flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 @foreach($navItems as $item)
                     <a href="{{ route($item['route']) }}{{ $item['hash'] ?? '' }}"
                        class="portal-nav-link {{ request()->routeIs($item['pattern']) ? 'is-active' : '' }}">
@@ -119,8 +120,8 @@
                 @endforeach
             </nav>
             @auth
-            <a href="{{ route('password.change') }}" class="block border-t border-white/10 pt-3 px-2 text-sm text-white/60 hover:text-white">Ubah password</a>
-            <form method="POST" action="{{ route('logout') }}" class="pt-2 px-2">@csrf
+            <a href="{{ route('password.change') }}" class="block shrink-0 border-t border-white/10 pt-3 px-2 text-sm text-white/60 hover:text-white">Ubah password</a>
+            <form method="POST" action="{{ route('logout') }}" onsubmit="try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('assessment:')===0)sessionStorage.removeItem(k)})}catch(e){}" class="shrink-0 pt-2 px-2">@csrf
                 <button class="text-sm text-white/60 hover:text-white w-full text-left">Keluar</button>
             </form>
             @endauth
@@ -128,6 +129,7 @@
         @endif
 
         <div class="flex-1 min-w-0">
+            @unless($bare)
             <header class="bg-white/80 backdrop-blur border-b border-[#e7e2d9] px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
                 <div class="flex items-center gap-4">
                     @if(!count($navItems))
@@ -206,14 +208,15 @@
                     @endforeach
                     @auth
                         <a href="{{ route('password.change') }}" class="text-sm py-1 text-gray-500">Ubah password</a>
-                        <form method="POST" action="{{ route('logout') }}">@csrf
+                        <form method="POST" action="{{ route('logout') }}" onsubmit="try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('assessment:')===0)sessionStorage.removeItem(k)})}catch(e){}">@csrf
                             <button class="text-left text-sm py-1 text-gray-500">Keluar</button>
                         </form>
                     @endauth
                 </nav>
             </details>
-            <main class="w-full px-4 py-6 sm:px-6 lg:px-8">
-                <div class="mx-auto w-full max-w-7xl">
+            @endunless
+            <main @class(['w-full', 'px-4 py-6 sm:px-6 lg:px-8' => ! $bare])>
+                <div @class(['w-full', 'mx-auto max-w-7xl' => ! $bare, 'px-4 pt-4 sm:px-6' => $bare && (session('success') || session('error') || session('info') || session('crisis') || (isset($errors) && $errors->any()))])>
                 @if(!empty($viewAs))
                     <div class="mb-4 p-3 rounded-xl bg-amber-100 text-amber-900 text-sm flex items-center justify-between gap-3" role="status">
                         <span>Anda sedang melihat sebagai <strong>{{ $viewAs['name'] }}</strong> <span class="text-amber-700">({{ $viewAs['target_role'] ?? '?' }})</span> — mode view-as superadmin, read-only.

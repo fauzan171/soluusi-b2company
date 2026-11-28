@@ -11,7 +11,7 @@
         'siswa' => ['label' => 'Siswa terdaftar', 'value' => $registered, 'icon' => 'users', 'tone' => 'slate', 'detail' => $activeMonthPeople . ' aktif bulan ini'],
         'selesai' => ['label' => 'Sesi selesai bulan ini', 'value' => $doneMonth, 'icon' => 'check', 'tone' => 'pine', 'detail' => ($deltaDone >= 0 ? '+' : '') . $deltaDone . ' vs bulan lalu'],
         'terjadwal' => ['label' => 'Sesi terjadwal', 'value' => $scheduled, 'icon' => 'calendar', 'tone' => 'terra', 'detail' => $scheduledNext7Days . ' jatuh tempo 7 hari'],
-        'rating' => ['label' => 'Rating rata-rata', 'value' => number_format($avgRating, 1) . ' / 5', 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
+        'rating' => ['label' => 'Rating rata-rata', 'value' => ($avgRating === null ? '—' : number_format($avgRating, 1) . ' / 5'), 'icon' => 'star', 'tone' => 'slate', 'detail' => 'Agregat pasca sesi'],
         'noshow' => ['label' => 'No-show rate', 'value' => $noShowRate . '%', 'icon' => 'bolt', 'tone' => $noShowRate > 15 ? 'red' : 'pine', 'detail' => 'Sesi tidak dihadiri'],
     ];
     $toneClasses = [
@@ -503,7 +503,7 @@
                                 <p class="text-sm font-semibold text-gray-900">Distribusi rating sesi</p>
                                 <p class="text-xs text-gray-500">Feedback agregat setelah sesi selesai</p>
                             </div>
-                            <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">{{ number_format($avgRating, 1) }} / 5</span>
+                            <span class="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-500 border border-[#e7e2d9]">{{ $avgRating === null ? '—' : number_format($avgRating, 1).' / 5' }}</span>
                         </div>
                         <div class="chart-wrap--sm">
                             <canvas id="chartRating"></canvas>
@@ -667,7 +667,7 @@
             </div>
 
             <div x-show="modal === 'rating'" class="mt-4 space-y-3 text-sm">
-                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Rata-rata</span><span class="font-semibold">{{ number_format($avgRating, 1) }} / 5</span></div>
+                <div class="flex justify-between rounded-xl bg-pine-50 px-4 py-3"><span class="text-gray-600">Rata-rata</span><span class="font-semibold">{{ $avgRating === null ? '—' : number_format($avgRating, 1).' / 5' }}</span></div>
                 <p class="text-xs text-gray-500">Distribusi rating:</p>
                 @foreach($ratingChart['labels'] as $i => $stars)
                 @php $c = $ratingChart['data'][$i] ?? 0; $total = max(1, collect($ratingChart['data'])->sum()); @endphp

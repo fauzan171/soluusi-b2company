@@ -40,6 +40,10 @@ class Consultant extends Model
         'interview_link',
         'b2c_consultant_id',
         'is_active',
+        'photo_url',
+        'headline',
+        'profile',
+        'notify_email',
     ];
 
     protected $dates = [
@@ -49,7 +53,17 @@ class Consultant extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'b2c_consultant_id' => 'integer',
+        'profile' => 'array',
     ];
+
+    /**
+     * T2: photo_url hanya boleh URL absolut http(s) — scheme lain
+     * (javascript:, data:, …) tidak pernah dirender (XSS guard, semua view).
+     */
+    public function getPhotoUrlAttribute(?string $value): ?string
+    {
+        return $value && preg_match('~^https?://~i', $value) ? $value : null;
+    }
 
     public function getBlogPackageLabelAttribute(): string
     {
@@ -83,6 +97,18 @@ class Consultant extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Email tujuan notifikasi konsultan. Urutan: notify_email (dari B2C,
+     * real) → user email, KECUALI placeholder b2c-{id}@b2b.local hasil sync
+     * (tidak pernah sampai) → null → mailer wajib skip tanpa exception.
+     */
+    public function notificationEmail(): ?string
+    {
+        $email = $this->notify_email ?: $this->user?->email;
+
+        return $email && ! str_ends_with($email, '@b2b.local') ? $email : null;
     }
 
     /**

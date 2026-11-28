@@ -85,6 +85,13 @@ class InstrumentController extends Controller
             'instrument_code' => $grant->instrument_code,
         ]);
 
+        // A2: bila form dikirim dari halaman alokasi per-perusahaan, kembali ke sana.
+        $perusahaanId = \App\Models\Perusahaan\PerusahaanEmployee::whereKey($grant->employee_id)->value('perusahaan_id');
+        if ($perusahaanId && $r->boolean('from_allocation')) {
+            return redirect()->route('admin.tenants.perusahaans.assessments', $perusahaanId)
+                ->with('success', 'Grant akses instrumen diberikan.');
+        }
+
         return redirect()->route('admin.instruments.index')
             ->with('success', 'Grant akses instrumen diberikan.');
     }
@@ -96,6 +103,13 @@ class InstrumentController extends Controller
             'instrument_code' => $grant->instrument_code,
         ]);
         $grant->delete();
+
+        $perusahaanId = \App\Models\Perusahaan\PerusahaanEmployee::whereKey($grant->employee_id)->value('perusahaan_id');
+        if ($perusahaanId && request()->boolean('from_allocation')) {
+            return redirect()->route('admin.tenants.perusahaans.assessments', $perusahaanId)
+                ->with('success', 'Grant akses instrumen dicabut.');
+        }
+
         return redirect()->route('admin.instruments.index')
             ->with('success', 'Grant akses instrumen dicabut.');
     }
