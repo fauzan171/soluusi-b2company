@@ -151,6 +151,8 @@ class QuotaEntryPointsTest extends TestCase
 
     public function test_booking_rejected_when_ledger_exhausted()
     {
+        // Quota is counted per calendar month; pin mid-month so now+2d and now+3d never straddle a boundary.
+        $this->travelTo(now()->startOfMonth()->addDays(10)->setTime(9, 0));
         [$p, $user, $emp, , $consultant] = $this->fixture(1);
         $this->exhaustQuota($p, $emp, $consultant);
         $slot = $this->programSlot('perusahaan', $p->id);

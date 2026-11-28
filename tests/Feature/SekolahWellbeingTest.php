@@ -92,6 +92,8 @@ class SekolahWellbeingTest extends TestCase
 
     public function test_booking_rejected_when_quota_full()
     {
+        // Quota is counted per calendar month; pin mid-month so now+2d and now+3d never straddle a boundary.
+        $this->travelTo(now()->startOfMonth()->addDays(10)->setTime(9, 0));
         [$sekolah, $student, $user] = $this->makeStudent(1);
 
         \App\Models\Sekolah\SekolahSession::create([

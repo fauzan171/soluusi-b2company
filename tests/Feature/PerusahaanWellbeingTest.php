@@ -63,6 +63,8 @@ class PerusahaanWellbeingTest extends TestCase
 
     public function test_booking_rejected_when_quota_full()
     {
+        // Quota is counted per calendar month; pin mid-month so now+2d and now+3d never straddle a boundary.
+        $this->travelTo(now()->startOfMonth()->addDays(10)->setTime(9, 0));
         [$p, $emp, $user] = $this->makeEmployee(1);
 
         PerusahaanSession::create([
